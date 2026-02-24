@@ -1,0 +1,17 @@
+@import 'tailwindcss';
+
+:root {
+  /* 为后续和 Element Plus 统一主题预留变量 */
+  --oa-color-primary: 64 158 255; /* 等价于 #409EFF */
+  --oa-radius-lg: 8px;
+}
+
+html,
+body,
+#app {
+  height: 100%;
+}
+
+body {
+  @apply text-slate-800;
+}

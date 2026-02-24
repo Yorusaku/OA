@@ -1,0 +1,96 @@
+export const mockApprovals = [
+  {
+    id: '1',
+    title: '请假申请 - 张三',
+    type: 'leave',
+    applicantName: '张三',
+    applicantDept: '技术部',
+    status: 'pending',
+    createTime: '2024-01-15 10:30:00',
+    currentNode: '部门经理审批',
+  },
+  {
+    id: '2',
+    title: '报销申请 - 李四',
+    type: 'expense',
+    applicantName: '李四',
+    applicantDept: '产品部',
+    status: 'approved',
+    createTime: '2024-01-14 14:20:00',
+    currentNode: '已完成',
+  },
+  {
+    id: '3',
+    title: '采购申请 - 王五',
+    type: 'purchase',
+    applicantName: '王五',
+    applicantDept: '人事部',
+    status: 'rejected',
+    createTime: '2024-01-13 09:15:00',
+    currentNode: '已驳回',
+  },
+  {
+    id: '4',
+    title: '请假申请 - 赵六',
+    type: 'leave',
+    applicantName: '赵六',
+    applicantDept: '财务部',
+    status: 'pending',
+    createTime: '2024-01-12 16:45:00',
+    currentNode: '总经理审批',
+  },
+]
+
+export const mockApprovalDetail = {
+  id: '1',
+  title: '请假申请 - 张三',
+  type: 'leave',
+  applicantName: '张三',
+  applicantDept: '技术部',
+  status: 'pending',
+  createTime: '2024-01-15 10:30:00',
+  formData: {
+    leaveType: 'personal',
+    startDate: '2024-01-20',
+    endDate: '2024-01-22',
+    days: 3,
+    reason: '家里有事需要处理',
+  },
+  approvalHistory: [
+    {
+      id: '1',
+      nodeName: '发起申请',
+      operatorName: '张三',
+      action: 'submit',
+      opinion: '',
+      operateTime: '2024-01-15 10:30:00',
+    },
+    {
+      id: '2',
+      nodeName: '部门经理审批',
+      operatorName: '待审批',
+      action: 'pending',
+      opinion: '',
+      operateTime: '',
+    },
+  ],
+}
+
+export const mockComments = [
+  {
+    id: '1',
+    userId: '2',
+    userName: '李四',
+    avatar: '',
+    content: '这个请假时间有点紧张啊',
+    createdAt: new Date('2024-01-15 11:00:00'),
+  },
+  {
+    id: '2',
+    userId: '3',
+    userName: '王五',
+    avatar: '',
+    content: '没问题，工作交接好就行',
+    createdAt: new Date('2024-01-15 11:30:00'),
+  },
+]

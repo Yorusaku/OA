@@ -1,0 +1,51 @@
+export const mockDeptTree = [
+  {
+    id: '1',
+    name: '技术部',
+    parentId: null,
+    leaderId: '1',
+    leaderName: '系统管理员',
+    children: [
+      {
+        id: '1-1',
+        name: '前端组',
+        parentId: '1',
+        leaderId: '2',
+        leaderName: '张三',
+        children: [],
+      },
+      {
+        id: '1-2',
+        name: '后端组',
+        parentId: '1',
+        leaderId: '3',
+        leaderName: '李四',
+        children: [],
+      },
+    ],
+  },
+  {
+    id: '2',
+    name: '产品部',
+    parentId: null,
+    leaderId: '4',
+    leaderName: '王五',
+    children: [],
+  },
+  {
+    id: '3',
+    name: '人事部',
+    parentId: null,
+    leaderId: '5',
+    leaderName: '赵六',
+    children: [],
+  },
+  {
+    id: '4',
+    name: '财务部',
+    parentId: null,
+    leaderId: '6',
+    leaderName: '钱七',
+    children: [],
+  },
+]

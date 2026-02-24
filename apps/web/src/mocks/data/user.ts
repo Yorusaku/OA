@@ -1,0 +1,48 @@
+export const mockUsers = [
+  {
+    id: '1',
+    username: 'admin',
+    name: '系统管理员',
+    avatar: '',
+    email: 'admin@oa.com',
+    phone: '13800138000',
+    deptId: '1',
+    deptName: '技术部',
+    roles: ['admin'],
+  },
+  {
+    id: '2',
+    username: 'zhangsan',
+    name: '张三',
+    avatar: '',
+    email: 'zhangsan@oa.com',
+    phone: '13800138001',
+    deptId: '1',
+    deptName: '技术部',
+    roles: ['user'],
+  },
+  {
+    id: '3',
+    username: 'lisi',
+    name: '李四',
+    avatar: '',
+    email: 'lisi@oa.com',
+    phone: '13800138002',
+    deptId: '2',
+    deptName: '产品部',
+    roles: ['user'],
+  },
+  {
+    id: '4',
+    username: 'wangwu',
+    name: '王五',
+    avatar: '',
+    email: 'wangwu@oa.com',
+    phone: '13800138003',
+    deptId: '3',
+    deptName: '人事部',
+    roles: ['user'],
+  },
+]
+
+export const mockCurrentUser = mockUsers[0]

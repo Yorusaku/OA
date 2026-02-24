@@ -1,0 +1,56 @@
+{
+  "name": "panorama-oa-web",
+  "type": "module",
+  "version": "0.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "lint": "eslint .",
+    "lint:fix": "eslint --fix .",
+    "format": "prettier --write .",
+    "typecheck": "vue-tsc --noEmit",
+    "test": "vitest",
+    "test:coverage": "vitest --coverage",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui"
+  },
+  "dependencies": {
+    "@element-plus/icons-vue": "^2.3.2",
+    "@oa/utils": "workspace:*",
+    "@tanstack/vue-query": "latest",
+    "@vueuse/core": "latest",
+    "axios": "latest",
+    "echarts": "^6.0.0",
+    "element-plus": "latest",
+    "msw": "^2.0.0",
+    "pinia": "latest",
+    "vue": "latest",
+    "vue-router": "latest",
+    "xlsx": "^0.18.5"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.58.2",
+    "@tailwindcss/postcss": "^4.2.0",
+    "@types/node": "latest",
+    "@vitejs/plugin-vue": "latest",
+    "@vitest/coverage-v8": "^4.0.18",
+    "@vue/test-utils": "^2.4.6",
+    "autoprefixer": "latest",
+    "jsdom": "^28.1.0",
+    "postcss": "latest",
+    "tailwindcss": "latest",
+    "typescript": "latest",
+    "unplugin-auto-import": "latest",
+    "unplugin-vue-components": "latest",
+    "vite": "latest",
+    "vitest": "^4.0.18",
+    "vue-tsc": "latest"
+  },
+  "msw": {
+    "workerDirectory": [
+      "public"
+    ]
+  }
+}

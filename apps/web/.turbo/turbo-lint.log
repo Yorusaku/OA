@@ -1,0 +1,827 @@
+
+> panorama-oa-web@0.0.0 lint E:\frontend\allstack\OA\apps\web
+> eslint .
+
+
+E:\frontend\allstack\OA\apps\web\src\api\http.ts
+    9:1   error  Expected "element-plus" (value-external) to come before "@/stores/user" (value-internal)  perfectionist/sort-imports
+   27:1   error  Trailing spaces not allowed                                                               style/no-trailing-spaces
+   30:1   error  Trailing spaces not allowed                                                               style/no-trailing-spaces
+   59:1   error  Trailing spaces not allowed                                                               style/no-trailing-spaces
+   61:3   error  Closing curly brace appears on the same line as the subsequent block                      style/brace-style
+   64:3   error  Closing curly brace appears on the same line as the subsequent block                      style/brace-style
+   68:1   error  Trailing spaces not allowed                                                               style/no-trailing-spaces
+   73:1   error  Trailing spaces not allowed                                                               style/no-trailing-spaces
+   74:10  error  Expected the Promise rejection reason to be an Error                                      prefer-promise-reject-errors
+   82:1   error  Trailing spaces not allowed                                                               style/no-trailing-spaces
+   85:1   error  Trailing spaces not allowed                                                               style/no-trailing-spaces
+  128:1   error  Trailing spaces not allowed                                                               style/no-trailing-spaces
+
+E:\frontend\allstack\OA\apps\web\src\api\mock.ts
+  108:22  error  Missing trailing comma  style/comma-dangle
+  118:22  error  Missing trailing comma  style/comma-dangle
+  127:22  error  Missing trailing comma  style/comma-dangle
+  135:22  error  Missing trailing comma  style/comma-dangle
+  136:8   error  Missing trailing comma  style/comma-dangle
+  141:68  error  Missing trailing comma  style/comma-dangle
+  146:15  error  Missing trailing comma  style/comma-dangle
+  160:22  error  Missing trailing comma  style/comma-dangle
+  168:22  error  Missing trailing comma  style/comma-dangle
+  175:22  error  Missing trailing comma  style/comma-dangle
+  176:8   error  Missing trailing comma  style/comma-dangle
+  180:68  error  Missing trailing comma  style/comma-dangle
+  185:15  error  Missing trailing comma  style/comma-dangle
+  186:4   error  Missing trailing comma  style/comma-dangle
+  192:50  error  Expected a comma        style/member-delimiter-style
+  196:41  error  Missing trailing comma  style/comma-dangle
+
+E:\frontend\allstack\OA\apps\web\src\api\workflow.ts
+    6:10  error    'get' is defined but never used                                      unused-imports/no-unused-imports
+    6:10  warning  'get' is defined but never used                                      ts/no-unused-vars
+    6:15  error    'post' is defined but never used                                     unused-imports/no-unused-imports
+    6:15  warning  'post' is defined but never used                                     ts/no-unused-vars
+    6:21  error    'put' is defined but never used                                      unused-imports/no-unused-imports
+    6:21  warning  'put' is defined but never used                                      ts/no-unused-vars
+    6:26  error    Expected "del" to come before "put"                                  perfectionist/sort-named-imports
+    6:26  error    'del' is defined but never used                                      unused-imports/no-unused-imports
+    6:26  warning  'del' is defined but never used                                      ts/no-unused-vars
+    7:9   error    Trailing spaces not allowed                                          style/no-trailing-spaces
+    8:27  error    Trailing spaces not allowed                                          style/no-trailing-spaces
+    9:3   error    Expected "mockFormSchemas" to come before "mockWorkflowDefinitions"  perfectionist/sort-named-imports
+    9:18  error    Trailing spaces not allowed                                          style/no-trailing-spaces
+    9:18  error    Missing trailing comma                                               style/comma-dangle
+   38:1   error    Trailing spaces not allowed                                          style/no-trailing-spaces
+   43:1   error    Trailing spaces not allowed                                          style/no-trailing-spaces
+   48:1   error    Trailing spaces not allowed                                          style/no-trailing-spaces
+   54:1   error    Trailing spaces not allowed                                          style/no-trailing-spaces
+   59:13  error    Missing trailing comma                                               style/comma-dangle
+   83:15  error    Missing trailing comma                                               style/comma-dangle
+   97:1   error    Trailing spaces not allowed                                          style/no-trailing-spaces
+  102:63  error    Missing trailing comma                                               style/comma-dangle
+  123:62  error    Expected a comma                                                     style/member-delimiter-style
+
+E:\frontend\allstack\OA\apps\web\src\components\dynamic-form\DynamicForm.vue
+    6:27  error    Expected "FormFieldSchema" to come before "FormSchema"                                   perfectionist/sort-named-imports
+    7:19  error    Expected "useField" to come before "useForm"                                             perfectionist/sort-named-imports
+    8:20  error    'ref' is defined but never used                                                          unused-imports/no-unused-imports
+    8:20  warning  'ref' is defined but never used                                                          ts/no-unused-vars
+    8:32  error    Expected "useSlots" to come before "watch"                                               perfectionist/sort-named-imports
+    8:32  error    'useSlots' is defined but never used                                                     unused-imports/no-unused-imports
+    8:32  warning  'useSlots' is defined but never used                                                     ts/no-unused-vars
+    9:1   error    Expected "element-plus" to come before "vue"                                             perfectionist/sort-imports
+   14:3   error    Expected "ElOption" to come before "ElSelect"                                            perfectionist/sort-named-imports
+   16:3   error    Expected "ElRadio" to come before "ElRadioGroup"                                         perfectionist/sort-named-imports
+   17:3   error    Expected "ElCheckboxGroup" to come before "ElRadio"                                      perfectionist/sort-named-imports
+   18:3   error    Expected "ElCheckbox" to come before "ElCheckboxGroup"                                   perfectionist/sort-named-imports
+   21:3   error    Expected "ElCascader" to come before "ElTimePicker"                                      perfectionist/sort-named-imports
+   24:3   error    Expected "ElIcon" to come before "ElUpload"                                              perfectionist/sort-named-imports
+   26:3   error    Expected "ElCol" to come before "ElRow"                                                  perfectionist/sort-named-imports
+   27:3   error    Expected "ElButton" to come before "ElCol"                                               perfectionist/sort-named-imports
+   28:3   error    Prefer using a top-level type-only import instead of inline type specifiers              import/consistent-type-specifier-style
+   28:19  error    Missing trailing comma                                                                   style/comma-dangle
+   30:1   error    Expected "vue" (type-import) to come before "element-plus" (value-external)              perfectionist/sort-imports
+   30:15  error    'ComponentPublicInstance' is defined but never used                                      unused-imports/no-unused-imports
+   30:15  warning  'ComponentPublicInstance' is defined but never used                                      ts/no-unused-vars
+   51:20  error    Missing trailing comma                                                                   style/comma-dangle
+   58:3   error    Inconsistently quoted property 'submit' found                                            style/quote-props
+   60:3   error    Inconsistently quoted property 'reset' found                                             style/quote-props
+   62:3   error    Inconsistently quoted property 'invalid' found                                           style/quote-props
+   70:30  error    Expected a comma                                                                         style/member-delimiter-style
+   70:49  error    Expected a comma                                                                         style/member-delimiter-style
+   71:34  error    Missing trailing comma                                                                   style/comma-dangle
+  105:34  error    Missing trailing comma                                                                   style/comma-dangle
+  107:18  error    Expect newline after if                                                                  antfu/if-newline
+  116:1   error    Trailing spaces not allowed                                                              style/no-trailing-spaces
+  117:18  error    Expected parentheses around arrow function argument having a body with curly braces      style/arrow-parens
+  119:1   error    Trailing spaces not allowed                                                              style/no-trailing-spaces
+  124:1   error    Trailing spaces not allowed                                                              style/no-trailing-spaces
+  128:19  error    Expect newline after if                                                                  antfu/if-newline
+  129:22  error    Expect newline after if                                                                  antfu/if-newline
+  130:22  error    Expect newline after if                                                                  antfu/if-newline
+  134:15  error    Expect newline after if                                                                  antfu/if-newline
+  135:18  error    Expect newline after if                                                                  antfu/if-newline
+  141:1   error    Trailing spaces not allowed                                                              style/no-trailing-spaces
+  146:1   error    Trailing spaces not allowed                                                              style/no-trailing-spaces
+  153:1   error    Trailing spaces not allowed                                                              style/no-trailing-spaces
+  155:31  error    Expected parentheses around arrow function argument having a body with curly braces      style/arrow-parens
+  160:1   error    Trailing spaces not allowed                                                              style/no-trailing-spaces
+  165:1   error    Trailing spaces not allowed                                                              style/no-trailing-spaces
+  168:1   error    Trailing spaces not allowed                                                              style/no-trailing-spaces
+  181:3   error    'defineField' is assigned a value but never used. Allowed unused vars must match /^_/u   unused-imports/no-unused-vars
+  181:3   warning  'defineField' is assigned a value but never used                                         ts/no-unused-vars
+  182:15  error    Missing trailing comma                                                                   style/comma-dangle
+  185:59  error    Missing trailing comma                                                                   style/comma-dangle
+  193:34  error    Expect newline after if                                                                  antfu/if-newline
+  202:21  error    Expect newline after if                                                                  antfu/if-newline
+  203:21  error    Expect newline after if                                                                  antfu/if-newline
+  215:21  error    Expect newline after if                                                                  antfu/if-newline
+  244:1   error    Trailing spaces not allowed                                                              style/no-trailing-spaces
+  246:30  error    'errorMessage' is assigned a value but never used. Allowed unused vars must match /^_/u  unused-imports/no-unused-vars
+  246:30  warning  'errorMessage' is assigned a value but never used                                        ts/no-unused-vars
+  250:51  error    Missing trailing comma                                                                   style/comma-dangle
+  251:6   error    Missing trailing comma                                                                   style/comma-dangle
+  255:5   error    Inconsistently quoted property 'modelValue' found                                        style/quote-props
+  260:5   error    Inconsistently quoted property 'onBlur' found                                            style/quote-props
+  261:5   error    Inconsistently quoted property 'placeholder' found                                       style/quote-props
+  262:5   error    Inconsistently quoted property 'disabled' found                                          style/quote-props
+  263:5   error    Inconsistently quoted property 'clearable' found                                         style/quote-props
+  264:28  error    Missing trailing comma                                                                   style/comma-dangle
+  270:1   error    Trailing spaces not allowed                                                              style/no-trailing-spaces
+  273:1   error    Trailing spaces not allowed                                                              style/no-trailing-spaces
+  276:1   error    Trailing spaces not allowed                                                              style/no-trailing-spaces
+  287:37  error    Missing trailing comma                                                                   style/comma-dangle
+  288:15  error    Missing trailing comma                                                                   style/comma-dangle
+  289:12  error    Missing trailing comma                                                                   style/comma-dangle
+  291:1   error    Trailing spaces not allowed                                                              style/no-trailing-spaces
+  295:11  error    Inconsistently quoted property 'modelValue' found                                        style/quote-props
+  305:37  error    Missing trailing comma                                                                   style/comma-dangle
+  306:15  error    Missing trailing comma                                                                   style/comma-dangle
+  307:12  error    Missing trailing comma                                                                   style/comma-dangle
+  309:1   error    Trailing spaces not allowed                                                              style/no-trailing-spaces
+  313:11  error    Inconsistently quoted property 'modelValue' found                                        style/quote-props
+  323:37  error    Missing trailing comma                                                                   style/comma-dangle
+  324:15  error    Missing trailing comma                                                                   style/comma-dangle
+  325:12  error    Missing trailing comma                                                                   style/comma-dangle
+  327:1   error    Trailing spaces not allowed                                                              style/no-trailing-spaces
+  333:34  error    Missing trailing comma                                                                   style/comma-dangle
+  335:1   error    Trailing spaces not allowed                                                              style/no-trailing-spaces
+  341:43  error    Missing trailing comma                                                                   style/comma-dangle
+  343:1   error    Trailing spaces not allowed                                                              style/no-trailing-spaces
+  348:32  error    Missing trailing comma                                                                   style/comma-dangle
+  350:1   error    Trailing spaces not allowed                                                              style/no-trailing-spaces
+  353:9   error    Inconsistently quoted property 'modelValue' found                                        style/quote-props
+  358:17  error    Missing trailing comma                                                                   style/comma-dangle
+  360:1   error    Trailing spaces not allowed                                                              style/no-trailing-spaces
+  365:33  error    Missing trailing comma                                                                   style/comma-dangle
+  367:1   error    Trailing spaces not allowed                                                              style/no-trailing-spaces
+  369:7   error    Unexpected lexical declaration in case block                                             no-case-declarations
+  371:17  error    Missing trailing comma                                                                   style/comma-dangle
+  374:1   error    Trailing spaces not allowed                                                              style/no-trailing-spaces
+  398:4   error    Missing trailing comma                                                                   style/comma-dangle
+  424:44  error    Missing trailing comma                                                                   style/comma-dangle
+  441:41  warning  Attribute "v-show" should go before ":span"                                              vue/attributes-order
+  458:1   error    Trailing spaces not allowed                                                              style/no-trailing-spaces
+
+E:\frontend\allstack\OA\apps\web\src\components\workflow\NodeConfigPanel.vue
+    6:29  error    'WorkflowNodeType' is defined but never used                                        unused-imports/no-unused-imports
+    6:29  warning  'WorkflowNodeType' is defined but never used                                        ts/no-unused-vars
+    6:47  error    Expected "HandlerType" to come before "WorkflowNodeType"                            perfectionist/sort-named-imports
+    6:47  error    'HandlerType' is defined but never used                                             unused-imports/no-unused-imports
+    6:47  warning  'HandlerType' is defined but never used                                             ts/no-unused-vars
+    6:60  error    Expected "ApprovalMode" to come before "HandlerType"                                perfectionist/sort-named-imports
+    6:60  error    'ApprovalMode' is defined but never used                                            unused-imports/no-unused-imports
+    6:60  warning  'ApprovalMode' is defined but never used                                            ts/no-unused-vars
+   12:3   error    Expected "ElOption" to come before "ElSelect"                                       perfectionist/sort-named-imports
+   14:3   error    Expected "ElRadio" to come before "ElRadioGroup"                                    perfectionist/sort-named-imports
+   16:3   error    Expected "ElButton" to come before "ElSwitch"                                       perfectionist/sort-named-imports
+   18:3   error    'ElTag' is defined but never used                                                   unused-imports/no-unused-imports
+   18:3   warning  'ElTag' is defined but never used                                                   ts/no-unused-vars
+   19:3   error    Expected "ElDivider" to come before "ElTag"                                         perfectionist/sort-named-imports
+   19:12  error    Missing trailing comma                                                              style/comma-dangle
+   21:15  error    Expected "computed" to come before "ref"                                            perfectionist/sort-named-imports
+   28:36  error    Expected a comma                                                                    style/member-delimiter-style
+   33:3   error    Properties shouldn't be quoted as all quotes are redundant                          style/quote-props
+   35:3   error    Properties shouldn't be quoted as all quotes are redundant                          style/quote-props
+   37:3   error    Properties shouldn't be quoted as all quotes are redundant                          style/quote-props
+   48:15  error    Missing trailing comma                                                              style/comma-dangle
+   50:16  error    Missing trailing comma                                                              style/comma-dangle
+   60:65  error    Missing trailing comma                                                              style/comma-dangle
+   64:34  error    Missing trailing comma                                                              style/comma-dangle
+   84:40  error    Missing trailing comma                                                              style/comma-dangle
+   92:41  error    Missing trailing comma                                                              style/comma-dangle
+   98:41  error    Missing trailing comma                                                              style/comma-dangle
+  131:73  warning  Attribute "v-if" should go before "@click"                                          vue/attributes-order
+  139:32  warning  Attribute "v-if" should go before "label"                                           vue/attributes-order
+  179:34  warning  Attribute "v-if" should go before "label"                                           vue/attributes-order
+  192:34  warning  Attribute "v-if" should go before "label"                                           vue/attributes-order
+  202:34  warning  Attribute "v-if" should go before "label"                                           vue/attributes-order
+  213:34  warning  Attribute "v-if" should go before "label"                                           vue/attributes-order
+  265:38  warning  Expected 1 line break after opening tag (`<ElButton>`), but no line breaks found    vue/singleline-html-element-content-newline
+  265:40  warning  Expected 1 line break before closing tag (`</ElButton>`), but no line breaks found  vue/singleline-html-element-content-newline
+  266:52  warning  Expected 1 line break after opening tag (`<ElButton>`), but no line breaks found    vue/singleline-html-element-content-newline
+  266:54  warning  Expected 1 line break before closing tag (`</ElButton>`), but no line breaks found  vue/singleline-html-element-content-newline
+  273:39  warning  Expected a space before '/>', but not found                                         vue/html-closing-bracket-spacing
+  274:30  warning  Expected a space before '/>', but not found                                         vue/html-closing-bracket-spacing
+
+E:\frontend\allstack\OA\apps\web\src\components\workflow\WorkflowCanvas.vue
+    6:49  error    Expected "WorkflowEdge" to come before "WorkflowNode"                                        perfectionist/sort-named-imports
+    9:3   error    Expected "useVueFlow" to come before "VueFlow"                                               perfectionist/sort-named-imports
+   10:3   error    Expected "ConnectionMode" to come before "useVueFlow"                                        perfectionist/sort-named-imports
+   10:17  error    Missing trailing comma                                                                       style/comma-dangle
+   12:1   error    Expected "@vue-flow/background" to come before "@vue-flow/core"                              perfectionist/sort-imports
+   15:1   error    Expected "@vue-flow/core" (type-import) to come before "@vue-flow/minimap" (value-external)  perfectionist/sort-imports
+   15:21  error    Expected "Edge" to come before "Node"                                                        perfectionist/sort-named-imports
+   15:27  error    Expected "Connection" to come before "Edge"                                                  perfectionist/sort-named-imports
+   19:1   error    Expected "./nodes/ApprovalNode.vue" to come before "./nodes/StartNode.vue"                   perfectionist/sort-imports
+   40:14  error    Missing trailing comma                                                                       style/comma-dangle
+   44:17  error    Missing trailing comma                                                                       style/comma-dangle
+   59:7   error    'nodeTypes' is assigned a value but never used. Allowed unused vars must match /^_/u         unused-imports/no-unused-vars
+   59:7   warning  'nodeTypes' is assigned a value but never used                                               ts/no-unused-vars
+   64:15  error    Missing trailing comma                                                                       style/comma-dangle
+   72:3   error    'removeEdges' is assigned a value but never used. Allowed unused vars must match /^_/u       unused-imports/no-unused-vars
+   72:3   warning  'removeEdges' is assigned a value but never used                                             ts/no-unused-vars
+   76:17  error    Missing trailing comma                                                                       style/comma-dangle
+   91:31  error    Missing trailing comma                                                                       style/comma-dangle
+  105:31  error    Missing trailing comma                                                                       style/comma-dangle
+  115:35  error    Missing trailing comma                                                                       style/comma-dangle
+  132:34  error    Missing trailing comma                                                                       style/comma-dangle
+  140:21  error    Expect newline after if                                                                      antfu/if-newline
+  141:1   error    Trailing spaces not allowed                                                                  style/no-trailing-spaces
+  146:14  error    Missing trailing comma                                                                       style/comma-dangle
+  148:1   error    Trailing spaces not allowed                                                                  style/no-trailing-spaces
+  150:8   error    Custom event name 'edge-change' must be camelCase                                            vue/custom-event-name-casing
+  158:8   error    Custom event name 'node-select' must be camelCase                                            vue/custom-event-name-casing
+  166:8   error    Custom event name 'node-change' must be camelCase                                            vue/custom-event-name-casing
+  174:21  error    Expect newline after if                                                                      antfu/if-newline
+  176:8   error    Custom event name 'node-change' must be camelCase                                            vue/custom-event-name-casing
+  183:21  error    Expect newline after if                                                                      antfu/if-newline
+  185:8   error    Custom event name 'node-delete' must be camelCase                                            vue/custom-event-name-casing
+  200:16  error    Missing trailing comma                                                                       style/comma-dangle
+  220:14  error    Custom event name 'node-change' must be camelCase                                            vue/custom-event-name-casing
+  228:14  error    Custom event name 'edge-change' must be camelCase                                            vue/custom-event-name-casing
+  231:30  warning  Variable 'props' is already declared in the upper scope                                      vue/no-template-shadow
+  234:33  warning  Variable 'props' is already declared in the upper scope                                      vue/no-template-shadow
+  237:27  warning  Variable 'props' is already declared in the upper scope                                      vue/no-template-shadow
+  240:34  warning  Variable 'props' is already declared in the upper scope                                      vue/no-template-shadow
+  243:28  warning  Variable 'props' is already declared in the upper scope                                      vue/no-template-shadow
+  249:15  error    Trailing spaces not allowed                                                                  style/no-trailing-spaces
+  250:27  error    Trailing spaces not allowed                                                                  style/no-trailing-spaces
+  254:1   error    Expected indentation of 10 spaces but found 12 spaces                                        vue/html-indent
+  255:1   error    Expected indentation of 10 spaces but found 12 spaces                                        vue/html-indent
+  256:1   error    Expected indentation of 10 spaces but found 12 spaces                                        vue/html-indent
+  257:1   error    Expected indentation of 10 spaces but found 12 spaces                                        vue/html-indent
+  258:1   error    Expected indentation of 10 spaces but found 12 spaces                                        vue/html-indent
+  259:1   error    Expected indentation of 10 spaces but found 12 spaces                                        vue/html-indent
+
+E:\frontend\allstack\OA\apps\web\src\components\workflow\index.ts
+  5:1  error  Expected "./NodeConfigPanel.vue" to come before "./WorkflowCanvas.vue"      perfectionist/sort-exports
+  7:1  error  Expected "./nodes/ApprovalNode.vue" to come before "./nodes/StartNode.vue"  perfectionist/sort-exports
+
+E:\frontend\allstack\OA\apps\web\src\components\workflow\nodes\ApprovalNode.vue
+   6:28   error    Expected "NodeProps" to come before "Position"                                                perfectionist/sort-named-imports
+   6:28   error    Prefer using a top-level type-only import instead of inline type specifiers                   import/consistent-type-specifier-style
+   7:1    error    Expected "@/types/workflow" (type-internal) to come before "@vue-flow/core" (value-external)  perfectionist/sort-imports
+   7:29   error    Expected "ApprovalMode" to come before "WorkflowNode"                                         perfectionist/sort-named-imports
+  25:20   error    Expect newline after if                                                                       antfu/if-newline
+  32:23   error    Missing trailing comma                                                                        style/comma-dangle
+  43:12   error    Trailing spaces not allowed                                                                   style/no-trailing-spaces
+  44:20   error    Trailing spaces not allowed                                                                   style/no-trailing-spaces
+  45:31   error    Trailing spaces not allowed                                                                   style/no-trailing-spaces
+  48:1    error    Trailing spaces not allowed                                                                   style/no-trailing-spaces
+  52:79   warning  Expected a space before '/>', but not found                                                   vue/html-closing-bracket-spacing
+  53:44   warning  Expected a space before '/>', but not found                                                   vue/html-closing-bracket-spacing
+  54:47   warning  Expected a space before '/>', but not found                                                   vue/html-closing-bracket-spacing
+  55:47   warning  Expected a space before '/>', but not found                                                   vue/html-closing-bracket-spacing
+  60:1    error    Trailing spaces not allowed                                                                   style/no-trailing-spaces
+  64:62   warning  Expected a space before '/>', but not found                                                   vue/html-closing-bracket-spacing
+  65:39   warning  Expected a space before '/>', but not found                                                   vue/html-closing-bracket-spacing
+  71:173  warning  Expected a space before '/>', but not found                                                   vue/html-closing-bracket-spacing
+  77:41   warning  Expected a space before '/>', but not found                                                   vue/html-closing-bracket-spacing
+  78:46   warning  Expected a space before '/>', but not found                                                   vue/html-closing-bracket-spacing
+  83:1    error    Trailing spaces not allowed                                                                   style/no-trailing-spaces
+  85:12   error    Trailing spaces not allowed                                                                   style/no-trailing-spaces
+  86:20   error    Trailing spaces not allowed                                                                   style/no-trailing-spaces
+  87:34   error    Trailing spaces not allowed                                                                   style/no-trailing-spaces
+
+E:\frontend\allstack\OA\apps\web\src\components\workflow\nodes\CcNode.vue
+   6:28  error    Expected "NodeProps" to come before "Position"                                                perfectionist/sort-named-imports
+   6:28  error    Prefer using a top-level type-only import instead of inline type specifiers                   import/consistent-type-specifier-style
+   7:1   error    Expected "@/types/workflow" (type-internal) to come before "@vue-flow/core" (value-external)  perfectionist/sort-imports
+  14:20  error    Expect newline after if                                                                       antfu/if-newline
+  19:25  error    Missing trailing comma                                                                        style/comma-dangle
+  28:12  error    Trailing spaces not allowed                                                                   style/no-trailing-spaces
+  29:20  error    Trailing spaces not allowed                                                                   style/no-trailing-spaces
+  30:31  error    Trailing spaces not allowed                                                                   style/no-trailing-spaces
+  33:1   error    Trailing spaces not allowed                                                                   style/no-trailing-spaces
+  37:96  warning  Expected a space before '/>', but not found                                                   vue/html-closing-bracket-spacing
+  38:44  warning  Expected a space before '/>', but not found                                                   vue/html-closing-bracket-spacing
+  43:1   error    Trailing spaces not allowed                                                                   style/no-trailing-spaces
+  47:62  warning  Expected a space before '/>', but not found                                                   vue/html-closing-bracket-spacing
+  48:39  warning  Expected a space before '/>', but not found                                                   vue/html-closing-bracket-spacing
+  53:1   error    Trailing spaces not allowed                                                                   style/no-trailing-spaces
+  55:12  error    Trailing spaces not allowed                                                                   style/no-trailing-spaces
+  56:20  error    Trailing spaces not allowed                                                                   style/no-trailing-spaces
+  57:34  error    Trailing spaces not allowed                                                                   style/no-trailing-spaces
+
+E:\frontend\allstack\OA\apps\web\src\components\workflow\nodes\ConditionNode.vue
+   6:28   error    Expected "NodeProps" to come before "Position"                                                perfectionist/sort-named-imports
+   6:28   error    Prefer using a top-level type-only import instead of inline type specifiers                   import/consistent-type-specifier-style
+   7:1    error    Expected "@/types/workflow" (type-internal) to come before "@vue-flow/core" (value-external)  perfectionist/sort-imports
+  19:12   error    Trailing spaces not allowed                                                                   style/no-trailing-spaces
+  20:20   error    Trailing spaces not allowed                                                                   style/no-trailing-spaces
+  21:31   error    Trailing spaces not allowed                                                                   style/no-trailing-spaces
+  24:1    error    Trailing spaces not allowed                                                                   style/no-trailing-spaces
+  28:73   warning  Expected a space before '/>', but not found                                                   vue/html-closing-bracket-spacing
+  33:1    error    Trailing spaces not allowed                                                                   style/no-trailing-spaces
+  37:173  warning  Expected a space before '/>', but not found                                                   vue/html-closing-bracket-spacing
+  42:1    error    Trailing spaces not allowed                                                                   style/no-trailing-spaces
+  44:12   error    Trailing spaces not allowed                                                                   style/no-trailing-spaces
+  45:20   error    Trailing spaces not allowed                                                                   style/no-trailing-spaces
+  46:34   error    Trailing spaces not allowed                                                                   style/no-trailing-spaces
+  49:7    warning  Attribute ":id" should go before "class"                                                      vue/attributes-order
+  51:12   error    Trailing spaces not allowed                                                                   style/no-trailing-spaces
+  52:20   error    Trailing spaces not allowed                                                                   style/no-trailing-spaces
+  53:34   error    Trailing spaces not allowed                                                                   style/no-trailing-spaces
+  56:7    warning  Attribute ":id" should go before "class"                                                      vue/attributes-order
+
+E:\frontend\allstack\OA\apps\web\src\components\workflow\nodes\EndNode.vue
+   6:28  error    Expected "NodeProps" to come before "Position"                                                perfectionist/sort-named-imports
+   6:28  error    Prefer using a top-level type-only import instead of inline type specifiers                   import/consistent-type-specifier-style
+   7:1   error    Expected "@/types/workflow" (type-internal) to come before "@vue-flow/core" (value-external)  perfectionist/sort-imports
+  17:12  error    Trailing spaces not allowed                                                                   style/no-trailing-spaces
+  18:20  error    Trailing spaces not allowed                                                                   style/no-trailing-spaces
+  19:31  error    Trailing spaces not allowed                                                                   style/no-trailing-spaces
+  22:1   error    Trailing spaces not allowed                                                                   style/no-trailing-spaces
+  26:55  warning  Expected a space before '/>', but not found                                                   vue/html-closing-bracket-spacing
+  27:51  warning  Expected a space before '/>', but not found                                                   vue/html-closing-bracket-spacing
+  32:1   error    Trailing spaces not allowed                                                                   style/no-trailing-spaces
+  34:28  warning  Expected 1 line break after opening tag (`<p>`), but no line breaks found                     vue/singleline-html-element-content-newline
+  34:32  warning  Expected 1 line break before closing tag (`</p>`), but no line breaks found                   vue/singleline-html-element-content-newline
+
+E:\frontend\allstack\OA\apps\web\src\components\workflow\nodes\StartNode.vue
+   6:28  error    Expected "NodeProps" to come before "Position"                                                perfectionist/sort-named-imports
+   6:28  error    Prefer using a top-level type-only import instead of inline type specifiers                   import/consistent-type-specifier-style
+   7:1   error    Expected "@/types/workflow" (type-internal) to come before "@vue-flow/core" (value-external)  perfectionist/sort-imports
+  19:41  warning  Expected a space before '/>', but not found                                                   vue/html-closing-bracket-spacing
+  20:32  warning  Expected a space before '/>', but not found                                                   vue/html-closing-bracket-spacing
+  26:28  warning  Expected 1 line break after opening tag (`<p>`), but no line breaks found                     vue/singleline-html-element-content-newline
+  26:61  warning  Expected 1 line break before closing tag (`</p>`), but no line breaks found                   vue/singleline-html-element-content-newline
+  29:12  error    Trailing spaces not allowed                                                                   style/no-trailing-spaces
+  30:20  error    Trailing spaces not allowed                                                                   style/no-trailing-spaces
+  31:34  error    Trailing spaces not allowed                                                                   style/no-trailing-spaces
+
+E:\frontend\allstack\OA\apps\web\src\composables\useDict.ts
+  3:1  error  Expected "@tanstack/vue-query" to come before "vue"  perfectionist/sort-imports
+
+E:\frontend\allstack\OA\apps\web\src\composables\useDynamicValidate.ts
+    2:17  error    Expected "onUnmounted" to come before "watch"                                         perfectionist/sort-named-imports
+    3:1   error    Expected "@/types/form-schema" (type-internal) to come before "vue" (value-external)  perfectionist/sort-imports
+    7:3   error    Trailing spaces not allowed                                                           style/no-trailing-spaces
+   12:3   error    Trailing spaces not allowed                                                           style/no-trailing-spaces
+   18:39  error    Missing trailing comma                                                                style/comma-dangle
+   21:1   error    Trailing spaces not allowed                                                           style/no-trailing-spaces
+   29:32  error    Expected a comma                                                                      style/member-delimiter-style
+   29:51  error    Expected a comma                                                                      style/member-delimiter-style
+   30:32  error    Missing trailing comma                                                                style/comma-dangle
+   64:32  error    Missing trailing comma                                                                style/comma-dangle
+   66:20  error    Expect newline after if                                                               antfu/if-newline
+   75:20  error    Expect newline after if                                                               antfu/if-newline
+   78:1   error    Trailing spaces not allowed                                                           style/no-trailing-spaces
+   79:27  error    Expected parentheses around arrow function argument having a body with curly braces   style/arrow-parens
+   84:1   error    Trailing spaces not allowed                                                           style/no-trailing-spaces
+   94:1   error    Trailing spaces not allowed                                                           style/no-trailing-spaces
+   96:17  error    Expect newline after if                                                               antfu/if-newline
+  100:1   error    Trailing spaces not allowed                                                           style/no-trailing-spaces
+  112:18  error    Expected parentheses around arrow function argument having a body with curly braces   style/arrow-parens
+  119:11  warning  Unexpected console statement. Only these console methods are allowed: warn, error     no-console
+  120:10  error    Missing trailing comma                                                                style/comma-dangle
+  132:23  error    Expect newline after if                                                               antfu/if-newline
+  144:36  error    Expect newline after if                                                               antfu/if-newline
+  152:23  error    Expect newline after if                                                               antfu/if-newline
+  160:18  error    Expected parentheses around arrow function argument having a body with curly braces   style/arrow-parens
+  170:5   warning  Unexpected console statement. Only these console methods are allowed: warn, error     no-console
+  183:23  error    Expected parentheses around arrow function argument having a body with curly braces   style/arrow-parens
+  203:26  error    Missing trailing comma                                                                style/comma-dangle
+
+E:\frontend\allstack\OA\apps\web\src\composables\useWorkflow.ts
+    4:20  error    Expected "useMutation" to come before "useQuery"                                              perfectionist/sort-named-imports
+    8:3   error    Expected "getWorkflowDefinition" to come before "getWorkflowDefinitions"                      perfectionist/sort-named-imports
+    9:3   error    Expected "createWorkflowDefinition" to come before "getWorkflowDefinition"                    perfectionist/sort-named-imports
+   11:3   error    Expected "deleteWorkflowDefinition" to come before "updateWorkflowDefinition"                 perfectionist/sort-named-imports
+   12:17  error    Missing trailing comma                                                                        style/comma-dangle
+   14:1   error    Expected "@/types/workflow" (type-internal) to come before "@/api/workflow" (value-internal)  perfectionist/sort-imports
+   24:13  error    Missing trailing comma                                                                        style/comma-dangle
+   36:29  error    Missing trailing comma                                                                        style/comma-dangle
+   47:30  error    Missing trailing comma                                                                        style/comma-dangle
+   62:6   error    Missing trailing comma                                                                        style/comma-dangle
+   73:45  error    Expected a comma                                                                              style/member-delimiter-style
+   80:6   error    Missing trailing comma                                                                        style/comma-dangle
+   95:6   error    Missing trailing comma                                                                        style/comma-dangle
+  103:9   error    'queryClient' is assigned a value but never used. Allowed unused vars must match /^_/u        unused-imports/no-unused-vars
+  103:9   warning  'queryClient' is assigned a value but never used                                              ts/no-unused-vars
+  110:5   error    Closing curly brace appears on the same line as the subsequent block                          style/brace-style
+  118:56  error    Missing trailing comma                                                                        style/comma-dangle
+
+E:\frontend\allstack\OA\apps\web\src\layouts\MainLayout.vue
+  68:46  warning  Require self-closing on HTML elements (<div>)  vue/html-self-closing
+
+E:\frontend\allstack\OA\apps\web\src\router\index.ts
+  12:7  error    'ApprovalPlaceholder' is assigned a value but never used. Allowed unused vars must match /^_/u  unused-imports/no-unused-vars
+  12:7  warning  'ApprovalPlaceholder' is assigned a value but never used                                        ts/no-unused-vars
+
+E:\frontend\allstack\OA\apps\web\src\types\form-schema.ts
+   9:23  error  '=' should be placed at the beginning of the line  style/operator-linebreak
+  10:12  error  Multiple spaces found before '// 文本输入'             style/no-multi-spaces
+  11:15  error  Multiple spaces found before '// 多行文本'             style/no-multi-spaces
+  12:13  error  Multiple spaces found before '// 数字输入'             style/no-multi-spaces
+  13:13  error  Multiple spaces found before '// 下拉选择'             style/no-multi-spaces
+  14:12  error  Multiple spaces found before '// 单选框'              style/no-multi-spaces
+  15:15  error  Multiple spaces found before '// 复选框'              style/no-multi-spaces
+  16:11  error  Multiple spaces found before '// 日期选择'             style/no-multi-spaces
+  17:15  error  Multiple spaces found before '// 日期时间选择'           style/no-multi-spaces
+  18:11  error  Multiple spaces found before '// 时间选择'             style/no-multi-spaces
+  19:13  error  Multiple spaces found before '// 文件上传'             style/no-multi-spaces
+  20:13  error  Multiple spaces found before '// 开关'               style/no-multi-spaces
+  21:15  error  Multiple spaces found before '// 级联选择'             style/no-multi-spaces
+
+E:\frontend\allstack\OA\apps\web\src\types\workflow.ts
+    9:30  error  '=' should be placed at the beginning of the line  style/operator-linebreak
+   10:12  error  Multiple spaces found before '// 发起节点（流程起点）'       style/no-multi-spaces
+   11:15  error  Multiple spaces found before '// 审批节点'             style/no-multi-spaces
+   12:9   error  Multiple spaces found before '// 抄送节点'             style/no-multi-spaces
+   13:16  error  Multiple spaces found before '// 条件分支节点'           style/no-multi-spaces
+   14:10  error  Multiple spaces found before '// 结束节点（流程终点）'       style/no-multi-spaces
+   19:25  error  '=' should be placed at the beginning of the line  style/operator-linebreak
+   20:11  error  Multiple spaces found before '// 按角色'              style/no-multi-spaces
+   21:11  error  Multiple spaces found before '// 按部门'              style/no-multi-spaces
+   22:11  error  Multiple spaces found before '// 指定人员'             style/no-multi-spaces
+   23:18  error  Multiple spaces found before '// 部门负责人'            style/no-multi-spaces
+   24:16  error  Multiple spaces found before '// 发起人自己'            style/no-multi-spaces
+   25:17  error  Multiple spaces found before '// 连续多级审批'           style/no-multi-spaces
+   30:26  error  '=' should be placed at the beginning of the line  style/operator-linebreak
+   31:9   error  Multiple spaces found before '// 或签（一人审批即可）'       style/no-multi-spaces
+   32:10  error  Multiple spaces found before '// 会签（所有人审批）'        style/no-multi-spaces
+   86:26  error  Expected a comma                                   style/member-delimiter-style
+  118:28  error  '=' should be placed at the beginning of the line  style/operator-linebreak
+  119:12  error  Multiple spaces found before '// 草稿'               style/no-multi-spaces
+  120:13  error  Multiple spaces found before '// 启用'               style/no-multi-spaces
+  121:15  error  Multiple spaces found before '// 停用'               style/no-multi-spaces
+  122:14  error  Multiple spaces found before '// 已删除'              style/no-multi-spaces
+  159:36  error  '=' should be placed at the beginning of the line  style/operator-linebreak
+  160:14  error  Multiple spaces found before '// 进行中'              style/no-multi-spaces
+  161:15  error  Multiple spaces found before '// 已通过'              style/no-multi-spaces
+  162:15  error  Multiple spaces found before '// 已驳回'              style/no-multi-spaces
+  163:16  error  Multiple spaces found before '// 已撤销'              style/no-multi-spaces
+  164:14  error  Multiple spaces found before '// 已超时'              style/no-multi-spaces
+  169:24  error  '=' should be placed at the beginning of the line  style/operator-linebreak
+  170:14  error  Multiple spaces found before '// 待处理'              style/no-multi-spaces
+  172:15  error  Multiple spaces found before '// 已同意'              style/no-multi-spaces
+  173:15  error  Multiple spaces found before '// 已驳回'              style/no-multi-spaces
+  175:14  error  Multiple spaces found before '// 已跳过'              style/no-multi-spaces
+
+E:\frontend\allstack\OA\apps\web\src\views\approval\ApprovalLaunch.vue
+    5:15  error    Expected "computed" to come before "ref"                                                                 perfectionist/sort-named-imports
+    7:1   error    Expected "element-plus" to come before "vue-router"                                                      perfectionist/sort-imports
+   10:3   error    Expected "ElOption" to come before "ElSelect"                                                            perfectionist/sort-named-imports
+   11:3   error    Expected "ElButton" to come before "ElOption"                                                            perfectionist/sort-named-imports
+   14:3   error    Expected "ElStep" to come before "ElSteps"                                                               perfectionist/sort-named-imports
+   15:3   error    Expected "ElDialog" to come before "ElStep"                                                              perfectionist/sort-named-imports
+   15:11  error    Missing trailing comma                                                                                   style/comma-dangle
+   18:33  error    '@/composables/useWorkflow' imported multiple times                                                      import/no-duplicates
+   19:10  error    'useFormSchemas' is defined but never used                                                               unused-imports/no-unused-imports
+   19:10  warning  'useFormSchemas' is defined but never used                                                               ts/no-unused-vars
+   19:32  error    '@/composables/useWorkflow' imported multiple times                                                      import/no-duplicates
+   20:1   error    Expected "@/types/workflow" (type-internal) to come before "@/composables/useWorkflow" (value-internal)  perfectionist/sort-imports
+   20:15  error    'WorkflowDefinition' is defined but never used                                                           unused-imports/no-unused-imports
+   20:15  warning  'WorkflowDefinition' is defined but never used                                                           ts/no-unused-vars
+   21:1   error    Expected "@/types/form-schema" to come before "@/types/workflow"                                         perfectionist/sort-imports
+   43:9   error    Should not have line breaks between items, in node ObjectExpression                                      antfu/consistent-list-newline
+   43:9   error    Should not have line breaks between items, in node ObjectExpression                                      antfu/consistent-list-newline
+   46:47  error    Missing trailing comma                                                                                   style/comma-dangle
+   47:10  error    Missing trailing comma                                                                                   style/comma-dangle
+   50:9   error    Should not have line breaks between items, in node ObjectExpression                                      antfu/consistent-list-newline
+   50:9   error    Should not have line breaks between items, in node ObjectExpression                                      antfu/consistent-list-newline
+   53:43  error    Missing trailing comma                                                                                   style/comma-dangle
+   54:10  error    Missing trailing comma                                                                                   style/comma-dangle
+   59:83  error    Missing trailing comma                                                                                   style/comma-dangle
+   61:24  error    Missing trailing comma                                                                                   style/comma-dangle
+   67:9   error    Should not have line breaks between items, in node ObjectExpression                                      antfu/consistent-list-newline
+   67:9   error    Should not have line breaks between items, in node ObjectExpression                                      antfu/consistent-list-newline
+   69:45  error    Missing trailing comma                                                                                   style/comma-dangle
+   70:10  error    Missing trailing comma                                                                                   style/comma-dangle
+   73:9   error    Should not have line breaks between items, in node ObjectExpression                                      antfu/consistent-list-newline
+   73:9   error    Should not have line breaks between items, in node ObjectExpression                                      antfu/consistent-list-newline
+   76:47  error    Missing trailing comma                                                                                   style/comma-dangle
+   77:10  error    Missing trailing comma                                                                                   style/comma-dangle
+   80:88  error    Missing trailing comma                                                                                   style/comma-dangle
+   82:24  error    Missing trailing comma                                                                                   style/comma-dangle
+   83:4   error    Missing trailing comma                                                                                   style/comma-dangle
+   87:44  error    Expect newline after if                                                                                  antfu/if-newline
+  104:3   error    Closing curly brace appears on the same line as the subsequent block                                     style/brace-style
+  113:3   error    Closing curly brace appears on the same line as the subsequent block                                     style/brace-style
+  118:10  error    'handleSubmit' is defined but never used. Allowed unused vars must match /^_/u                           unused-imports/no-unused-vars
+  118:10  warning  'handleSubmit' is defined but never used                                                                 ts/no-unused-vars
+  119:3   warning  Unexpected console statement. Only these console methods are allowed: warn, error                        no-console
+  121:29  error    Missing trailing comma                                                                                   style/comma-dangle
+  217:42  warning  Expected 1 line break after opening tag (`<p>`), but no line breaks found                                vue/singleline-html-element-content-newline
+  217:59  warning  Expected 1 line break before closing tag (`</p>`), but no line breaks found                              vue/singleline-html-element-content-newline
+
+E:\frontend\allstack\OA\apps\web\src\views\approval\ApprovalMine.vue
+    6:1   error    Expected "element-plus" to come before "vue"                                                  perfectionist/sort-imports
+   10:3   error    Expected "ElButton" to come before "ElTag"                                                    perfectionist/sort-named-imports
+   13:3   error    Expected "ElOption" to come before "ElSelect"                                                 perfectionist/sort-named-imports
+   15:3   error    Expected "ElDialog" to come before "ElPagination"                                             perfectionist/sort-named-imports
+   16:3   error    Expected "ElDescriptions" to come before "ElDialog"                                           perfectionist/sort-named-imports
+   18:3   error    'ElMessage' is defined but never used                                                         unused-imports/no-unused-imports
+   18:3   warning  'ElMessage' is defined but never used                                                         ts/no-unused-vars
+   18:12  error    Missing trailing comma                                                                        style/comma-dangle
+   25:13  error    Missing trailing comma                                                                        style/comma-dangle
+   31:15  error    Missing trailing comma                                                                        style/comma-dangle
+   38:22  error    Missing trailing comma                                                                        style/comma-dangle
+   51:48  error    Expected a comma                                                                              style/member-delimiter-style
+   55:43  error    Missing trailing comma                                                                        style/comma-dangle
+   95:63  warning  Expected 1 line break after opening tag (`<ElTag>`), but no line breaks found                 vue/singleline-html-element-content-newline
+   95:65  warning  Expected 1 line break before closing tag (`</ElTag>`), but no line breaks found               vue/singleline-html-element-content-newline
+   96:70  warning  Expected 1 line break after opening tag (`<ElTag>`), but no line breaks found                 vue/singleline-html-element-content-newline
+   96:72  warning  Expected 1 line break before closing tag (`</ElTag>`), but no line breaks found               vue/singleline-html-element-content-newline
+   97:27  warning  Expected 1 line break after opening tag (`<ElTag>`), but no line breaks found                 vue/singleline-html-element-content-newline
+   97:29  warning  Expected 1 line break before closing tag (`</ElTag>`), but no line breaks found               vue/singleline-html-element-content-newline
+  136:40  warning  Expected 1 line break after opening tag (`<ElDescriptionsItem>`), but no line breaks found    vue/singleline-html-element-content-newline
+  136:66  warning  Expected 1 line break before closing tag (`</ElDescriptionsItem>`), but no line breaks found  vue/singleline-html-element-content-newline
+  147:41  warning  Expected 1 line break after opening tag (`<ElDescriptionsItem>`), but no line breaks found    vue/singleline-html-element-content-newline
+  147:71  warning  Expected 1 line break before closing tag (`</ElDescriptionsItem>`), but no line breaks found  vue/singleline-html-element-content-newline
+  148:42  warning  Expected 1 line break after opening tag (`<ElDescriptionsItem>`), but no line breaks found    vue/singleline-html-element-content-newline
+  148:72  warning  Expected 1 line break before closing tag (`</ElDescriptionsItem>`), but no line breaks found  vue/singleline-html-element-content-newline
+  149:40  warning  Attribute "v-if" should go before "label"                                                     vue/attributes-order
+
+E:\frontend\allstack\OA\apps\web\src\views\approval\ApprovalTodo.vue
+    6:1   error    Expected "element-plus" to come before "vue"                                          perfectionist/sort-imports
+   10:3   error    Expected "ElButton" to come before "ElTag"                                            perfectionist/sort-named-imports
+   13:3   error    Expected "ElDialog" to come before "ElPagination"                                     perfectionist/sort-named-imports
+   14:3   error    Expected "ElDescriptions" to come before "ElDialog"                                   perfectionist/sort-named-imports
+   14:3   error    'ElDescriptions' is defined but never used                                            unused-imports/no-unused-imports
+   14:3   warning  'ElDescriptions' is defined but never used                                            ts/no-unused-vars
+   15:3   error    'ElDescriptionsItem' is defined but never used                                        unused-imports/no-unused-imports
+   15:3   warning  'ElDescriptionsItem' is defined but never used                                        ts/no-unused-vars
+   17:3   error    Expected "ElInputNumber" to come before "ElMessage"                                   perfectionist/sort-named-imports
+   17:3   error    'ElInputNumber' is defined but never used                                             unused-imports/no-unused-imports
+   17:3   warning  'ElInputNumber' is defined but never used                                             ts/no-unused-vars
+   17:16  error    Missing trailing comma                                                                style/comma-dangle
+   23:14  error    Missing trailing comma                                                                style/comma-dangle
+   29:15  error    Missing trailing comma                                                                style/comma-dangle
+   37:22  error    Missing trailing comma                                                                style/comma-dangle
+   58:16  error    Missing trailing comma                                                                style/comma-dangle
+   60:1   error    Trailing spaces not allowed                                                           style/no-trailing-spaces
+   64:3   error    Closing curly brace appears on the same line as the subsequent block                  style/brace-style
+   64:12  error    'error' is defined but never used                                                     unused-imports/no-unused-vars
+   64:12  warning  'error' is defined but never used                                                     ts/no-unused-vars
+   70:7   error    'statusMap' is assigned a value but never used. Allowed unused vars must match /^_/u  unused-imports/no-unused-vars
+   70:7   warning  'statusMap' is assigned a value but never used                                        ts/no-unused-vars
+   70:48  error    Expected a comma                                                                      style/member-delimiter-style
+   73:44  error    Missing trailing comma                                                                style/comma-dangle
+  103:63  warning  Expected 1 line break after opening tag (`<ElTag>`), but no line breaks found         vue/singleline-html-element-content-newline
+  103:65  warning  Expected 1 line break before closing tag (`</ElTag>`), but no line breaks found       vue/singleline-html-element-content-newline
+  104:70  warning  Expected 1 line break after opening tag (`<ElTag>`), but no line breaks found         vue/singleline-html-element-content-newline
+  104:72  warning  Expected 1 line break before closing tag (`</ElTag>`), but no line breaks found       vue/singleline-html-element-content-newline
+  105:27  warning  Expected 1 line break after opening tag (`<ElTag>`), but no line breaks found         vue/singleline-html-element-content-newline
+  105:29  warning  Expected 1 line break before closing tag (`</ElTag>`), but no line breaks found       vue/singleline-html-element-content-newline
+  110:61  warning  Attribute "v-if" should go before "width"                                             vue/attributes-order
+  151:1   error    Trailing spaces not allowed                                                           style/no-trailing-spaces
+  159:1   error    Trailing spaces not allowed                                                           style/no-trailing-spaces
+  161:56  warning  Expected 1 line break after opening tag (`<ElButton>`), but no line breaks found      vue/singleline-html-element-content-newline
+  161:58  warning  Expected 1 line break before closing tag (`</ElButton>`), but no line breaks found    vue/singleline-html-element-content-newline
+  162:70  warning  Expected 1 line break after opening tag (`<ElButton>`), but no line breaks found      vue/singleline-html-element-content-newline
+  162:72  warning  Expected 1 line break before closing tag (`</ElButton>`), but no line breaks found    vue/singleline-html-element-content-newline
+  163:70  warning  Expected 1 line break after opening tag (`<ElButton>`), but no line breaks found      vue/singleline-html-element-content-newline
+  163:72  warning  Expected 1 line break before closing tag (`</ElButton>`), but no line breaks found    vue/singleline-html-element-content-newline
+
+E:\frontend\allstack\OA\apps\web\src\views\contacts\ContactsList.vue
+   6:15  error    Expected "computed" to come before "ref"                                             perfectionist/sort-named-imports
+   7:1   error    Expected "element-plus" to come before "vue"                                         perfectionist/sort-imports
+  11:3   error    Expected "ElOption" to come before "ElSelect"                                        perfectionist/sort-named-imports
+  15:3   error    Expected "ElAvatar" to come before "ElTag"                                           perfectionist/sort-named-imports
+  16:3   error    'ElTabs' is defined but never used                                                   unused-imports/no-unused-imports
+  16:3   warning  'ElTabs' is defined but never used                                                   ts/no-unused-vars
+  17:3   error    Expected "ElTabPane" to come before "ElTabs"                                         perfectionist/sort-named-imports
+  17:3   error    'ElTabPane' is defined but never used                                                unused-imports/no-unused-imports
+  17:3   warning  'ElTabPane' is defined but never used                                                ts/no-unused-vars
+  18:3   error    Expected "ElSpace" to come before "ElTabPane"                                        perfectionist/sort-named-imports
+  18:10  error    Missing trailing comma                                                               style/comma-dangle
+  20:1   error    Expected "@vueuse/core" to come before "element-plus"                                perfectionist/sort-imports
+  27:13  error    Missing trailing comma                                                               style/comma-dangle
+  31:7   error    Top-level functions should be declared with function keyword                         antfu/top-level-function
+  36:1   error    Trailing spaces not allowed                                                          style/no-trailing-spaces
+  46:51  error    Missing trailing comma                                                               style/comma-dangle
+  58:30  error    Trailing spaces not allowed                                                          style/no-trailing-spaces
+  59:49  error    '||' should be placed at the beginning of the line                                   style/operator-linebreak
+  60:50  error    '||' should be placed at the beginning of the line                                   style/operator-linebreak
+  61:49  error    Missing trailing comma                                                               style/comma-dangle
+  75:58  error    'scrollTo' is assigned a value but never used. Allowed unused vars must match /^_/u  unused-imports/no-unused-vars
+  75:58  warning  'scrollTo' is assigned a value but never used                                        ts/no-unused-vars
+  79:17  error    Missing trailing comma                                                               style/comma-dangle
+  80:4   error    Missing trailing comma                                                               style/comma-dangle
+
+E:\frontend\allstack\OA\apps\web\src\views\demo\DynamicFormDemo.vue
+    7:1   error    Expected "@/types/form-schema" (type-internal) to come before "vue" (value-external)                                  perfectionist/sort-imports
+    9:1   error    Expected "element-plus" (value-external) to come before "@/components/dynamic-form/DynamicForm.vue" (value-internal)  perfectionist/sort-imports
+   30:34  error    Missing trailing comma                                                                                                style/comma-dangle
+   31:8   error    Missing trailing comma                                                                                                style/comma-dangle
+   45:43  error    Missing trailing comma                                                                                                style/comma-dangle
+   46:8   error    Missing trailing comma                                                                                                style/comma-dangle
+   62:44  error    Missing trailing comma                                                                                                style/comma-dangle
+   66:76  error    Missing trailing comma                                                                                                style/comma-dangle
+   67:8   error    Missing trailing comma                                                                                                style/comma-dangle
+   77:34  error    Missing trailing comma                                                                                                style/comma-dangle
+   78:8   error    Missing trailing comma                                                                                                style/comma-dangle
+   88:34  error    Missing trailing comma                                                                                                style/comma-dangle
+   89:8   error    Missing trailing comma                                                                                                style/comma-dangle
+  101:16  error    Missing trailing comma                                                                                                style/comma-dangle
+  105:66  error    Missing trailing comma                                                                                                style/comma-dangle
+  106:8   error    Missing trailing comma                                                                                                style/comma-dangle
+  118:32  error    Missing trailing comma                                                                                                style/comma-dangle
+  119:8   error    Missing trailing comma                                                                                                style/comma-dangle
+  130:76  error    Missing trailing comma                                                                                                style/comma-dangle
+  135:30  error    Missing trailing comma                                                                                                style/comma-dangle
+  136:8   error    Missing trailing comma                                                                                                style/comma-dangle
+  147:66  error    Missing trailing comma                                                                                                style/comma-dangle
+  148:8   error    Missing trailing comma                                                                                                style/comma-dangle
+  158:76  error    Missing trailing comma                                                                                                style/comma-dangle
+  159:8   error    Missing trailing comma                                                                                                style/comma-dangle
+  166:15  error    Missing trailing comma                                                                                                style/comma-dangle
+  176:30  error    Missing trailing comma                                                                                                style/comma-dangle
+  177:8   error    Missing trailing comma                                                                                                style/comma-dangle
+  178:6   error    Missing trailing comma                                                                                                style/comma-dangle
+  183:31  error    Missing trailing comma                                                                                                style/comma-dangle
+  199:21  error    Missing trailing comma                                                                                                style/comma-dangle
+  207:3   warning  Unexpected console statement. Only these console methods are allowed: warn, error                                     no-console
+  215:3   warning  Unexpected console statement. Only these console methods are allowed: warn, error                                     no-console
+  223:3   warning  Unexpected console statement. Only these console methods are allowed: warn, error                                     no-console
+  253:13  error    'formRef' is defined as ref, but never used                                                                           vue/no-unused-refs
+  255:9   warning  Attribute "v-model" should go before ":schema"                                                                        vue/attributes-order
+
+E:\frontend\allstack\OA\apps\web\src\views\org\OrgTree.vue
+   5:15  error    Expected "computed" to come before "ref"                                      perfectionist/sort-named-imports
+   6:1   error    Expected "element-plus" to come before "vue"                                  perfectionist/sort-imports
+   9:3   error    Expected "ElTable" to come before "ElTree"                                    perfectionist/sort-named-imports
+  12:3   error    Expected "ElInput" to come before "ElTag"                                     perfectionist/sort-named-imports
+  13:3   error    Expected "ElButton" to come before "ElInput"                                  perfectionist/sort-named-imports
+  13:3   error    'ElButton' is defined but never used                                          unused-imports/no-unused-imports
+  13:3   warning  'ElButton' is defined but never used                                          ts/no-unused-vars
+  14:3   error    Expected "ElAvatar" to come before "ElButton"                                 perfectionist/sort-named-imports
+  14:11  error    Missing trailing comma                                                        style/comma-dangle
+  16:23  error    Expected "useDeptList" to come before "useDeptTree"                           perfectionist/sort-named-imports
+  29:28  error    Expect newline after if                                                       antfu/if-newline
+  40:91  error    Missing trailing comma                                                        style/comma-dangle
+  58:14  error    Missing trailing comma                                                        style/comma-dangle
+  78:34  warning  Expected 1 line break after opening tag (`<h4>`), but no line breaks found    vue/singleline-html-element-content-newline
+  78:38  warning  Expected 1 line break before closing tag (`</h4>`), but no line breaks found  vue/singleline-html-element-content-newline
+
+E:\frontend\allstack\OA\apps\web\src\views\system\RoleList.vue
+    6:1    error    Expected "element-plus" to come before "vue"                                        perfectionist/sort-imports
+   11:3    error    Expected "ElButton" to come before "ElTag"                                          perfectionist/sort-named-imports
+   17:3    error    Expected "ElMessage" to come before "ElTree"                                        perfectionist/sort-named-imports
+   19:3    error    Expected "ElCheckboxGroup" to come before "ElMessageBox"                            perfectionist/sort-named-imports
+   19:3    error    'ElCheckboxGroup' is defined but never used                                         unused-imports/no-unused-imports
+   19:3    warning  'ElCheckboxGroup' is defined but never used                                         ts/no-unused-vars
+   20:3    error    Expected "ElCheckbox" to come before "ElCheckboxGroup"                              perfectionist/sort-named-imports
+   20:3    error    'ElCheckbox' is defined but never used                                              unused-imports/no-unused-imports
+   20:3    warning  'ElCheckbox' is defined but never used                                              ts/no-unused-vars
+   20:13   error    Missing trailing comma                                                              style/comma-dangle
+   27:117  error    Missing trailing comma                                                              style/comma-dangle
+   39:47   error    Missing trailing comma                                                              style/comma-dangle
+   40:6    error    Missing trailing comma                                                              style/comma-dangle
+   48:47   error    Missing trailing comma                                                              style/comma-dangle
+   49:6    error    Missing trailing comma                                                              style/comma-dangle
+   56:40   error    Missing trailing comma                                                              style/comma-dangle
+   57:6    error    Missing trailing comma                                                              style/comma-dangle
+   66:48   error    Missing trailing comma                                                              style/comma-dangle
+   67:6    error    Missing trailing comma                                                              style/comma-dangle
+   68:4    error    Missing trailing comma                                                              style/comma-dangle
+   80:30   error    Missing trailing comma                                                              style/comma-dangle
+   91:20   error    Missing trailing comma                                                              style/comma-dangle
+  104:24   error    Unexpected string concatenation                                                     prefer-template
+  107:20   error    Missing trailing comma                                                              style/comma-dangle
+  122:3    error    Closing curly brace appears on the same line as the subsequent block                style/brace-style
+  126:25   error    Missing trailing comma                                                              style/comma-dangle
+  171:68   warning  Expected 1 line break after opening tag (`<ElButton>`), but no line breaks found    vue/singleline-html-element-content-newline
+  171:70   warning  Expected 1 line break before closing tag (`</ElButton>`), but no line breaks found  vue/singleline-html-element-content-newline
+  172:69   warning  Expected 1 line break after opening tag (`<ElButton>`), but no line breaks found    vue/singleline-html-element-content-newline
+  172:71   warning  Expected 1 line break before closing tag (`</ElButton>`), but no line breaks found  vue/singleline-html-element-content-newline
+  211:50   warning  Expected 1 line break after opening tag (`<ElButton>`), but no line breaks found    vue/singleline-html-element-content-newline
+  211:52   warning  Expected 1 line break before closing tag (`</ElButton>`), but no line breaks found  vue/singleline-html-element-content-newline
+  212:56   warning  Expected 1 line break after opening tag (`<ElButton>`), but no line breaks found    vue/singleline-html-element-content-newline
+  212:58   warning  Expected 1 line break before closing tag (`</ElButton>`), but no line breaks found  vue/singleline-html-element-content-newline
+
+E:\frontend\allstack\OA\apps\web\src\views\system\UserList.vue
+    6:1    error    Expected "element-plus" to come before "vue"                                         perfectionist/sort-imports
+   11:3    error    Expected "ElButton" to come before "ElTag"                                           perfectionist/sort-named-imports
+   14:3    error    Expected "ElOption" to come before "ElSelect"                                        perfectionist/sort-named-imports
+   16:3    error    Expected "ElDialog" to come before "ElPagination"                                    perfectionist/sort-named-imports
+   21:11   error    Missing trailing comma                                                               style/comma-dangle
+   29:136  error    Missing trailing comma                                                               style/comma-dangle
+   36:13   error    Missing trailing comma                                                               style/comma-dangle
+   42:15   error    Missing trailing comma                                                               style/comma-dangle
+   55:19   error    Missing trailing comma                                                               style/comma-dangle
+   62:48   error    Expected parentheses around arrow function argument having a body with curly braces  style/arrow-parens
+   85:21   error    Missing trailing comma                                                               style/comma-dangle
+   98:24   error    Unexpected string concatenation                                                      prefer-template
+  101:20   error    Missing trailing comma                                                               style/comma-dangle
+  117:3    error    Closing curly brace appears on the same line as the subsequent block                 style/brace-style
+  122:57   error    Missing trailing comma                                                               style/comma-dangle
+  172:56   warning  Attribute "style" should go before "@click"                                          vue/attributes-order
+  199:68   warning  Expected 1 line break after opening tag (`<ElButton>`), but no line breaks found     vue/singleline-html-element-content-newline
+  199:70   warning  Expected 1 line break before closing tag (`</ElButton>`), but no line breaks found   vue/singleline-html-element-content-newline
+  200:69   warning  Expected 1 line break after opening tag (`<ElButton>`), but no line breaks found     vue/singleline-html-element-content-newline
+  200:71   warning  Expected 1 line break before closing tag (`</ElButton>`), but no line breaks found   vue/singleline-html-element-content-newline
+  244:50   warning  Expected 1 line break after opening tag (`<ElButton>`), but no line breaks found     vue/singleline-html-element-content-newline
+  244:52   warning  Expected 1 line break before closing tag (`</ElButton>`), but no line breaks found   vue/singleline-html-element-content-newline
+  245:56   warning  Expected 1 line break after opening tag (`<ElButton>`), but no line breaks found     vue/singleline-html-element-content-newline
+  245:58   warning  Expected 1 line break before closing tag (`</ElButton>`), but no line breaks found   vue/singleline-html-element-content-newline
+
+E:\frontend\allstack\OA\apps\web\src\views\workflow\WorkflowEditor.vue
+    6:15  error    Expected "computed" to come before "ref"                                                                 perfectionist/sort-named-imports
+    7:21  error    Expected "useRoute" to come before "useRouter"                                                           perfectionist/sort-named-imports
+    8:1   error    Expected "element-plus" to come before "vue-router"                                                      perfectionist/sort-imports
+   10:3   error    Expected "ElAside" to come before "ElContainer"                                                          perfectionist/sort-named-imports
+   12:3   error    Expected "ElHeader" to come before "ElMain"                                                              perfectionist/sort-named-imports
+   13:3   error    Expected "ElButton" to come before "ElHeader"                                                            perfectionist/sort-named-imports
+   15:3   error    Expected "ElForm" to come before "ElInput"                                                               perfectionist/sort-named-imports
+   18:3   error    Expected "ElOption" to come before "ElSelect"                                                            perfectionist/sort-named-imports
+   19:3   error    Expected "ElMessage" to come before "ElOption"                                                           perfectionist/sort-named-imports
+   20:3   error    'ElTabs' is defined but never used                                                                       unused-imports/no-unused-imports
+   20:3   warning  'ElTabs' is defined but never used                                                                       ts/no-unused-vars
+   21:3   error    Expected "ElTabPane" to come before "ElTabs"                                                             perfectionist/sort-named-imports
+   21:3   error    'ElTabPane' is defined but never used                                                                    unused-imports/no-unused-imports
+   21:3   warning  'ElTabPane' is defined but never used                                                                    ts/no-unused-vars
+   22:3   error    Expected "ElDialog" to come before "ElTabPane"                                                           perfectionist/sort-named-imports
+   22:3   error    'ElDialog' is defined but never used                                                                     unused-imports/no-unused-imports
+   22:3   warning  'ElDialog' is defined but never used                                                                     ts/no-unused-vars
+   22:11  error    Missing trailing comma                                                                                   style/comma-dangle
+   24:26  error    Expected "NodeConfigPanel" to come before "WorkflowCanvas"                                               perfectionist/sort-named-imports
+   25:29  error    Expected "useSaveWorkflow" to come before "useWorkflowDetail"                                            perfectionist/sort-named-imports
+   25:46  error    Expected "useFormSchemas" to come before "useSaveWorkflow"                                               perfectionist/sort-named-imports
+   26:1   error    Expected "@/types/workflow" (type-internal) to come before "@/composables/useWorkflow" (value-internal)  perfectionist/sort-imports
+   26:49  error    Expected "WorkflowEdge" to come before "WorkflowNode"                                                    perfectionist/sort-named-imports
+   49:12  error    Missing trailing comma                                                                                   style/comma-dangle
+   73:22  error    Missing trailing comma                                                                                   style/comma-dangle
+   87:65  error    Expected a comma                                                                                         style/member-delimiter-style
+   91:1   error    Trailing spaces not allowed                                                                              style/no-trailing-spaces
+   94:35  error    Missing trailing comma                                                                                   style/comma-dangle
+  110:18  error    Missing trailing comma                                                                                   style/comma-dangle
+  125:16  error    Missing trailing comma                                                                                   style/comma-dangle
+  157:52  error    Missing trailing comma                                                                                   style/comma-dangle
+  197:35  error    Missing trailing comma                                                                                   style/comma-dangle
+  207:3   error    Closing curly brace appears on the same line as the subsequent block                                     style/brace-style
+  207:12  error    'error' is defined but never used                                                                        unused-imports/no-unused-vars
+  207:12  warning  'error' is defined but never used                                                                        ts/no-unused-vars
+  231:20  error    Missing trailing comma                                                                                   style/comma-dangle
+  240:20  error    Missing trailing comma                                                                                   style/comma-dangle
+  262:46  warning  Expected a space before '/>', but not found                                                              vue/html-closing-bracket-spacing
+  280:39  warning  Attribute ":loading" should go before "@click"                                                           vue/attributes-order
+  294:13  warning  Attribute "block" should go before "@click"                                                              vue/attributes-order
+  301:13  warning  Attribute "block" should go before "@click"                                                              vue/attributes-order
+  308:13  warning  Attribute "block" should go before "@click"                                                              vue/attributes-order
+  315:13  warning  Attribute "block" should go before "@click"                                                              vue/attributes-order
+  322:13  warning  Attribute "block" should go before "@click"                                                              vue/attributes-order
+
+E:\frontend\allstack\OA\apps\web\src\views\workflow\WorkflowList.vue
+    7:1   error    Expected "element-plus" to come before "vue-router"                                                      perfectionist/sort-imports
+   10:3   error    Expected "ElButton" to come before "ElTableColumn"                                                       perfectionist/sort-named-imports
+   12:3   error    Expected "ElInput" to come before "ElTag"                                                                perfectionist/sort-named-imports
+   14:3   error    Expected "ElOption" to come before "ElSelect"                                                            perfectionist/sort-named-imports
+   16:3   error    Expected "ElCard" to come before "ElPagination"                                                          perfectionist/sort-named-imports
+   18:3   error    Expected "ElMessage" to come before "ElSpace"                                                            perfectionist/sort-named-imports
+   19:15  error    Missing trailing comma                                                                                   style/comma-dangle
+   21:27  error    Expected "useDeleteWorkflow" to come before "useWorkflowList"                                            perfectionist/sort-named-imports
+   22:1   error    Expected "@/types/workflow" (type-internal) to come before "@/composables/useWorkflow" (value-internal)  perfectionist/sort-imports
+   22:15  error    'WorkflowStatus' is defined but never used                                                               unused-imports/no-unused-imports
+   22:15  warning  'WorkflowStatus' is defined but never used                                                               ts/no-unused-vars
+   29:13  error    Missing trailing comma                                                                                   style/comma-dangle
+   35:15  error    Missing trailing comma                                                                                   style/comma-dangle
+   39:26  error    'isError' is assigned a value but never used. Allowed unused vars must match /^_/u                       unused-imports/no-unused-vars
+   39:26  warning  'isError' is assigned a value but never used                                                             ts/no-unused-vars
+   42:22  error    Missing trailing comma                                                                                   style/comma-dangle
+   48:48  error    Expected a comma                                                                                         style/member-delimiter-style
+   52:43  error    Missing trailing comma                                                                                   style/comma-dangle
+   78:22  error    Missing trailing comma                                                                                   style/comma-dangle
+   83:3   error    Closing curly brace appears on the same line as the subsequent block                                     style/brace-style
+  115:51  warning  Expected a space before '/>', but not found                                                              vue/html-closing-bracket-spacing
+  116:51  warning  Expected a space before '/>', but not found                                                              vue/html-closing-bracket-spacing
+  138:58  warning  Expected 1 line break after opening tag (`<ElButton>`), but no line breaks found                         vue/singleline-html-element-content-newline
+  138:60  warning  Expected 1 line break before closing tag (`</ElButton>`), but no line breaks found                       vue/singleline-html-element-content-newline
+  139:42  warning  Expected 1 line break after opening tag (`<ElButton>`), but no line breaks found                         vue/singleline-html-element-content-newline
+  139:44  warning  Expected 1 line break before closing tag (`</ElButton>`), but no line breaks found                       vue/singleline-html-element-content-newline
+  168:71  warning  Expected 1 line break after opening tag (`<ElButton>`), but no line breaks found                         vue/singleline-html-element-content-newline
+  168:73  warning  Expected 1 line break before closing tag (`</ElButton>`), but no line breaks found                       vue/singleline-html-element-content-newline
+  173:15  warning  Attribute ":loading" should go before "@click"                                                           vue/attributes-order
+
+E:\frontend\allstack\OA\apps\web\tailwind.config.cjs
+   9:9   error  Inconsistently quoted property 'primary' found              style/quote-props
+  10:11  error  Inconsistently quoted property 'DEFAULT' found              style/quote-props
+  19:9   error  Inconsistently quoted property 'success' found              style/quote-props
+  20:9   error  Inconsistently quoted property 'warning' found              style/quote-props
+  21:9   error  Inconsistently quoted property 'danger' found               style/quote-props
+  22:9   error  Inconsistently quoted property 'error' found                style/quote-props
+  23:9   error  Inconsistently quoted property 'info' found                 style/quote-props
+  41:9   error  Inconsistently quoted property 'none' found                 style/quote-props
+  42:9   error  Inconsistently quoted property 'sm' found                   style/quote-props
+  43:9   error  Inconsistently quoted property 'DEFAULT' found              style/quote-props
+  44:9   error  Inconsistently quoted property 'lg' found                   style/quote-props
+  45:9   error  Inconsistently quoted property 'xl' found                   style/quote-props
+  50:9   error  Properties shouldn't be quoted as all quotes are redundant  style/quote-props
+  52:9   error  Properties shouldn't be quoted as all quotes are redundant  style/quote-props
+  56:9   error  Properties shouldn't be quoted as all quotes are redundant  style/quote-props
+  57:9   error  Properties shouldn't be quoted as all quotes are redundant  style/quote-props
+  58:9   error  Properties shouldn't be quoted as all quotes are redundant  style/quote-props
+  59:9   error  Properties shouldn't be quoted as all quotes are redundant  style/quote-props
+  60:9   error  Properties shouldn't be quoted as all quotes are redundant  style/quote-props
+  61:9   error  Properties shouldn't be quoted as all quotes are redundant  style/quote-props
+  62:9   error  Properties shouldn't be quoted as all quotes are redundant  style/quote-props
+  63:9   error  Properties shouldn't be quoted as all quotes are redundant  style/quote-props
+  64:9   error  Properties shouldn't be quoted as all quotes are redundant  style/quote-props
+  65:9   error  Properties shouldn't be quoted as all quotes are redundant  style/quote-props
+
+✖ 758 problems (606 errors, 152 warnings)
+  583 errors and 103 warnings potentially fixable with the `--fix` option.
+
+ ELIFECYCLE  Command failed with exit code 1.
