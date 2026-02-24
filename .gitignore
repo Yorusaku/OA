@@ -52,6 +52,9 @@ coverage
 tmp
 temp
 
+# Turborepo cache
+.turbo
+
 # Package manager files
 package-lock.json
 yarn.lock
