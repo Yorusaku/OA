@@ -13,6 +13,7 @@ import {
   VueFlow,
 } from '@vue-flow/core'
 import { MiniMap } from '@vue-flow/minimap'
+import { onMounted, watch } from 'vue'
 
 import ApprovalNode from './nodes/ApprovalNode.vue'
 import CcNode from './nodes/CcNode.vue'
@@ -68,14 +69,9 @@ const nodeTypes = {
 
 // ==================== Vue Flow 初始化 ====================
 const {
-  addNodes,
-  removeNodes,
   addEdges,
-  removeEdges,
-  setElements,
   onConnect,
   onNodeClick,
-  onEdgeClick,
   onNodeDragStop,
   project,
 } = useVueFlow()
@@ -89,7 +85,7 @@ function toVueFlowNode(node: WorkflowNode): Node {
     id: node.id,
     type: node.type,
     position: node.position || { x: 0, y: 0 },
-    data: node,
+    data: { ...node },
     draggable: !props.readonly,
     selectable: true,
     deletable: !props.readonly,
@@ -104,8 +100,8 @@ function toVueFlowEdge(edge: WorkflowEdge): Edge {
     id: edge.id,
     source: edge.source,
     target: edge.target,
-    label: edge.label,
-    data: edge,
+    label: edge.label || '',
+    data: { ...edge },
     deletable: !props.readonly,
   }
 }
@@ -123,17 +119,33 @@ function toWorkflowNode(node: Node): WorkflowNode {
 // ==================== 初始化元素 ====================
 const elements = ref<Array<Node | Edge>>([])
 
-// 监听 definition 变化，更新画布
+// 监听 definition 变化，同步到画布
 watch(
   () => props.definition,
-  (newDef) => {
-    if (newDef?.nodes?.length || newDef?.edges?.length) {
-      const nodes = newDef.nodes.map(toVueFlowNode)
-      const edges = newDef.edges.map(toVueFlowEdge)
-      setElements([...nodes, ...edges])
+  (newDef, oldDef) => {
+    console.log('🎨 WorkflowCanvas watch triggered')
+    console.log('🎨 newDef:', newDef)
+    console.log('🎨 oldDef:', oldDef)
+    console.log('🎨 newDef.nodes:', newDef?.nodes)
+    console.log('🎨 newDef.edges:', newDef?.edges)
+    
+    if (!newDef) {
+      console.log('⚠️ newDef is null/undefined')
+      return
     }
+    
+    if (!newDef.nodes || !newDef.edges) {
+      console.log('⚠️ nodes or edges is undefined')
+      return
+    }
+    
+    const nodes = newDef.nodes.map(toVueFlowNode)
+    const edges = newDef.edges.map(toVueFlowEdge)
+    elements.value = [...nodes, ...edges]
+    console.log('✅ Canvas updated:', nodes.length, 'nodes,', edges.length, 'edges')
+    console.log('✅ elements.value:', elements.value)
   },
-  { immediate: true, deep: true },
+  { immediate: true },
 )
 
 // ==================== 事件处理 ====================
@@ -189,15 +201,18 @@ function onDrop(event: DragEvent) {
   event.preventDefault()
   
   const type = event.dataTransfer?.getData('node-type') as WorkflowNode['type']
+  
   if (!type) return
   
-  // 使用 Vue Flow 的 project 方法将屏幕坐标转换为画布坐标
-  const bounds = (event.currentTarget as HTMLElement).getBoundingClientRect()
+  // 使用 project 方法转换坐标
   const position = project({
-    x: event.clientX - bounds.left,
-    y: event.clientY - bounds.top,
+    x: event.clientX,
+    y: event.clientY,
   })
   
+  console.log('🖱️ onDrop:', { type, position })
+  
+  // 触发 nodeDrop 事件，让父组件创建节点
   emit('nodeDrop', type, position)
 }
 
@@ -206,9 +221,8 @@ function onDrop(event: DragEvent) {
  * 添加新节点
  */
 function addNode(node: WorkflowNode) {
-  if (props.readonly)
-    return
-  addNodes(toVueFlowNode(node))
+  const vueFlowNode = toVueFlowNode(node)
+  elements.value = [...elements.value, vueFlowNode]
   emit('nodeChange', [node])
 }
 
@@ -216,9 +230,7 @@ function addNode(node: WorkflowNode) {
  * 删除节点
  */
 function deleteNode(nodeId: string) {
-  if (props.readonly)
-    return
-  removeNodes([nodeId])
+  elements.value = elements.value.filter(el => el.id !== nodeId)
   emit('nodeDelete', nodeId)
 }
 
@@ -237,11 +249,7 @@ defineExpose({
 </script>
 
 <template>
-  <div
-    class="workflow-canvas"
-    @dragover="onDragOver"
-    @drop="onDrop"
-  >
+  <div class="workflow-canvas">
     <VueFlow
       v-model="elements"
       :connection-mode="ConnectionMode.Loose"
@@ -251,6 +259,13 @@ defineExpose({
       :delete-key-code="['Backspace', 'Delete']"
       :nodes-connectable="!readonly"
       :nodes-draggable="!readonly"
+      :zoom-on-scroll="true"
+      :zoom-on-pinch="true"
+      :pan-on-drag="true"
+      :min-zoom="0.1"
+      :max-zoom="2"
+      @dragover="onDragOver"
+      @drop="onDrop"
       @nodes-change="(changes) => {
         const nodes = changes
           .filter((c): c is any => c.type === 'position' && c.position != null)
@@ -318,6 +333,7 @@ defineExpose({
   background: #f5f7fa;
   border-radius: 8px;
   overflow: hidden;
+  position: relative;
 }
 
 :deep(.vue-flow__node) {

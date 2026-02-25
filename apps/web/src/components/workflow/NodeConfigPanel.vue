@@ -1,25 +1,17 @@
 <script setup lang="ts">
 /**
  * NodeConfigPanel - 节点属性配置面板
- * 用于配置选中节点的详细属性
+ * 使用策略模式和动态组件将配置表单拆分到独立子组件
  */
 import type { WorkflowNode } from '@/types/workflow'
 import {
   ElButton,
   ElCard,
   ElDivider,
-  ElForm,
-  ElFormItem,
   ElIcon,
-  ElInput,
-  ElInputNumber,
-  ElOption,
-  ElRadio,
-  ElRadioGroup,
-  ElSelect,
-  ElSwitch,
 } from 'element-plus'
 import { computed, ref } from 'vue'
+import { ApprovalConfig, BaseConfig, ConditionConfig } from './configs'
 
 // ==================== Props & Emits ====================
 const props = defineProps<{
@@ -70,34 +62,16 @@ const isStartOrEnd = computed(() => {
   return localNode.value.type === 'start' || localNode.value.type === 'end'
 })
 
-const isApproval = computed(() => {
-  return localNode.value.type === 'approval'
+// 动态组件映射
+const configComponentMap: Record<string, any> = {
+  approval: ApprovalConfig,
+  cc: ApprovalConfig,
+  condition: ConditionConfig,
+}
+
+const CurrentConfigComponent = computed(() => {
+  return configComponentMap[localNode.value.type] || null
 })
-
-const isCc = computed(() => {
-  return localNode.value.type === 'cc'
-})
-
-// ==================== 选项数据 ====================
-const nodeTypeOptions = [
-  { label: '审批节点', value: 'approval' },
-  { label: '抄送节点', value: 'cc' },
-  { label: '条件分支', value: 'condition' },
-]
-
-const handlerTypeOptions = [
-  { label: '角色', value: 'role' },
-  { label: '部门', value: 'dept' },
-  { label: '指定人员', value: 'user' },
-  { label: '部门负责人', value: 'deptManager' },
-  { label: '发起人自己', value: 'initiator' },
-]
-
-const approvalModeOptions = [
-  { label: '或签（一人审批即可）', value: 'or' },
-  { label: '会签（所有人审批）', value: 'and' },
-  { label: '依次审批', value: 'sequential' },
-]
 
 // ==================== 事件处理 ====================
 /**
@@ -122,6 +96,13 @@ function handleDelete() {
 function handleClose() {
   emit('close')
 }
+
+/**
+ * 处理子组件的 update 事件
+ */
+function handleModelUpdate(updatedNode: WorkflowNode) {
+  localNode.value = updatedNode
+}
 </script>
 
 <template>
@@ -129,137 +110,34 @@ function handleClose() {
     <template #header>
       <div class="panel-header">
         <span class="panel-title">节点配置</span>
-        <ElButton v-if="!isStartOrEnd" link type="danger" size="small" @click="handleDelete">
+        <ElButton
+          v-if="!isStartOrEnd"
+          link
+          type="danger"
+          size="small"
+          @click="handleDelete"
+        >
           删除节点
         </ElButton>
       </div>
     </template>
 
-    <ElForm :model="localNode" label-width="80px" label-position="top" size="small">
-      <!-- 基本信息 -->
-      <ElFormItem v-if="!isStartOrEnd" label="节点类型">
-        <ElSelect v-model="localNode.type" style="width: 100%">
-          <ElOption
-            v-for="opt in nodeTypeOptions"
-            :key="opt.value"
-            :label="opt.label"
-            :value="opt.value"
-          />
-        </ElSelect>
-      </ElFormItem>
+    <!-- 基础配置（所有节点类型共有） -->
+    <BaseConfig
+      v-model="localNode"
+      :show-type-select="!isStartOrEnd"
+    />
 
-      <ElFormItem label="节点名称">
-        <ElInput v-model="localNode.name" placeholder="请输入节点名称" />
-      </ElFormItem>
+    <!-- 业务配置（根据节点类型动态渲染） -->
+    <component
+      :is="CurrentConfigComponent"
+      v-if="CurrentConfigComponent && !isStartOrEnd"
+      v-model="localNode"
+      :form-schemas="formSchemas"
+      @update:model-value="handleModelUpdate"
+    />
 
-      <ElFormItem label="节点描述">
-        <ElInput
-          v-model="localNode.description"
-          type="textarea"
-          :rows="2"
-          placeholder="请输入节点描述"
-        />
-      </ElFormItem>
-
-      <ElDivider v-if="!isStartOrEnd" />
-
-      <!-- 处理人配置（审批/抄送节点） -->
-      <template v-if="isApproval || isCc">
-        <ElFormItem label="处理人类型">
-          <ElRadioGroup v-model="localNode.handler!.type">
-            <ElRadio
-              v-for="opt in handlerTypeOptions"
-              :key="opt.value"
-              :value="opt.value"
-            >
-              {{ opt.label }}
-            </ElRadio>
-          </ElRadioGroup>
-        </ElFormItem>
-
-        <ElFormItem v-if="isApproval" label="审批方式">
-          <ElRadioGroup v-model="localNode.handler!.mode">
-            <ElRadio
-              v-for="opt in approvalModeOptions"
-              :key="opt.value"
-              :value="opt.value"
-            >
-              {{ opt.label }}
-            </ElRadio>
-          </ElRadioGroup>
-        </ElFormItem>
-
-        <!-- 角色选择（简化版，实际应该从后端加载） -->
-        <ElFormItem v-if="localNode.handler?.type === 'role'" label="选择角色">
-          <ElSelect v-model="localNode.handler.roleIds" multiple style="width: 100%">
-            <ElOption label="部门经理" value="dept_manager" />
-            <ElOption label="总监" value="director" />
-            <ElOption label="HR" value="hr" />
-            <ElOption label="财务" value="finance" />
-          </ElSelect>
-        </ElFormItem>
-
-        <!-- 部门选择 -->
-        <ElFormItem v-if="localNode.handler?.type === 'dept'" label="选择部门">
-          <ElSelect v-model="localNode.handler.deptIds" multiple style="width: 100%">
-            <ElOption label="技术部" value="tech" />
-            <ElOption label="产品部" value="product" />
-            <ElOption label="运营部" value="operation" />
-            <ElOption label="人事部" value="hr" />
-            <ElOption label="财务部" value="finance" />
-          </ElSelect>
-        </ElFormItem>
-
-        <!-- 人员选择 -->
-        <ElFormItem v-if="localNode.handler?.type === 'user'" label="选择人员">
-          <ElSelect v-model="localNode.handler.userIds" multiple style="width: 100%">
-            <ElOption label="张三" value="user1" />
-            <ElOption label="李四" value="user2" />
-            <ElOption label="王五" value="user3" />
-          </ElSelect>
-        </ElFormItem>
-      </template>
-
-      <ElDivider v-if="isApproval" />
-
-      <!-- 审批节点特有配置 -->
-      <template v-if="isApproval">
-        <ElFormItem label="绑定表单">
-          <ElSelect v-model="localNode.formSchemaId" placeholder="选择表单 Schema" style="width: 100%" clearable>
-            <ElOption
-              v-for="schema in formSchemas"
-              :key="schema.id"
-              :label="schema.name"
-              :value="schema.id"
-            />
-          </ElSelect>
-        </ElFormItem>
-
-        <ElFormItem label="超时配置">
-          <div style="display: flex; gap: 8px; align-items: center">
-            <ElInputNumber
-              v-model="localNode.timeout"
-              :min="0"
-              :max="720"
-              placeholder="小时"
-              style="width: 100px"
-            />
-            <span>小时</span>
-          </div>
-        </ElFormItem>
-
-        <ElFormItem label="超时自动通过">
-          <ElSwitch v-model="localNode.autoPassOnTimeout" />
-        </ElFormItem>
-      </template>
-
-      <ElDivider />
-
-      <!-- 启用状态 -->
-      <ElFormItem label="节点启用">
-        <ElSwitch v-model="localNode.enabled" />
-      </ElFormItem>
-    </ElForm>
+    <ElDivider v-if="!isStartOrEnd" />
 
     <!-- 操作按钮 -->
     <div class="panel-actions">
@@ -274,7 +152,15 @@ function handleClose() {
 
   <div v-else class="empty-state">
     <ElIcon :size="48" color="#909399">
-      <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1">
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        width="48"
+        height="48"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="1"
+      >
         <circle cx="12" cy="12" r="10" />
         <path d="M12 6v6l4 2" />
       </svg>

@@ -13,7 +13,7 @@ const data = props.data as WorkflowNode
 </script>
 
 <template>
-  <div class="workflow-node end-node">
+  <div class="workflow-node end-node" :class="{ 'node-disabled': !data.enabled }">
     <!-- 输入连接点 -->
     <Handle
       type="target"
@@ -47,6 +47,12 @@ const data = props.data as WorkflowNode
   border-radius: 8px;
   color: white;
   box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+  transition: all 0.3s ease;
+}
+
+.workflow-node.node-disabled {
+  opacity: 0.5;
+  filter: grayscale(80%);
 }
 
 .node-header {

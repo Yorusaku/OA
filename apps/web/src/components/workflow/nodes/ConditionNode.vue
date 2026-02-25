@@ -15,7 +15,7 @@ const conditionCount = data.conditions?.length || 0
 </script>
 
 <template>
-  <div class="workflow-node condition-node">
+  <div class="workflow-node condition-node" :class="{ 'node-disabled': !data.enabled }">
     <!-- 输入连接点 -->
     <Handle
       type="target"
@@ -67,6 +67,13 @@ const conditionCount = data.conditions?.length || 0
   border: 2px solid #e6a23c;
   border-radius: 8px;
   box-shadow: 0 2px 12px rgba(230, 162, 60, 0.2);
+  transition: all 0.3s ease;
+}
+
+.workflow-node.node-disabled {
+  opacity: 0.5;
+  filter: grayscale(80%);
+  border-color: #ccc;
 }
 
 .node-header {

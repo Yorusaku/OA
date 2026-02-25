@@ -8,3 +8,6 @@ export { default as StartNode } from './nodes/StartNode.vue'
  * Workflow 组件导出
  */
 export { default as WorkflowCanvas } from './WorkflowCanvas.vue'
+
+// 配置子组件
+export * from './configs'

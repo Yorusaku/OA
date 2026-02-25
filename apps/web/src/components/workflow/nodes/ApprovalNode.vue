@@ -6,10 +6,13 @@ import type { ApprovalMode, WorkflowNode } from '@/types/workflow'
  * 需要审批人处理的任务节点
  */
 import { Handle, Position } from '@vue-flow/core'
+import { computed } from 'vue'
 
 const props = defineProps<NodeProps<WorkflowNode>>()
 
-const data = props.data as WorkflowNode
+// 使用 computed 确保响应式更新
+const data = computed(() => props.data as WorkflowNode)
+const isEnabled = computed(() => data.value.enabled !== false)
 
 // 获取审批模式显示文本
 function getModeText(mode?: ApprovalMode): string {
@@ -23,7 +26,7 @@ function getModeText(mode?: ApprovalMode): string {
 
 // 获取处理人显示文本
 function getHandlerText(): string {
-  if (!data.handler)
+  if (!data.value.handler)
     return '未配置处理人'
   const typeMap: Record<string, string> = {
     role: '角色',
@@ -33,14 +36,14 @@ function getHandlerText(): string {
     initiator: '发起人自己',
     continuous: '连续多级',
   }
-  const typeText = typeMap[data.handler.type] || '未知'
-  const modeText = getModeText(data.handler.mode)
+  const typeText = typeMap[data.value.handler.type] || '未知'
+  const modeText = getModeText(data.value.handler.mode)
   return `${typeText} · ${modeText}`
 }
 </script>
 
 <template>
-  <div class="workflow-node approval-node">
+  <div class="workflow-node approval-node" :class="{ 'node-disabled': !isEnabled }">
     <!-- 输入连接点 -->
     <Handle
       type="target"
@@ -100,6 +103,15 @@ function getHandlerText(): string {
   border: 2px solid #409eff;
   border-radius: 8px;
   box-shadow: 0 2px 12px rgba(64, 158, 255, 0.2);
+  transition: all 0.3s ease;
+}
+
+/* 禁用状态样式 */
+.workflow-node.node-disabled {
+  opacity: 0.5;
+  filter: grayscale(80%);
+  border-color: #ccc;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
 }
 
 .node-header {

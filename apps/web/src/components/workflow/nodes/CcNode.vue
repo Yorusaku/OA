@@ -25,7 +25,7 @@ function getHandlerText(): string {
 </script>
 
 <template>
-  <div class="workflow-node cc-node">
+  <div class="workflow-node cc-node" :class="{ 'node-disabled': !data.enabled }">
     <!-- 输入连接点 -->
     <Handle
       type="target"
@@ -70,6 +70,13 @@ function getHandlerText(): string {
   border: 2px solid #67c23a;
   border-radius: 8px;
   box-shadow: 0 2px 12px rgba(103, 194, 58, 0.2);
+  transition: all 0.3s ease;
+}
+
+.workflow-node.node-disabled {
+  opacity: 0.5;
+  filter: grayscale(80%);
+  border-color: #ccc;
 }
 
 .node-header {

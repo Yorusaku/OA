@@ -232,7 +232,7 @@ export const router = createRouter({
  * 全局路由守卫
  * 处理登录验证和权限控制
  */
-router.beforeEach((to, _from, next) => {
+router.beforeEach((to, _from) => {
   const userStore = useUserStore()
   const isLoggedIn = !!userStore.token
 
@@ -240,21 +240,18 @@ router.beforeEach((to, _from, next) => {
   if (to.meta.public) {
     // 已登录用户访问登录页，重定向到首页
     if (to.path === '/login' && isLoggedIn) {
-      next({ path: '/' })
-      return
+      return { path: '/' }
     }
-    next()
-    return
+    return true
   }
 
   // 未登录用户访问需要认证的路由，重定向到登录页
   if (!isLoggedIn) {
-    next({
+    return {
       path: '/login',
       query: { redirect: to.fullPath }, // 登录后重定向回原页面
-    })
-    return
+    }
   }
 
-  next()
+  return true
 })

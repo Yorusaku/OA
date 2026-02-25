@@ -13,7 +13,7 @@ const data = props.data as WorkflowNode
 </script>
 
 <template>
-  <div class="workflow-node start-node">
+  <div class="workflow-node start-node" :class="{ 'node-disabled': !data.enabled }">
     <div class="node-header">
       <div class="node-icon">
         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -45,6 +45,12 @@ const data = props.data as WorkflowNode
   border-radius: 8px;
   color: white;
   box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+  transition: all 0.3s ease;
+}
+
+.workflow-node.node-disabled {
+  opacity: 0.5;
+  filter: grayscale(80%);
 }
 
 .node-header {
