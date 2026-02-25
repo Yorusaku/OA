@@ -13,15 +13,11 @@ import {
   ElOption,
   ElSelect,
 } from 'element-plus'
-import { nanoid } from 'nanoid'
-/**
- * WorkflowEditor - 流程定义编辑页
- * 包含画布、节点配置面板和基础信息编辑
- */
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { NodeConfigPanel, WorkflowCanvas } from '@/components/workflow'
 import { useFormSchemas, useSaveWorkflow, useWorkflowDetail } from '@/composables/useWorkflow'
+import { createDefaultNodes, generateId, getDefaultNodeName, getDefaultPosition } from './utils'
 
 const router = useRouter()
 const route = useRoute()
@@ -35,6 +31,7 @@ const workflowName = ref('')
 const workflowDescription = ref('')
 const workflowStatus = ref<WorkflowStatus>('draft')
 const selectedNode = ref<WorkflowNode | undefined>()
+const draggingType = ref<WorkflowNode['type'] | null>(null)
 
 // 当前工作流定义
 const definition = ref<WorkflowDefinition>({
@@ -70,37 +67,15 @@ watch(
   { immediate: true },
 )
 
-// ==================== 工具函数 ====================
-/**
- * 生成唯一 ID
- */
-function generateId(prefix: string): string {
-  return `${prefix}-${nanoid(8)}`
-}
-
-/**
- * 获取默认节点位置
- */
-function getDefaultPosition(nodes: WorkflowNode[]): { x: number, y: number } {
-  const baseY = 100
-  const spacing = 200
-  const nextIndex = nodes.filter(n => n.type !== 'start').length
-
-  return {
-    x: 400,
-    y: baseY + nextIndex * spacing,
-  }
-}
-
 // ==================== 事件处理 ====================
 /**
- * 添加节点
+ * 处理按钮点击添加节点
  */
 function handleAddNode(type: WorkflowNode['type']) {
   const newNode: WorkflowNode = {
     id: generateId(type),
     type,
-    name: get_defaultNodeName(type),
+    name: getDefaultNodeName(type),
     description: '',
     handler: type === 'approval' || type === 'cc' ? { type: 'role', mode: 'or' } : undefined,
     position: getDefaultPosition(definition.value.nodes),
@@ -111,43 +86,47 @@ function handleAddNode(type: WorkflowNode['type']) {
 }
 
 /**
- * 获取默认节点名称
+ * 处理从工具箱拖拽开始
  */
-function get_defaultNodeName(type: WorkflowNode['type']): string {
-  const names: Record<WorkflowNode['type'], string> = {
-    start: '发起节点',
-    approval: '审批节点',
-    cc: '抄送节点',
-    condition: '条件分支',
-    end: '结束节点',
-  }
-  return names[type] || '节点'
+function handleDragStart(event: DragEvent, type: WorkflowNode['type']) {
+  draggingType.value = type
+  event.dataTransfer?.setData('node-type', type)
+  event.dataTransfer.effectAllowed = 'copy'
 }
 
 /**
- * 节点变化
+ * 处理节点拖拽到画布
  */
+function handleNodeDrop(type: WorkflowNode['type'], position: { x: number, y: number }) {
+  if (!type) return
+
+  draggingType.value = null
+
+  const newNode: WorkflowNode = {
+    id: generateId(type),
+    type,
+    name: getDefaultNodeName(type),
+    description: '',
+    handler: type === 'approval' || type === 'cc' ? { type: 'role', mode: 'or' } : undefined,
+    position: { x: position.x, y: position.y },
+    enabled: true,
+  }
+
+  definition.value.nodes.push(newNode)
+}
+
 function handleNodeChange(nodes: WorkflowNode[]) {
   definition.value.nodes = nodes
 }
 
-/**
- * 边变化
- */
 function handleEdgeChange(edges: WorkflowEdge[]) {
   definition.value.edges = edges
 }
 
-/**
- * 节点选中
- */
 function handleNodeSelect(node: WorkflowNode) {
   selectedNode.value = node
 }
 
-/**
- * 节点删除
- */
 function handleNodeDelete(nodeId: string) {
   definition.value.nodes = definition.value.nodes.filter(n => n.id !== nodeId)
   definition.value.edges = definition.value.edges.filter(
@@ -157,9 +136,6 @@ function handleNodeDelete(nodeId: string) {
   ElMessage.success('节点已删除')
 }
 
-/**
- * 节点配置更新
- */
 function handleNodeUpdate(updatedNode: WorkflowNode) {
   const index = definition.value.nodes.findIndex(n => n.id === updatedNode.id)
   if (index !== -1) {
@@ -169,9 +145,6 @@ function handleNodeUpdate(updatedNode: WorkflowNode) {
   }
 }
 
-/**
- * 保存流程定义
- */
 async function handleSave() {
   if (!workflowName.value.trim()) {
     ElMessage.warning('请输入流程名称')
@@ -202,52 +175,25 @@ async function handleSave() {
       router.push(`/workflow/editor/${data.id}`)
     }
   }
-  catch (error) {
+  catch {
     ElMessage.error('保存失败')
   }
 }
 
-/**
- * 返回列表
- */
 function handleBack() {
   router.push('/workflow/list')
 }
 
-/**
- * 初始化默认流程（如果没有节点）
- */
-function initDefaultFlow() {
-  if (definition.value.nodes.length === 0) {
-    // 添加默认的起始和结束节点
-    const startNode: WorkflowNode = {
-      id: generateId('start'),
-      type: 'start',
-      name: '发起节点',
-      description: '流程发起人',
-      position: { x: 400, y: 100 },
-      enabled: true,
-    }
-
-    const endNode: WorkflowNode = {
-      id: generateId('end'),
-      type: 'end',
-      name: '结束节点',
-      description: '流程结束',
-      position: { x: 400, y: 500 },
-      enabled: true,
-    }
-
-    definition.value.nodes = [startNode, endNode]
-  }
-}
-
 // 初始化
-onMounted(() => {
-  if (isNew.value) {
-    initDefaultFlow()
-  }
-})
+watch(
+  () => isNew.value,
+  (val) => {
+    if (val && definition.value.nodes.length === 0) {
+      definition.value.nodes = createDefaultNodes()
+    }
+  },
+  { immediate: true },
+)
 </script>
 
 <template>
@@ -289,6 +235,8 @@ onMounted(() => {
           <ElButton
             class="toolbar-btn start-btn"
             block
+            draggable="true"
+            @dragstart="handleDragStart($event, 'start')"
             @click="handleAddNode('start')"
           >
             <span class="btn-icon">🚀</span> 发起节点
@@ -296,6 +244,8 @@ onMounted(() => {
           <ElButton
             class="toolbar-btn approval-btn"
             block
+            draggable="true"
+            @dragstart="handleDragStart($event, 'approval')"
             @click="handleAddNode('approval')"
           >
             <span class="btn-icon">📋</span> 审批节点
@@ -303,6 +253,8 @@ onMounted(() => {
           <ElButton
             class="toolbar-btn cc-btn"
             block
+            draggable="true"
+            @dragstart="handleDragStart($event, 'cc')"
             @click="handleAddNode('cc')"
           >
             <span class="btn-icon">📧</span> 抄送节点
@@ -310,6 +262,8 @@ onMounted(() => {
           <ElButton
             class="toolbar-btn condition-btn"
             block
+            draggable="true"
+            @dragstart="handleDragStart($event, 'condition')"
             @click="handleAddNode('condition')"
           >
             <span class="btn-icon">🔀</span> 条件分支
@@ -317,6 +271,8 @@ onMounted(() => {
           <ElButton
             class="toolbar-btn end-btn"
             block
+            draggable="true"
+            @dragstart="handleDragStart($event, 'end')"
             @click="handleAddNode('end')"
           >
             <span class="btn-icon">✅</span> 结束节点
@@ -341,14 +297,16 @@ onMounted(() => {
       <!-- 中间画布 -->
       <ElMain class="canvas-main">
         <WorkflowCanvas
+          ref="canvasRef"
           :definition="definition"
           :readonly="false"
           :show-minimap="true"
           :show-grid="true"
-          @node-change="handleNodeChange"
-          @edge-change="handleEdgeChange"
-          @node-select="handleNodeSelect"
-          @node-delete="handleNodeDelete"
+          @nodeChange="handleNodeChange"
+          @edgeChange="handleEdgeChange"
+          @nodeSelect="handleNodeSelect"
+          @nodeDelete="handleNodeDelete"
+          @nodeDrop="handleNodeDrop"
         />
       </ElMain>
 
@@ -426,6 +384,17 @@ onMounted(() => {
 .toolbar-btn {
   margin-bottom: 8px;
   justify-content: flex-start;
+  cursor: grab;
+  user-select: none;
+}
+
+.toolbar-btn:active {
+  cursor: grabbing;
+}
+
+.toolbar-btn[draggable="true"]:active {
+  opacity: 0.7;
+  transform: scale(0.98);
 }
 
 .btn-icon {
@@ -465,6 +434,7 @@ onMounted(() => {
 .canvas-main {
   padding: 0;
   overflow: hidden;
+  background: #f5f7fa;
 }
 
 .config-aside {

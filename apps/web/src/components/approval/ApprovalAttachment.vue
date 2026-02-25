@@ -1,60 +1,7 @@
-<template>
-  <div class="approval-attachment">
-    <div class="attachment-header">
-      <h3>附件</h3>
-      <el-upload
-        :show-file-list="false"
-        :on-change="handleUpload"
-        :before-upload="beforeUpload"
-        accept=".jpg,.jpeg,.png,.pdf,.doc,.docx,.xls,.xlsx"
-      >
-        <el-button type="primary" :icon="Upload">上传附件</el-button>
-      </el-upload>
-    </div>
-    <div class="attachment-list">
-      <div v-if="attachments.length === 0" class="empty-state">
-        <el-empty description="暂无附件" />
-      </div>
-      <div v-else class="attachment-grid">
-        <div v-for="attachment in attachments" :key="attachment.id" class="attachment-item">
-          <div class="attachment-preview" @click="handlePreview(attachment)">
-            <el-icon v-if="isImage(attachment.type)" class="image-icon" :size="48">
-              <Picture />
-            </el-icon>
-            <el-icon v-else-if="isPdf(attachment.type)" class="pdf-icon" :size="48">
-              <Document />
-            </el-icon>
-            <el-icon v-else class="file-icon" :size="48">
-              <Files />
-            </el-icon>
-            <img
-              v-if="isImage(attachment.type) && attachment.url"
-              :src="attachment.url"
-              class="preview-image"
-              :alt="attachment.name"
-            />
-          </div>
-          <div class="attachment-info">
-            <div class="attachment-name">{{ attachment.name }}</div>
-            <div class="attachment-meta">
-              <span>{{ formatFileSize(attachment.size) }}</span>
-              <span>{{ formatDate(attachment.createdAt) }}</span>
-            </div>
-          </div>
-          <div class="attachment-actions">
-            <el-button link type="primary" @click="handleDownload(attachment)">下载</el-button>
-            <el-button link type="danger" @click="handleDelete(attachment)">删除</el-button>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-</template>
-
 <script setup lang="ts">
-import { ref } from 'vue'
-import { Upload, Picture, Document, Files } from '@element-plus/icons-vue'
+import { Document, Files, Picture, Upload } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { ref } from 'vue'
 import { formatDate, formatFileSize } from '@/utils/formatters'
 
 interface Attachment {
@@ -71,9 +18,9 @@ const props = defineProps<{
 }>()
 
 const emit = defineEmits<{
-  'upload': [file: File]
-  'delete': [id: string]
-  'preview': [attachment: Attachment]
+  upload: [file: File]
+  delete: [id: string]
+  preview: [attachment: Attachment]
 }>()
 
 const attachments = ref<Attachment[]>(props.attachments || [])
@@ -117,10 +64,72 @@ async function handleDelete(attachment: Attachment) {
     })
     emit('delete', attachment.id)
     ElMessage.success('删除成功')
-  } catch {
+  }
+  catch {
   }
 }
 </script>
+
+<template>
+  <div class="approval-attachment">
+    <div class="attachment-header">
+      <h3>附件</h3>
+      <el-upload
+        :show-file-list="false"
+        :on-change="handleUpload"
+        :before-upload="beforeUpload"
+        accept=".jpg,.jpeg,.png,.pdf,.doc,.docx,.xls,.xlsx"
+      >
+        <el-button type="primary" :icon="Upload">
+          上传附件
+        </el-button>
+      </el-upload>
+    </div>
+    <div class="attachment-list">
+      <div v-if="attachments.length === 0" class="empty-state">
+        <el-empty description="暂无附件" />
+      </div>
+      <div v-else class="attachment-grid">
+        <div v-for="attachment in attachments" :key="attachment.id" class="attachment-item">
+          <div class="attachment-preview" @click="handlePreview(attachment)">
+            <el-icon v-if="isImage(attachment.type)" class="image-icon" :size="48">
+              <Picture />
+            </el-icon>
+            <el-icon v-else-if="isPdf(attachment.type)" class="pdf-icon" :size="48">
+              <Document />
+            </el-icon>
+            <el-icon v-else class="file-icon" :size="48">
+              <Files />
+            </el-icon>
+            <img
+              v-if="isImage(attachment.type) && attachment.url"
+              :src="attachment.url"
+              class="preview-image"
+              :alt="attachment.name"
+            >
+          </div>
+          <div class="attachment-info">
+            <div class="attachment-name">
+              {{ attachment.name }}
+            </div>
+            <div class="attachment-meta">
+              <span>{{ formatFileSize(attachment.size) }}</span>
+              <span>{{ formatDate(attachment.createdAt) }}</span>
+            </div>
+          </div>
+          <div class="attachment-actions">
+            <el-button link type="primary" @click="handleDownload(attachment)">
+              下载
+            </el-button>
+            <el-button link type="danger" @click="handleDelete(attachment)">
+              删除
+            </el-button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</template>
 
 <style scoped lang="scss">
 .approval-attachment {

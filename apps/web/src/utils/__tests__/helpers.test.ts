@@ -1,5 +1,5 @@
-import { describe, it, expect, vi } from 'vitest'
-import { debounce, throttle, deepClone, generateId, sleep } from '@oa/utils'
+import { debounce, deepClone, generateId, sleep, throttle } from '@oa/utils'
+import { describe, expect, it, vi } from 'vitest'
 
 describe('helpers', () => {
   describe('debounce', () => {

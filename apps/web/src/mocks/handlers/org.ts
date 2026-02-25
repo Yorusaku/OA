@@ -1,5 +1,5 @@
-import { http, delay, HttpResponse } from 'msw'
 import { API_PREFIX } from '@oa/utils'
+import { delay, http, HttpResponse } from 'msw'
 import { mockDeptTree } from '../data/org'
 
 export const orgHandlers = [

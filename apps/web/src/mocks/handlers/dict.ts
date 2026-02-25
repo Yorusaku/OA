@@ -1,5 +1,5 @@
-import { http, delay, HttpResponse } from 'msw'
 import { API_PREFIX } from '@oa/utils'
+import { delay, http, HttpResponse } from 'msw'
 import { mockDictData } from '../data/dict'
 
 export const dictHandlers = [
@@ -9,7 +9,7 @@ export const dictHandlers = [
     return HttpResponse.json({
       code: 0,
       message: '获取成功',
-      data: mockDictData[type] || [],
+      data: mockDictData[type as keyof typeof mockDictData] || [],
     })
   }),
 
@@ -18,8 +18,8 @@ export const dictHandlers = [
     const url = new URL(request.url)
     const types = url.searchParams.get('types')?.split(',') || []
     const result: Record<string, any[]> = {}
-    types.forEach(type => {
-      result[type] = mockDictData[type] || []
+    types.forEach((type) => {
+      result[type] = mockDictData[type as keyof typeof mockDictData] || []
     })
     return HttpResponse.json({
       code: 0,

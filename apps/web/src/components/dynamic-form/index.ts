@@ -1,4 +1,3 @@
-/**
- * DynamicForm 组件导出
- */
 export { default as DynamicForm } from './DynamicForm.vue'
+export * from './renderers'
+export type { AsyncRendererLoader, FieldRenderContext, FieldRenderer, RendererMap } from './types'

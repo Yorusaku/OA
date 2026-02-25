@@ -9,8 +9,8 @@ const route = useRoute()
 const userStore = useUserStore()
 
 const form = reactive({
-  username: '',
-  password: '',
+  username: 'admin',
+  password: 'admin123',
 })
 
 const submitting = ref(false)
@@ -28,6 +28,77 @@ async function onSubmit() {
       id: '1',
       name: form.username || '演示用户',
     })
+    // 设置权限和菜单（实际应该从后端获取）
+    userStore.setPermissions([
+      'dashboard:view',
+      'approval:center:view',
+      'approval:launch',
+      'approval:mine',
+      'approval:todo',
+      'org:view',
+      'contacts:view',
+      'system:view',
+      'system:user:view',
+      'system:role:view',
+      'workflow:view',
+      'workflow:list',
+    ])
+    userStore.setMenus([
+      {
+        path: '/',
+        name: 'Dashboard',
+        title: '工作台',
+        icon: 'dashboard',
+        permission: 'dashboard:view',
+      },
+      {
+        path: '/approval',
+        name: 'ApprovalCenter',
+        title: '审批中心',
+        icon: 'tickets',
+        permission: 'approval:center:view',
+        children: [
+          { path: '/approval/launch', name: 'ApprovalLaunch', title: '发起审批', permission: 'approval:launch' },
+          { path: '/approval/mine', name: 'ApprovalMine', title: '我的申请', permission: 'approval:mine' },
+          { path: '/approval/todo', name: 'ApprovalTodo', title: '待我审批', permission: 'approval:todo' },
+        ],
+      },
+      {
+        path: '/org',
+        name: 'Organization',
+        title: '组织架构',
+        icon: 'tree',
+        permission: 'org:view',
+      },
+      {
+        path: '/contacts',
+        name: 'Contacts',
+        title: '通讯录',
+        icon: 'user',
+        permission: 'contacts:view',
+      },
+      {
+        path: '/system',
+        name: 'System',
+        title: '系统管理',
+        icon: 'setting',
+        permission: 'system:view',
+        children: [
+          { path: '/system/users', name: 'UserList', title: '用户管理', permission: 'system:user:view' },
+          { path: '/system/roles', name: 'RoleList', title: '角色管理', permission: 'system:role:view' },
+        ],
+      },
+      {
+        path: '/workflow',
+        name: 'Workflow',
+        title: '流程管理',
+        icon: 'connection',
+        permission: 'workflow:view',
+        children: [
+          { path: '/workflow/list', name: 'WorkflowList', title: '流程列表', permission: 'workflow:list' },
+        ],
+      },
+    ])
     ElMessage.success('登录成功')
     const redirect = (route.query.redirect as string) || '/'
     router.push(redirect)

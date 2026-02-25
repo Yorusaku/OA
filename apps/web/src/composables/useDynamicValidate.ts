@@ -1,8 +1,24 @@
+/**
+ * @file useDynamicValidate.ts
+ * @description 动态表单验证组合式函数
+ * 处理表单字段联动校验逻辑（必填/可见/禁用）
+ */
+
 import type { Ref } from 'vue'
 import type { FormFieldSchema } from '@/types/form-schema'
 import { onUnmounted, watch } from 'vue'
 import { checkConditions, getConditionFields } from '@/utils/form-conditions'
 
+/**
+ * 动态表单验证 Hook
+ * @param schemaFields - 表单字段配置（数组或 Ref）
+ * @param formValues - 表单当前值
+ * @returns 验证相关方法
+ * @usage
+ * ```ts
+ * const { isFieldRequired, isFieldVisible, isFieldDisabled } = useDynamicValidate(fields, values)
+ * ```
+ */
 export function useDynamicValidate(
   schemaFields: Ref<FormFieldSchema[]> | FormFieldSchema[],
   formValues: Ref<Record<string, any>>,
@@ -13,7 +29,8 @@ export function useDynamicValidate(
 
   /**
    * 设置字段联动监听
-   * 当依赖字段变化时，触发表单重新校验
+   * 当依赖字段变化时，触发表单状态更新
+   * @param field - 字段配置
    */
   function setupFieldWatch(field: FormFieldSchema) {
     const { key, linkage } = field
@@ -52,7 +69,8 @@ export function useDynamicValidate(
 
   /**
    * 判断字段是否应该必填（联动必填）
-   * 供外部组件调用
+   * @param field - 字段配置
+   * @returns 是否必填
    */
   function isFieldRequired(field: FormFieldSchema): boolean {
     // 静态必填
@@ -67,6 +85,8 @@ export function useDynamicValidate(
 
   /**
    * 判断字段是否应该显示
+   * @param field - 字段配置
+   * @returns 是否可见
    */
   function isFieldVisible(field: FormFieldSchema): boolean {
     if (!field.linkage?.visibleWhen)
@@ -76,6 +96,8 @@ export function useDynamicValidate(
 
   /**
    * 判断字段是否应该禁用
+   * @param field - 字段配置
+   * @returns 是否禁用
    */
   function isFieldDisabled(field: FormFieldSchema): boolean {
     if (field.disabled)
@@ -93,7 +115,8 @@ export function useDynamicValidate(
 
   /**
    * 手动刷新某个字段的校验状态
-   * 当外部数据变化时可以调用此方法
+   * @param _fieldKey - 字段 key
+   * @description 当外部数据变化时可以调用此方法
    */
   function refreshFieldValidation(_fieldKey: string) {
     // 可以在这里触发额外的校验逻辑
@@ -102,7 +125,8 @@ export function useDynamicValidate(
 
   /**
    * 重新加载所有联动校验规则
-   * 当 schema 发生变化时调用
+   * @param newFields - 新的字段配置
+   * @description 当 schema 发生变化时调用
    */
   function reloadValidationRules(newFields: FormFieldSchema[]) {
     // 清理旧的监听器

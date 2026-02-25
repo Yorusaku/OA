@@ -1,23 +1,41 @@
 <script setup lang="ts">
+/**
+ * @file ErrorBoundary.vue
+ * @description 错误边界组件
+ * 捕获子组件错误并显示友好的错误提示
+ * @usage 包裹可能出错的组件，当错误发生时显示重试界面
+ */
+
 import { Warning } from '@element-plus/icons-vue'
 import { onErrorCaptured, ref } from 'vue'
 
 const props = withDefaults(defineProps<{
+  /** 自定义错误提示文本 */
   fallback?: string
+  /** 错误回调函数 */
   onError?: (error: Error) => void
 }>(), {
   fallback: '抱歉，出现了一些问题',
 })
 
 const emit = defineEmits<{
+  /** 重试事件 */
   retry: []
+  /** 重置事件 */
   reset: []
 }>()
 
+/** 是否发生错误 */
 const hasError = ref(false)
+/** 错误消息 */
 const errorMessage = ref(props.fallback)
+/** 错误详情 */
 const errorInfo = ref<Error | null>(null)
 
+/**
+ * 捕获子组件错误
+ * @param error - 错误对象
+ */
 onErrorCaptured((error) => {
   hasError.value = true
   errorInfo.value = error
@@ -26,9 +44,12 @@ onErrorCaptured((error) => {
   if (props.onError) {
     props.onError(error)
   }
-  return false
+  return false // 阻止错误继续向上传播
 })
 
+/**
+ * 重试处理
+ */
 function handleRetry() {
   hasError.value = false
   errorInfo.value = null
@@ -36,6 +57,9 @@ function handleRetry() {
   emit('retry')
 }
 
+/**
+ * 重置处理
+ */
 function handleReset() {
   hasError.value = false
   errorInfo.value = null
@@ -43,6 +67,7 @@ function handleReset() {
   emit('reset')
 }
 
+// 暴露方法给父组件
 defineExpose({
   reset: handleReset,
 })

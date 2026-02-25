@@ -1,6 +1,6 @@
-import { http, delay, HttpResponse } from 'msw'
 import { API_PREFIX } from '@oa/utils'
-import { mockApprovals, mockApprovalDetail, mockComments } from '../data/approval'
+import { delay, http, HttpResponse } from 'msw'
+import { mockApprovalDetail, mockApprovals, mockComments } from '../data/approval'
 
 export const approvalHandlers = [
   http.get(`${API_PREFIX}/approval/list`, async ({ request }) => {
@@ -37,7 +37,7 @@ export const approvalHandlers = [
     return HttpResponse.json({
       code: 0,
       message: '提交成功',
-      data: { id: 'new-' + Date.now() },
+      data: { id: `new-${Date.now()}` },
     })
   }),
 
@@ -73,7 +73,7 @@ export const approvalHandlers = [
     return HttpResponse.json({
       code: 0,
       message: '评论成功',
-      data: { id: 'comment-' + Date.now() },
+      data: { id: `comment-${Date.now()}` },
     })
   }),
 ]

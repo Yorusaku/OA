@@ -1,11 +1,16 @@
 /**
- * 审批相关 API
+ * @file approval.ts
+ * @description 审批相关 API 接口
+ * 提供审批列表、详情、提交等操作
  */
+
 import type { ApprovalRecord, PageParams, PageResult, WorkbenchStats } from './types'
 import { mockApprovalRecords, mockWorkbenchStats } from './mock'
 
 /**
  * 获取审批列表
+ * @param params - 查询参数（页码、页数、状态）
+ * @returns 分页审批列表
  */
 export async function getApprovalList(
   params: PageParams & { status?: string },
@@ -34,6 +39,8 @@ export async function getApprovalList(
 
 /**
  * 获取审批详情
+ * @param id - 审批记录 ID
+ * @returns 审批详情
  */
 export async function getApprovalDetail(id: string): Promise<ApprovalRecord | null> {
   // 模拟网络延迟
@@ -42,7 +49,9 @@ export async function getApprovalDetail(id: string): Promise<ApprovalRecord | nu
 }
 
 /**
- * 提交审批
+ * 提交审批申请
+ * @param data - 提交数据（不含 id、status、applyTime）
+ * @returns 创建的审批记录
  */
 export async function submitApproval(
   data: Omit<ApprovalRecord, 'id' | 'status' | 'applyTime'>,
@@ -64,7 +73,8 @@ export async function submitApproval(
 }
 
 /**
- * 获取工作台统计
+ * 获取工作台统计数据
+ * @returns 统计数据（待办、已办等）
  */
 export async function getWorkbenchStats(): Promise<WorkbenchStats> {
   // 模拟网络延迟

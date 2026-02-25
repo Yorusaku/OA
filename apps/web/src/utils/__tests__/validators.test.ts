@@ -1,5 +1,5 @@
-import { describe, it, expect } from 'vitest'
-import { isMobilePhone, isEmail, isIdCard, isNotEmpty, isNumber } from '@oa/utils'
+import { isEmail, isIdCard, isMobilePhone, isNotEmpty, isNumber } from '@oa/utils'
+import { describe, expect, it } from 'vitest'
 
 describe('validators', () => {
   describe('isMobilePhone', () => {

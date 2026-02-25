@@ -1,19 +1,21 @@
-import type { AxiosInstance, AxiosRequestConfig, AxiosResponse } from 'axios'
-import type { ApiResponse } from './types'
 /**
- * Axios 实例创建
+ * @file http.ts
+ * @description Axios HTTP 实例封装
  * 统一处理请求响应拦截、错误处理、401 登录过期逻辑
  */
+
+import type { AxiosInstance, AxiosRequestConfig, AxiosResponse } from 'axios'
+import type { ApiResponse } from './types'
 import axios from 'axios'
 import { ElMessage } from 'element-plus'
 import { useUserStore } from '@/stores/user'
 
 /**
- * HTTP 实例
+ * HTTP 请求实例
  */
 const http: AxiosInstance = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL || '/api',
-  timeout: 10000,
+  timeout: 10000, // 10 秒超时
   headers: {
     'Content-Type': 'application/json',
   },
@@ -21,6 +23,8 @@ const http: AxiosInstance = axios.create({
 
 /**
  * 统一错误处理
+ * @param error - 错误对象
+ * @returns Promise.reject
  */
 function handleError(error: any): Promise<never> {
   let message = '请求失败，请稍后重试'
@@ -78,6 +82,7 @@ function handleError(error: any): Promise<never> {
 
 /**
  * 401 统一处理 - 登录过期
+ * 清除用户状态并跳转到登录页
  */
 function handle401() {
   const userStore = useUserStore()
@@ -85,13 +90,14 @@ function handle401() {
   // 清除用户状态
   userStore.clearUser()
 
-  // 跳转到登录页
+  // 跳转到登录页，携带重定向参数
   const redirect = encodeURIComponent(window.location.pathname + window.location.search)
   window.location.href = `/login?redirect=${redirect}`
 }
 
 /**
  * 请求拦截器
+ * 自动添加 Authorization 头
  */
 http.interceptors.request.use(
   (config) => {
@@ -108,6 +114,7 @@ http.interceptors.request.use(
 
 /**
  * 响应拦截器
+ * 统一处理业务错误和 401 登录过期
  */
 http.interceptors.response.use(
   (response: AxiosResponse<ApiResponse>) => {
@@ -135,6 +142,8 @@ http.interceptors.response.use(
 
 /**
  * GET 请求
+ * @param url - 请求 URL
+ * @param config - 请求配置
  */
 export function get<T>(url: string, config?: AxiosRequestConfig): Promise<T> {
   return http.get(url, config)
@@ -142,6 +151,9 @@ export function get<T>(url: string, config?: AxiosRequestConfig): Promise<T> {
 
 /**
  * POST 请求
+ * @param url - 请求 URL
+ * @param data - 请求数据
+ * @param config - 请求配置
  */
 export function post<T>(url: string, data?: any, config?: AxiosRequestConfig): Promise<T> {
   return http.post(url, data, config)
@@ -149,6 +161,9 @@ export function post<T>(url: string, data?: any, config?: AxiosRequestConfig): P
 
 /**
  * PUT 请求
+ * @param url - 请求 URL
+ * @param data - 请求数据
+ * @param config - 请求配置
  */
 export function put<T>(url: string, data?: any, config?: AxiosRequestConfig): Promise<T> {
   return http.put(url, data, config)
@@ -156,6 +171,8 @@ export function put<T>(url: string, data?: any, config?: AxiosRequestConfig): Pr
 
 /**
  * DELETE 请求
+ * @param url - 请求 URL
+ * @param config - 请求配置
  */
 export function del<T>(url: string, config?: AxiosRequestConfig): Promise<T> {
   return http.delete(url, config)

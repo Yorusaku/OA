@@ -1,27 +1,39 @@
 /**
- * 路由配置
+ * @file router/index.ts
+ * @description 路由配置
+ * 定义应用的所有路由规则和导航守卫
  */
+
 import type { RouteRecordRaw } from 'vue-router'
 import { createRouter, createWebHistory } from 'vue-router'
 import { useUserStore } from '@/stores/user'
 
-// 路由组件懒加载
-const Login = () => import('@/views/auth/Login.vue')
+// ==================== 路由组件 ====================
+
+// 认证模块（静态导入，确保登录页加载稳定）
+import Login from '@/views/auth/Login.vue'
+// 布局
 const MainLayout = () => import('@/layouts/MainLayout.vue')
+// 工作台
 const Dashboard = () => import('@/views/dashboard/Workbench.vue')
+// 审批模块
 const ApprovalLaunch = () => import('@/views/approval/ApprovalLaunch.vue')
 const ApprovalMine = () => import('@/views/approval/ApprovalMine.vue')
 const ApprovalTodo = () => import('@/views/approval/ApprovalTodo.vue')
+// 组织架构
 const OrgTree = () => import('@/views/org/OrgTree.vue')
+// 通讯录
 const ContactsList = () => import('@/views/contacts/ContactsList.vue')
+// 系统管理
 const UserList = () => import('@/views/system/UserList.vue')
 const RoleList = () => import('@/views/system/RoleList.vue')
+// 流程管理
 const WorkflowList = () => import('@/views/workflow/WorkflowList.vue')
 const WorkflowEditor = () => import('@/views/workflow/WorkflowEditor.vue')
 
 /**
  * 常量路由
- * 不需要动态权限的路由
+ * 不需要动态权限的基础路由
  */
 export const constantRoutes: RouteRecordRaw[] = [
   {
@@ -217,13 +229,14 @@ export const router = createRouter({
 })
 
 /**
- * 路由守卫
+ * 全局路由守卫
+ * 处理登录验证和权限控制
  */
 router.beforeEach((to, _from, next) => {
   const userStore = useUserStore()
   const isLoggedIn = !!userStore.token
 
-  // 处理公开路由
+  // 处理公开路由（登录页、404 等）
   if (to.meta.public) {
     // 已登录用户访问登录页，重定向到首页
     if (to.path === '/login' && isLoggedIn) {

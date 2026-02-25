@@ -1,38 +1,55 @@
 <script setup lang="ts">
-import type { UploadProps } from 'element-plus'
+/**
+ * 动态表单组件
+ * 基于 Element Plus 和 VeeValidate 实现
+ * 通过 JSON Schema 配置生成表单
+ */
+
+// 导入类型定义
 import type { FormFieldSchema, FormSchema } from '@/types/form-schema'
+
+// 导入 Element Plus 图标
 import { QuestionFilled } from '@element-plus/icons-vue'
+
+// 导入 Element Plus 组件
 import {
   ElButton,
-  ElCascader,
-  ElCheckbox,
-  ElCheckboxGroup,
   ElCol,
-  ElDatePicker,
   ElForm,
   ElFormItem,
   ElIcon,
-  ElInput,
-  ElOption,
-  ElRadio,
-  ElRadioGroup,
   ElRow,
-  ElSelect,
-  ElSwitch,
-  ElTimePicker,
   ElTooltip,
-  ElUpload,
 } from 'element-plus'
-import { useField, useForm } from 'vee-validate'
-import { computed, h, watch } from 'vue'
-import { checkConditions } from '@/utils/form-conditions'
 
+// 导入 VeeValidate 钩子
+import { useField } from 'vee-validate'
+
+// 导入 Vue 组合式 API
+import { computed, ref, watch } from 'vue'
+
+// 导入自定义组合式函数
+import { useDynamicForm } from './composables'
+import { useFieldState } from './composables/useFieldState'
+
+// 导入字段渲染器
+import { getFieldRenderer } from './renderers'
+
+/**
+ * 组件属性定义
+ */
 const props = withDefaults(defineProps<{
+  /** 表单配置 schema */
   schema: FormSchema
+  /** 表单数据模型 */
   modelValue?: Record<string, any>
+  /** 是否只读模式 */
   readonly?: boolean
+  /** 是否禁用状态 */
   disabled?: boolean
+  /** 是否显示提交按钮 */
   showSubmit?: boolean
+  /** 是否显示取消按钮 */
   showCancel?: boolean
 }>(), {
   modelValue: () => ({}),
@@ -42,164 +59,92 @@ const props = withDefaults(defineProps<{
   showCancel: false,
 })
 
+/**
+ * 组件事件定义
+ */
 const emit = defineEmits<{
+  /** 表单数据更新事件 */
   'update:modelValue': [values: Record<string, any>]
+  /** 表单提交成功事件 */
   'submit': [values: Record<string, any>]
+  /** 表单重置事件 */
   'reset': []
+  /** 表单验证失败事件 */
   'invalid': [errors: Record<string, string>]
 }>()
 
-// ==================== VeeValidate 表单初始化 ====================
-// 构建初始校验规则
-function buildInitialRules(fields: FormFieldSchema[]) {
-  const rules: Record<string, any> = {}
-
-  fields.forEach((field) => {
-    const fieldRules: any = {}
-
-    // 静态必填
-    if (field.required) {
-      fieldRules.required = true
-    }
-
-    // 合并 schema 中的 rules
-    if (field.rules) {
-      const { required, min, max, pattern, message, type, validator } = field.rules
-      if (required)
-        fieldRules.required = true
-      if (min != null)
-        fieldRules.min = min
-      if (max != null)
-        fieldRules.max = max
-      if (pattern) {
-        fieldRules.pattern = typeof pattern === 'string' ? new RegExp(pattern) : pattern
-      }
-      if (type)
-        fieldRules.type = type
-      if (message)
-        fieldRules.message = message
-      if (validator) {
-        // 自定义校验器通过 yup 或 zod 在外部定义
-        console.warn(`自定义校验器 ${validator} 需要在外部定义`)
-      }
-    }
-
-    if (Object.keys(fieldRules).length > 0) {
-      rules[field.key] = fieldRules
-    }
-  })
-
-  return rules
-}
-
-// 合并初始值
-const initialValues = computed(() => {
-  const merged: Record<string, any> = {}
-
-  // 从 schema 获取默认值
-  props.schema.fields.forEach((field) => {
-    if (field.defaultValue !== undefined) {
-      merged[field.key] = field.defaultValue
-    }
-  })
-
-  // 从 schema.initialValues 合并
-  if (props.schema.initialValues) {
-    Object.assign(merged, props.schema.initialValues)
-  }
-
-  // 从 v-model 合并（优先级最高）
-  Object.assign(merged, props.modelValue)
-
-  return merged
-})
-
-// 初始化 VeeValidate useForm
-const {
-  values,
-  errors,
-  meta,
-  validate: validateForm,
-  resetForm,
-  setFieldValue,
-  setFieldTouched,
-  defineField,
-  handleSubmit,
-} = useForm({
-  initialValues: initialValues.value,
-  validationSchema: buildInitialRules(props.schema.fields),
-})
-
-// ==================== 字段可见性/状态计算 ====================
-/**
- * 判断字段是否应该显示
- */
-function isFieldVisible(field: FormFieldSchema): boolean {
-  if (!field.linkage?.visibleWhen)
-    return true
-  return !checkConditions(field.linkage.visibleWhen, values)
-}
+// ==================== 状态管理 ====================
 
 /**
- * 判断字段是否应该禁用
+ * 表单数据模型引用
  */
-function isFieldDisabled(field: FormFieldSchema): boolean {
-  // 优先级：field.disabled > props.disabled > linkage.disabledWhen
-  if (field.disabled)
-    return true
-  if (props.disabled)
-    return true
-  if (field.linkage?.disabledWhen) {
-    return checkConditions(field.linkage.disabledWhen, values)
-  }
-  return false
-}
+const modelValueRef = ref(props.modelValue)
 
 /**
- * 判断字段是否应该必填（联动必填）
+ * 监听外部 modelValue 变化，同步到内部状态
  */
-function isFieldRequired(field: FormFieldSchema): boolean {
-  // 静态必填
-  if (field.required)
-    return true
-  // 联动必填
-  if (field.linkage?.requiredWhen) {
-    return checkConditions(field.linkage.requiredWhen, values)
-  }
-  return false
-}
-
-// ==================== 监听 modelValue 变化同步到表单 ====================
 watch(() => props.modelValue, (newVal) => {
-  Object.entries(newVal).forEach(([key, value]) => {
-    if (values[key] !== value) {
-      setFieldValue(key, value)
-    }
-  })
-}, { deep: true })
+  modelValueRef.value = newVal
+})
 
-// ==================== 监听表单值变化同步给父组件 ====================
-watch(values, (newValues) => {
-  emit('update:modelValue', { ...newValues })
-}, { deep: true })
+// ==================== 组合式 API ====================
 
-// ==================== 渲染不同类型的表单字段 ====================
+/**
+ * 使用动态表单组合式函数
+ * 处理表单核心逻辑，包括验证、提交等
+ */
+const {
+  values, // 表单当前值
+  errors, // 表单验证错误
+  meta, // 表单元信息
+  validate, // 表单验证方法
+  resetForm, // 表单重置方法
+  setFieldValue, // 设置字段值方法
+  setFieldTouched, // 设置字段触摸状态方法
+  handleSubmit, // 表单提交处理方法
+} = useDynamicForm({
+  schema: computed(() => props.schema),
+  modelValue: modelValueRef,
+  emit: emit as any,
+})
+
+/**
+ * 使用字段状态组合式函数
+ * 处理字段的可见性、禁用状态、必填状态等
+ */
+const {
+  isFieldVisible,
+  isFieldDisabled,
+  isFieldRequired,
+  isFieldReadonly,
+} = useFieldState({
+  values,
+  disabled: props.disabled,
+  readonly: props.readonly,
+})
+
+// ==================== 字段渲染 ====================
+
 /**
  * 渲染表单字段组件
+ * @param field 字段配置 schema
+ * @returns 渲染后的字段组件
  */
 function renderField(field: FormFieldSchema) {
+  // 获取字段状态
   const disabled = isFieldDisabled(field)
-  const fieldReadonly = props.readonly || field.readonly || false
+  const fieldReadonly = isFieldReadonly(field)
 
-  // 使用 useField 获取字段状态
-  const { value: fieldValue, errorMessage, handleChange, handleBlur } = useField(
+  // 使用 useField 获取字段状态（来自 VeeValidate）
+  const { value: fieldValue, handleChange, handleBlur } = useField(
     field.key,
     undefined,
     {
-      initialValue: initialValues.value[field.key],
+      initialValue: field.defaultValue,
     },
   )
 
+  // 构建字段通用属性
   const commonProps = {
     'modelValue': fieldValue.value,
     'onUpdate:modelValue': (val: any) => {
@@ -213,153 +158,65 @@ function renderField(field: FormFieldSchema) {
     ...field.componentProps,
   }
 
-  switch (field.type) {
-    case 'input':
-      return h(ElInput, commonProps)
-
-    case 'textarea':
-      return h(ElInput, { ...commonProps, type: 'textarea', rows: 4 })
-
-    case 'number':
-      return h(ElInput, { ...commonProps, type: 'number' })
-
-    case 'select':
-      return h(
-        ElSelect,
-        { ...commonProps, style: { width: '100%' } },
-        () =>
-          field.options?.map(opt =>
-            h(ElOption, {
-              key: opt.value,
-              label: opt.label,
-              value: opt.value,
-              disabled: opt.disabled,
-            }),
-          ),
-      )
-
-    case 'radio':
-      return h(
-        ElRadioGroup,
-        { 'modelValue': fieldValue.value, 'onUpdate:modelValue': (val: any) => {
-          fieldValue.value = val
-          handleChange?.(val)
-        }, disabled },
-        () =>
-          field.options?.map(opt =>
-            h(ElRadio, {
-              key: opt.value,
-              label: opt.label,
-              value: opt.value,
-              disabled: opt.disabled,
-            }),
-          ),
-      )
-
-    case 'checkbox':
-      return h(
-        ElCheckboxGroup,
-        { 'modelValue': fieldValue.value, 'onUpdate:modelValue': (val: any) => {
-          fieldValue.value = val
-          handleChange?.(val)
-        }, disabled },
-        () =>
-          field.options?.map(opt =>
-            h(ElCheckbox, {
-              key: opt.value,
-              label: opt.label,
-              value: opt.value,
-              disabled: opt.disabled,
-            }),
-          ),
-      )
-
-    case 'date':
-      return h(ElDatePicker, {
-        ...commonProps,
-        type: 'date',
-        style: { width: '100%' },
-        valueFormat: 'YYYY-MM-DD',
-      })
-
-    case 'datetime':
-      return h(ElDatePicker, {
-        ...commonProps,
-        type: 'datetime',
-        style: { width: '100%' },
-        valueFormat: 'YYYY-MM-DD HH:mm:ss',
-      })
-
-    case 'time':
-      return h(ElTimePicker, {
-        ...commonProps,
-        style: { width: '100%' },
-        valueFormat: 'HH:mm:ss',
-      })
-
-    case 'switch':
-      return h(ElSwitch, {
-        'modelValue': fieldValue.value,
-        'onUpdate:modelValue': (val: any) => {
-          fieldValue.value = val
-          handleChange?.(val)
-        },
-        disabled,
-      })
-
-    case 'cascader':
-      return h(ElCascader, {
-        ...commonProps,
-        options: (field.options || []) as any,
-        style: { width: '100%' },
-      })
-
-    case 'upload': {
-      const uploadProps: UploadProps = {
-        ...field.componentProps,
-        disabled,
-      }
-      return h(ElUpload, uploadProps)
-    }
-
-    default:
-      return h(ElInput, commonProps)
+  // 构建渲染上下文
+  const renderContext = {
+    field,
+    fieldValue,
+    handleChange,
+    handleBlur,
+    disabled,
+    fieldReadonly,
+    commonProps,
   }
+
+  // 使用映射表获取渲染器并渲染字段
+  const renderFunc = getFieldRenderer(field.type)
+  return renderFunc(renderContext)
 }
 
 // ==================== 表单提交/重置 ====================
+
 /**
- * 提交表单
+ * 表单提交处理
  */
 const onSubmit = handleSubmit(
+  // 提交成功回调
   (values) => {
     emit('submit', { ...values })
   },
+  // 提交失败回调
   (submissionContext) => {
-    // 将错误信息转换为 Record<string, string> 格式
     const errorMap: Record<string, string> = {}
-    // submissionContext.errors 是 Record<string, string> 类型
-    Object.entries(submissionContext.errors).forEach(([field, message]) => {
-      if (message) {
+    const errors = submissionContext.errors || {}
+
+    // 处理错误信息
+    Object.keys(errors).forEach((field) => {
+      const message = errors[field as keyof typeof errors]
+      if (message && typeof message === 'string') {
         errorMap[field] = message
       }
     })
+
+    // 触发验证失败事件
     emit('invalid', errorMap)
   },
 )
 
 /**
- * 重置表单
+ * 表单重置处理
  */
 function onReset() {
+  // 重置表单
   resetForm()
+  // 触发重置事件
   emit('reset')
 }
 
 // ==================== 暴露方法给父组件 ====================
+
 defineExpose({
   /** 手动触发表单校验 */
-  validate: validateForm,
+  validate,
   /** 重置表单 */
   reset: onReset,
   /** 设置某个字段的值 */
@@ -374,8 +231,16 @@ defineExpose({
   isValid: computed(() => meta.value.valid),
 })
 
-// ==================== 模板渲染 ====================
+// ==================== 模板计算属性 ====================
+
+/**
+ * 表单标签宽度
+ */
 const labelWidth = computed(() => props.schema.labelWidth || '100px')
+
+/**
+ * 表单栅格间距
+ */
 const gutter = computed(() => props.schema.gutter || 20)
 </script>
 
@@ -388,13 +253,16 @@ const gutter = computed(() => props.schema.gutter || 20)
   >
     <ElRow :gutter="gutter">
       <template v-for="field in schema.fields" :key="field.key">
-        <ElCol v-show="isFieldVisible(field)" :span="field.span || 24" :class="field.class">
+        <ElCol
+          v-show="isFieldVisible(field)"
+          :span="field.span || 24"
+          :class="field.class"
+        >
           <ElFormItem
             :label="field.label"
             :prop="field.key"
             :rules="{ required: isFieldRequired(field) }"
           >
-            <!-- 字段描述 -->
             <template v-if="field.description" #label>
               <span>
                 {{ field.label }}
@@ -406,14 +274,12 @@ const gutter = computed(() => props.schema.gutter || 20)
               </span>
             </template>
 
-            <!-- 渲染字段 -->
             <component :is="renderField(field)" />
           </ElFormItem>
         </ElCol>
       </template>
     </ElRow>
 
-    <!-- 表单操作按钮 -->
     <div v-if="showSubmit || showCancel" style="margin-top: 20px; text-align: right">
       <ElButton v-if="showCancel" @click="onReset">
         {{ schema.cancelButton?.text || '重置' }}

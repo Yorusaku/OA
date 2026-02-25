@@ -46,13 +46,15 @@ const props = withDefaults(defineProps<{
 
 const emit = defineEmits<{
   /** 节点变化 */
-  'node-change': [nodes: WorkflowNode[]]
+  nodeChange: [nodes: WorkflowNode[]]
   /** 边变化 */
-  'edge-change': [edges: WorkflowEdge[]]
+  edgeChange: [edges: WorkflowEdge[]]
   /** 节点选中 */
-  'node-select': [node: WorkflowNode]
+  nodeSelect: [node: WorkflowNode]
   /** 节点删除 */
-  'node-delete': [nodeId: string]
+  nodeDelete: [nodeId: string]
+  /** 从外部拖拽节点到画布 */
+  nodeDrop: [type: WorkflowNode['type'], position: { x: number, y: number }]
 }>()
 
 // ==================== 自定义节点类型注册 ====================
@@ -73,7 +75,9 @@ const {
   setElements,
   onConnect,
   onNodeClick,
+  onEdgeClick,
   onNodeDragStop,
+  project,
 } = useVueFlow()
 
 // ==================== 数据转换 ====================
@@ -148,7 +152,7 @@ onConnect((connection: Connection) => {
   }
 
   addEdges(toVueFlowEdge(newEdge))
-  emit('edge-change', [newEdge])
+  emit('edgeChange', [newEdge])
 })
 
 /**
@@ -156,7 +160,7 @@ onConnect((connection: Connection) => {
  */
 onNodeClick((event) => {
   const nodeData = event.node.data as WorkflowNode
-  emit('node-select', nodeData)
+  emit('nodeSelect', nodeData)
 })
 
 /**
@@ -164,8 +168,38 @@ onNodeClick((event) => {
  */
 onNodeDragStop((event) => {
   const updatedNodes = event.nodes.map(toWorkflowNode)
-  emit('node-change', updatedNodes)
+  emit('nodeChange', updatedNodes)
 })
+
+// ==================== 拖拽相关处理 ====================
+/**
+ * 处理拖拽悬停
+ */
+function onDragOver(event: DragEvent) {
+  event.preventDefault()
+  if (event.dataTransfer) {
+    event.dataTransfer.dropEffect = 'copy'
+  }
+}
+
+/**
+ * 处理节点放置
+ */
+function onDrop(event: DragEvent) {
+  event.preventDefault()
+  
+  const type = event.dataTransfer?.getData('node-type') as WorkflowNode['type']
+  if (!type) return
+  
+  // 使用 Vue Flow 的 project 方法将屏幕坐标转换为画布坐标
+  const bounds = (event.currentTarget as HTMLElement).getBoundingClientRect()
+  const position = project({
+    x: event.clientX - bounds.left,
+    y: event.clientY - bounds.top,
+  })
+  
+  emit('nodeDrop', type, position)
+}
 
 // ==================== 对外暴露方法 ====================
 /**
@@ -175,7 +209,7 @@ function addNode(node: WorkflowNode) {
   if (props.readonly)
     return
   addNodes(toVueFlowNode(node))
-  emit('node-change', [node])
+  emit('nodeChange', [node])
 }
 
 /**
@@ -185,15 +219,13 @@ function deleteNode(nodeId: string) {
   if (props.readonly)
     return
   removeNodes([nodeId])
-  emit('node-delete', nodeId)
+  emit('nodeDelete', nodeId)
 }
 
 /**
  * 获取当前画布的工作流定义
  */
 function getDefinition(): WorkflowDefinition {
-  // 这里需要从 Vue Flow 获取最新状态
-  // 简化实现，实际应该从 store 获取
   return props.definition
 }
 
@@ -205,7 +237,11 @@ defineExpose({
 </script>
 
 <template>
-  <div class="workflow-canvas">
+  <div
+    class="workflow-canvas"
+    @dragover="onDragOver"
+    @drop="onDrop"
+  >
     <VueFlow
       v-model="elements"
       :connection-mode="ConnectionMode.Loose"
@@ -220,7 +256,7 @@ defineExpose({
           .filter((c): c is any => c.type === 'position' && c.position != null)
           .map(c => ({ id: (c as any).id, position: c.position as any }))
           .map(toWorkflowNode)
-        emit('node-change', nodes)
+        emit('nodeChange', nodes)
       }"
       @edges-change="(changes) => {
         const edges = changes
@@ -228,7 +264,7 @@ defineExpose({
           .map(c => (c as any).item)
           .filter((e: Edge) => e?.data)
           .map((e: Edge) => e.data as WorkflowEdge)
-        emit('edge-change', edges)
+        emit('edgeChange', edges)
       }"
     >
       <template #node-start="props">

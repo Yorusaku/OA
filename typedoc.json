@@ -1,0 +1,32 @@
+{
+  "$schema": "https://typedoc.org/schema.json",
+  "entryPoints": [
+    "apps/web/src/composables",
+    "apps/web/src/stores",
+    "apps/web/src/api",
+    "apps/web/src/components",
+    "apps/web/src/types",
+    "apps/web/src/utils",
+    "packages/utils/src"
+  ],
+  "out": "docs/api-generated",
+  "plugin": ["typedoc-plugin-markdown"],
+  "readme": "none",
+  "excludePrivate": true,
+  "excludeProtected": true,
+  "excludeExternals": true,
+  "includeVersion": true,
+  "gitRevision": "main",
+  "hideBreadcrumbs": false,
+  "flattenOutputFiles": false,
+  "indexFormat": "table",
+  "fileExtension": ".md",
+  "navigation": {
+    "includeCategories": true,
+    "includeGroups": true,
+    "includeFolders": true
+  },
+  "textContentMappings": {
+    "title.memberPage": "{name}"
+  }
+}

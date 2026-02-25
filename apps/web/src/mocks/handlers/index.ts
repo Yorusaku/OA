@@ -1,8 +1,8 @@
-import { userHandlers } from './user'
 import { approvalHandlers } from './approval'
-import { workflowHandlers } from './workflow'
-import { orgHandlers } from './org'
 import { dictHandlers } from './dict'
+import { orgHandlers } from './org'
+import { userHandlers } from './user'
+import { workflowHandlers } from './workflow'
 
 export const handlers = [
   ...userHandlers,

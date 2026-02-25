@@ -4,6 +4,7 @@
 import type { RouteRecordRaw } from 'vue-router'
 import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
+import { useStorage } from '@vueuse/core'
 
 /**
  * 用户信息接口
@@ -31,14 +32,14 @@ export interface MenuItem {
  */
 export const useUserStore = defineStore('user', () => {
   /**
-   * 认证令牌
+   * 认证令牌（持久化到 localStorage）
    */
-  const token = ref<string | null>(null)
+  const token = useStorage('token', null as string | null)
 
   /**
-   * 用户信息
+   * 用户信息（持久化到 localStorage）
    */
-  const userInfo = ref<UserInfo | null>(null)
+  const userInfo = useStorage('userInfo', null as UserInfo | null)
 
   /**
    * 权限列表

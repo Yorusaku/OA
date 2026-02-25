@@ -1,44 +1,20 @@
-export function isMobilePhone(phone: string): boolean {
-  return /^1[3-9]\d{9}$/.test(phone)
-}
+/**
+ * @file validators.ts
+ * @description 验证工具函数
+ * 注意：此文件已迁移至 @oa/utils 包
+ * 请从 '@oa/utils' 导入相关函数
+ */
 
-export function isEmail(email: string): boolean {
-  return /^[^\s@]+@[^\s@][^\s.@]*\.[^\s@]+$/.test(email)
-}
+// 此文件已迁移至 @oa/utils
+// 请从 '@oa/utils' 导入相关函数
+export {
+  isMobilePhone, // 验证手机号
+  isEmail, // 验证邮箱
+  isIdCard, // 验证身份证
+  isUrl, // 验证 URL
+  isNumber, // 验证数字
+  isInteger, // 验证整数
+  isPositiveNumber, // 验证正数
+  isNotEmpty, // 验证非空
+} from '@oa/utils'
 
-export function isIdCard(idCard: string): boolean {
-  return /(^\d{15}$)|(^\d{18}$)|(^\d{17}([\dX])$)/i.test(idCard)
-}
-
-export function isUrl(url: string): boolean {
-  try {
-    new URL(url)
-    return true
-  }
-  catch {
-    return false
-  }
-}
-
-export function isNumber(value: any): boolean {
-  return !Number.isNaN(Number(value))
-}
-
-export function isInteger(value: any): boolean {
-  return Number.isInteger(Number(value))
-}
-
-export function isPositiveNumber(value: any): boolean {
-  const num = Number(value)
-  return !Number.isNaN(num) && num > 0
-}
-
-export function isNotEmpty(value: any): boolean {
-  if (value === null || value === undefined)
-    return false
-  if (typeof value === 'string')
-    return value.trim().length > 0
-  if (Array.isArray(value))
-    return value.length > 0
-  return true
-}

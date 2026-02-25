@@ -1,6 +1,6 @@
-import { http, delay, HttpResponse } from 'msw'
 import { API_PREFIX } from '@oa/utils'
-import { mockUsers, mockCurrentUser } from '../data/user'
+import { delay, http, HttpResponse } from 'msw'
+import { mockCurrentUser, mockUsers } from '../data/user'
 
 export const userHandlers = [
   http.post(`${API_PREFIX}/auth/login`, async () => {
@@ -9,7 +9,7 @@ export const userHandlers = [
       code: 0,
       message: '登录成功',
       data: {
-        token: 'mock-token-' + Date.now(),
+        token: `mock-token-${Date.now()}`,
         userInfo: mockCurrentUser,
       },
     })

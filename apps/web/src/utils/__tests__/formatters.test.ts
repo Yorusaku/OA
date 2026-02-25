@@ -1,5 +1,5 @@
-import { describe, it, expect } from 'vitest'
-import { formatDate, formatDateTime, formatMoney, formatFileSize, truncateText } from '@oa/utils'
+import { formatDate, formatDateTime, formatFileSize, formatMoney, truncateText } from '@oa/utils'
+import { describe, expect, it } from 'vitest'
 
 describe('formatters', () => {
   describe('formatDate', () => {

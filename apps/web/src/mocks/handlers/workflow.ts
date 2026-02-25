@@ -1,6 +1,6 @@
-import { http, delay, HttpResponse } from 'msw'
 import { API_PREFIX } from '@oa/utils'
-import { mockWorkflows, mockWorkflowDetail } from '../data/workflow'
+import { delay, http, HttpResponse } from 'msw'
+import { mockWorkflowDetail, mockWorkflows } from '../data/workflow'
 
 export const workflowHandlers = [
   http.get(`${API_PREFIX}/workflow/list`, async () => {
@@ -31,7 +31,7 @@ export const workflowHandlers = [
     return HttpResponse.json({
       code: 0,
       message: '创建成功',
-      data: { id: 'workflow-' + Date.now() },
+      data: { id: `workflow-${Date.now()}` },
     })
   }),
 

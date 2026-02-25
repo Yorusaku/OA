@@ -22,15 +22,18 @@
     "@tanstack/vue-query": "latest",
     "@vueuse/core": "latest",
     "axios": "latest",
+    "comlink": "^4.4.2",
     "echarts": "^6.0.0",
     "element-plus": "latest",
     "msw": "^2.0.0",
+    "pdfjs-dist": "^5.4.624",
     "pinia": "latest",
     "vue": "latest",
     "vue-router": "latest",
     "xlsx": "^0.18.5"
   },
   "devDependencies": {
+    "@oa/config": "workspace:*",
     "@playwright/test": "^1.58.2",
     "@tailwindcss/postcss": "^4.2.0",
     "@types/node": "latest",

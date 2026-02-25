@@ -17,6 +17,7 @@
 9. `phase-9-code-quality-optimization.md` 代码质量与架构优化（类型安全 + 代码复用 + 错误处理）。
 10. `phase-10-feature-enhancement.md` 功能扩展与增强（智能表单 + 审批增强 + 数据可视化）。
 11. `phase-11-devops-and-documentation.md` DevOps、测试与文档完善（自动化 + 测试 + 文档）。
+12. `phase-13-document-engine.md` 文档与表格引擎（Excel 导入导出 + PDF 预览）🆕。
 
 > 使用方式：每轮开发前，打开对应 `phase-*.md`，复制文件中的整段 Prompt 粘贴给 Agent，即可约束它只做当前阶段的工作。
 
@@ -159,6 +160,34 @@
 - 验证 CI/CD：
   - 推送代码到 GitHub，CI 流程正常运行；
   - 能够看到代码检查、类型检查、测试的执行结果。
+
+### 11. 阶段 13：文档与表格引擎 🆕
+
+- 验证 Excel 导入功能：
+  - 打开 `ExcelImporter` 组件 Demo 页面；
+  - 拖拽上传 .xlsx/.xls 文件，能正常解析并显示数据预览；
+  - 配置验证规则后，能正确标记错误数据；
+  - 点击"下载错误报告"能导出包含错误信息的 Excel 文件。
+- 验证 Excel 导出功能：
+  - 打开 `ExcelExporter` 组件 Demo 页面；
+  - 选择数据后点击导出，能下载格式正确的 Excel 文件；
+  - 自定义列配置后，导出的 Excel 列顺序和格式符合预期。
+- 验证 PDF 预览功能：
+  - 打开 `PdfViewer` 或 `DocumentPreview` 组件 Demo 页面；
+  - 加载 PDF 文件后能正常渲染；
+  - 缩放、翻页、旋转操作流畅；
+  - 点击打印/下载按钮能正常触发浏览器功能。
+- 验证统一文档预览：
+  - 使用 `DocumentPreview` 组件，传入 Excel 和 PDF 文件；
+  - 组件能自动识别文件类型并正确渲染；
+  - 无需手动指定 `type` 属性。
+- 验证性能：
+  - 上传大文件（10 万 + 行 Excel），UI 不卡顿；
+  - 打开大 PDF 文件，渲染流畅；
+  - 使用浏览器 DevTools 查看，Worker 线程正常工作，主线程无阻塞。
+- 查看文档：
+  - 打开 `apps/web/src/components/document/README.md`；
+  - 能够快速找到 API 文档和使用示例。
 
 ---
 
