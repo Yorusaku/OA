@@ -9,6 +9,11 @@ import { Background } from '@vue-flow/background'
 import { Controls } from '@vue-flow/controls'
 import {
   ConnectionMode,
+  onConnect,
+  onNodeClick,
+  onEdgeClick,
+  onNodeDragStop,
+  project,
   useVueFlow,
   VueFlow,
 } from '@vue-flow/core'
@@ -69,12 +74,52 @@ const nodeTypes = {
 
 // ==================== Vue Flow 初始化 ====================
 const {
+  addNodes,
+  removeNodes,
   addEdges,
+  removeEdges,
+  setElements,
+  findNode,
+  getNodes,
+  getEdges,
   onConnect,
   onNodeClick,
+  onEdgeClick,
   onNodeDragStop,
   project,
 } = useVueFlow()
+
+// 2. 修复：添加节点
+function addNode(node: WorkflowNode) {
+  if (props.readonly) return
+  // 使用 Vue Flow 官方 API 注入节点
+  addNodes([toVueFlowNode(node)])
+}
+
+// 3. 修复：删除节点
+function deleteNode(nodeId: string) {
+  if (props.readonly) return
+  // 使用 Vue Flow 官方 API 移除节点
+  removeNodes([nodeId])
+  // 注意：这里不要再 emit('nodeDelete')，避免和 Editor 形成无限循环
+}
+
+// 4. 新增：更新节点 (用于响应禁用状态等属性变化)
+function updateNode(node: WorkflowNode) {
+  const currentElements = [...getNodes.value, ...getEdges.value]
+  
+  const newElements = currentElements.map(el => {
+    if (el.id === node.id) {
+      return {
+        ...el,
+        data: { ...el.data, ...node }
+      }
+    }
+    return el
+  })
+  
+  setElements(newElements)
+}
 
 // ==================== 数据转换 ====================
 /**
@@ -116,34 +161,18 @@ function toWorkflowNode(node: Node): WorkflowNode {
   }
 }
 
-// ==================== 初始化元素 ====================
-const elements = ref<Array<Node | Edge>>([])
-
-// 监听 definition 变化，同步到画布
+// ==================== 监听 definition 变化，同步到画布 ====================
+// 1. 画布全量初始化 (只在初次加载时执行一次，防止覆盖现有画布)
 watch(
   () => props.definition,
-  (newDef, oldDef) => {
-    console.log('🎨 WorkflowCanvas watch triggered')
-    console.log('🎨 newDef:', newDef)
-    console.log('🎨 oldDef:', oldDef)
-    console.log('🎨 newDef.nodes:', newDef?.nodes)
-    console.log('🎨 newDef.edges:', newDef?.edges)
-    
-    if (!newDef) {
-      console.log('⚠️ newDef is null/undefined')
-      return
+  (newDef) => {
+    if (!newDef) return
+    if (!newDef.nodes || !newDef.edges) return
+    if (getNodes.value.length === 0 && (newDef?.nodes?.length || newDef?.edges?.length)) {
+      const nodes = newDef.nodes.map(toVueFlowNode)
+      const edges = newDef.edges.map(toVueFlowEdge)
+      setElements([...nodes, ...edges])
     }
-    
-    if (!newDef.nodes || !newDef.edges) {
-      console.log('⚠️ nodes or edges is undefined')
-      return
-    }
-    
-    const nodes = newDef.nodes.map(toVueFlowNode)
-    const edges = newDef.edges.map(toVueFlowEdge)
-    elements.value = [...nodes, ...edges]
-    console.log('✅ Canvas updated:', nodes.length, 'nodes,', edges.length, 'edges')
-    console.log('✅ elements.value:', elements.value)
   },
   { immediate: true },
 )
@@ -200,39 +229,26 @@ function onDragOver(event: DragEvent) {
 function onDrop(event: DragEvent) {
   event.preventDefault()
   
-  const type = event.dataTransfer?.getData('node-type') as WorkflowNode['type']
+  let type = event.dataTransfer?.getData('application/vueflow') as WorkflowNode['type']
+  if (!type) {
+    type = event.dataTransfer?.getData('node-type') as WorkflowNode['type']
+  }
   
-  if (!type) return
+  if (!type) {
+    console.error('❌ Drop 失败: 浏览器拦截了 dataTransfer 数据')
+    return
+  }
   
-  // 使用 project 方法转换坐标
-  const position = project({
-    x: event.clientX,
-    y: event.clientY,
+  const bounds = (event.currentTarget as HTMLElement).getBoundingClientRect()
+  const position = project({ 
+    x: event.clientX - bounds.left, 
+    y: event.clientY - bounds.top, 
   })
   
-  console.log('🖱️ onDrop:', { type, position })
-  
-  // 触发 nodeDrop 事件，让父组件创建节点
   emit('nodeDrop', type, position)
 }
 
 // ==================== 对外暴露方法 ====================
-/**
- * 添加新节点
- */
-function addNode(node: WorkflowNode) {
-  const vueFlowNode = toVueFlowNode(node)
-  elements.value = [...elements.value, vueFlowNode]
-  emit('nodeChange', [node])
-}
-
-/**
- * 删除节点
- */
-function deleteNode(nodeId: string) {
-  elements.value = elements.value.filter(el => el.id !== nodeId)
-  emit('nodeDelete', nodeId)
-}
 
 /**
  * 获取当前画布的工作流定义
@@ -244,6 +260,7 @@ function getDefinition(): WorkflowDefinition {
 defineExpose({
   addNode,
   deleteNode,
+  updateNode, // <--- 必须暴露出来给 Editor 调用
   getDefinition,
 })
 </script>
@@ -251,7 +268,6 @@ defineExpose({
 <template>
   <div class="workflow-canvas">
     <VueFlow
-      v-model="elements"
       :connection-mode="ConnectionMode.Loose"
       :fit-view-on-init="true"
       :snap-to-grid="true"
@@ -264,8 +280,8 @@ defineExpose({
       :pan-on-drag="true"
       :min-zoom="0.1"
       :max-zoom="2"
-      @dragover="onDragOver"
-      @drop="onDrop"
+      @dragover.prevent="onDragOver"
+      @drop.prevent="onDrop"
       @nodes-change="(changes) => {
         const nodes = changes
           .filter((c): c is any => c.type === 'position' && c.position != null)

@@ -74,13 +74,16 @@ export function useWorkflowEditor(workflowId: string) {
     }
 
     definition.value.nodes = [...definition.value.nodes, newNode]
+    console.log('✅ handleAddNode: Adding node', newNode)
+    canvasRef.value?.addNode(newNode)
   }
 
   function handleDragStart(event: DragEvent, type: WorkflowNode['type']) {
     draggingType.value = type
     if (event.dataTransfer) {
+      event.dataTransfer.setData('application/vueflow', type)
       event.dataTransfer.setData('node-type', type)
-      event.dataTransfer.effectAllowed = 'move'
+      event.dataTransfer.effectAllowed = 'copy'
     }
   }
 
@@ -96,6 +99,8 @@ export function useWorkflowEditor(workflowId: string) {
     }
 
     definition.value.nodes = [...definition.value.nodes, newNode]
+    console.log('✅ handleNodeDrop: Adding node', newNode)
+    canvasRef.value?.addNode(newNode)
   }
 
   function handleNodeChange(nodes: WorkflowNode[]) {
@@ -111,24 +116,28 @@ export function useWorkflowEditor(workflowId: string) {
   }
 
   function handleNodeDelete(nodeId: string) {
-    definition.value.nodes = definition.value.nodes.filter(n => n.id !== nodeId)
-    definition.value.edges = definition.value.edges.filter(
-      e => e.source !== nodeId && e.target !== nodeId,
-    )
-    selectedNode.value = undefined
-    ElMessage.success('节点已删除')
-  }
+  // 1. 更新本地定义数据
+  definition.value.nodes = definition.value.nodes.filter(n => n.id !== nodeId)
+  definition.value.edges = definition.value.edges.filter(
+    e => e.source !== nodeId && e.target !== nodeId,
+  )
+  selectedNode.value = undefined
+  ElMessage.success('节点已删除')
+  
+  // 2. 修复：主动通知画布将这个 DOM 销毁
+  canvasRef.value?.deleteNode(nodeId)
+}
 
-  function handleNodeUpdate(updatedNode: WorkflowNode) {
-    const index = definition.value.nodes.findIndex(n => n.id === updatedNode.id)
-    if (index !== -1) {
-      definition.value.nodes = definition.value.nodes.map((n, i) =>
-        i === index ? { ...updatedNode } : n
-      )
-      selectedNode.value = { ...updatedNode }
-      ElMessage.success('配置已保存')
-    }
+function handleNodeUpdate(updatedNode: WorkflowNode) {
+  const index = definition.value.nodes.findIndex(n => n.id === updatedNode.id)
+  if (index !== -1) {
+    definition.value.nodes[index] = updatedNode
+    selectedNode.value = { ...updatedNode }
+    ElMessage.success('配置已保存')
+
+    canvasRef.value?.updateNode(updatedNode)
   }
+}
 
   async function handleSave() {
     if (!workflowName.value.trim()) {
