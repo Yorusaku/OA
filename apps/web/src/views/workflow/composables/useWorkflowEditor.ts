@@ -16,7 +16,6 @@ export function useWorkflowEditor(workflowId: string) {
   const workflowDescription = ref('')
   const workflowStatus = ref<WorkflowStatus>('draft')
   const selectedNode = ref<WorkflowNode | undefined>()
-  const draggingType = ref<WorkflowNode['type'] | null>(null)
 
   const definition = ref<WorkflowDefinition>({
     id: '',
@@ -78,29 +77,50 @@ export function useWorkflowEditor(workflowId: string) {
     canvasRef.value?.addNode(newNode)
   }
 
-  function handleDragStart(event: DragEvent, type: WorkflowNode['type']) {
-    draggingType.value = type
-    if (event.dataTransfer) {
-      event.dataTransfer.setData('application/vueflow', type)
-      event.dataTransfer.setData('node-type', type)
-      event.dataTransfer.effectAllowed = 'copy'
+  function handleDragStart(event: MouseEvent, type: WorkflowNode['type']) {
+    // 阻止默认事件，防止浏览器拦截
+    event.preventDefault()
+    
+    console.log('🖐️ handleDragStart called with type:', type)
+    console.log('🖐️ canvasRef.value:', canvasRef.value)
+
+    // 使用 LogicFlow 的 startDrag API 接管拖拽
+    const nodeConfig = {
+      type: 'rect',
+      text: getDefaultNodeName(type),
+      properties: {
+        type,
+        name: getDefaultNodeName(type),
+        description: '',
+        handler: type === 'approval' || type === 'cc' ? { type: 'role', mode: 'or' } : undefined,
+        enabled: true
+      }
     }
+    
+    if (!canvasRef.value) {
+      console.error('❌ canvasRef.value is null')
+      return
+    }
+    
+    console.log('🖐️ Calling startDrag with:', nodeConfig)
+    canvasRef.value.startDrag(nodeConfig)
   }
 
   function handleNodeDrop(type: WorkflowNode['type'], position: { x: number, y: number }) {
-    const newNode: WorkflowNode = {
-      id: generateId(type),
-      type,
-      name: getDefaultNodeName(type),
-      description: '',
-      handler: type === 'approval' || type === 'cc' ? { type: 'role', mode: 'or' } : undefined,
-      position,
-      enabled: true,
+    // LogicFlow 的 startDrag 会自动处理节点添加，这里只需要更新本地数据
+    // 注意：此时节点已经被添加到画布，我们只需要同步数据
+    console.log('📍 handleNodeDrop: Node dropped at', position, 'type:', type)
+    
+    // 从画布获取最新的节点数据
+    const newDefinition = canvasRef.value?.getDefinition()
+    if (newDefinition) {
+      // 找到最新添加的节点（通过比较数量）
+      const lastNode = newDefinition.nodes[newDefinition.nodes.length - 1]
+      if (lastNode && !definition.value.nodes.find(n => n.id === lastNode.id)) {
+        definition.value.nodes = [...definition.value.nodes, lastNode]
+        console.log('✅ handleNodeDrop: Node synced', lastNode)
+      }
     }
-
-    definition.value.nodes = [...definition.value.nodes, newNode]
-    console.log('✅ handleNodeDrop: Adding node', newNode)
-    canvasRef.value?.addNode(newNode)
   }
 
   function handleNodeChange(nodes: WorkflowNode[]) {
@@ -133,9 +153,13 @@ function handleNodeUpdate(updatedNode: WorkflowNode) {
   if (index !== -1) {
     definition.value.nodes[index] = updatedNode
     selectedNode.value = { ...updatedNode }
-    ElMessage.success('配置已保存')
 
-    canvasRef.value?.updateNode(updatedNode)
+    if (canvasRef.value) {
+      console.log('🔄 正在通知 Canvas 更新节点...')
+      canvasRef.value.updateNode(updatedNode)
+    } else {
+      console.error('❌ canvasRef 为空，无法调用画布更新！')
+    }
   }
 }
 

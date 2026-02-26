@@ -12,8 +12,8 @@ defineProps<{
 
 defineEmits<{
   'update:workflowDescription': [value: string]
-  addNode: [type: WorkflowNode['type']]
-  dragStart: [event: DragEvent, type: WorkflowNode['type']]
+  'addNode': [type: WorkflowNode['type']]
+  'dragStart': [event: MouseEvent, type: WorkflowNode['type']]
 }>()
 
 const nodeTypes: Array<{ type: WorkflowNode['type'], label: string, icon: string }> = [
@@ -34,8 +34,7 @@ const nodeTypes: Array<{ type: WorkflowNode['type'], label: string, icon: string
           v-for="node in nodeTypes"
           :key="node.type"
           :class="['dnd-node', `is-${node.type}`]"
-          draggable="true"
-          @dragstart="$emit('dragStart', $event, node.type)"
+          @mousedown.prevent="$emit('dragStart', $event, node.type)"
           @click="$emit('addNode', node.type)"
         >
           <span class="icon">{{ node.icon }}</span> {{ node.label }}

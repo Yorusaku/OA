@@ -2,6 +2,11 @@
 /**
  * NodeConfigPanel - 节点属性配置面板
  * 使用策略模式和动态组件将配置表单拆分到独立子组件
+ * 
+ * 交互优化：实时同步模式
+ * - 去掉保存按钮
+ * - 使用 watch 深度监听 + 防抖
+ * - 用户修改配置后自动同步到画布
  */
 import type { WorkflowNode } from '@/types/workflow'
 import {
@@ -9,8 +14,9 @@ import {
   ElCard,
   ElDivider,
   ElIcon,
+  ElMessage,
 } from 'element-plus'
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { ApprovalConfig, BaseConfig, ConditionConfig } from './configs'
 
 // ==================== Props & Emits ====================
@@ -22,7 +28,7 @@ const props = defineProps<{
 }>()
 
 const emit = defineEmits<{
-  /** 节点配置更新 */
+  /** 节点配置更新（实时同步） */
   update: [node: WorkflowNode]
   /** 删除节点 */
   delete: [nodeId: string]
@@ -43,6 +49,29 @@ const localNode = ref<WorkflowNode>({
   enabled: true,
 })
 
+// 防抖定时器引用
+let syncTimeout: ReturnType<typeof setTimeout> | null = null
+
+// ==================== 实时同步逻辑 ====================
+/**
+ * 防抖同步函数
+ * 延迟 500ms 同步，避免输入过快导致频繁刷新
+ */
+function debouncedSync() {
+  // 清除之前的定时器
+  if (syncTimeout) {
+    clearTimeout(syncTimeout)
+  }
+  
+  // 创建新的防抖定时器（500ms 延迟）
+  syncTimeout = setTimeout(() => {
+    if (localNode.value.id) {
+      console.log('🔄 [Debounce] Syncing node config:', localNode.value.name)
+      emit('update', { ...localNode.value })
+    }
+  }, 500)
+}
+
 // 同步 node prop 到本地状态
 watch(
   () => props.node,
@@ -55,6 +84,19 @@ watch(
     }
   },
   { immediate: true, deep: true },
+)
+
+// 深度监听 localNode 变化，实时同步到画布
+watch(
+  () => localNode.value,
+  () => {
+    // 只有当节点有 ID 时才同步（避免初始化时同步空数据）
+    if (localNode.value.id) {
+      console.log('🔄 [Watch] Node config changed, scheduling sync...')
+      debouncedSync()
+    }
+  },
+  { deep: true }
 )
 
 // ==================== 计算属性 ====================
@@ -75,13 +117,6 @@ const CurrentConfigComponent = computed(() => {
 
 // ==================== 事件处理 ====================
 /**
- * 保存配置
- */
-function handleSave() {
-  emit('update', { ...localNode.value })
-}
-
-/**
  * 删除节点
  */
 function handleDelete() {
@@ -94,6 +129,10 @@ function handleDelete() {
  * 关闭面板
  */
 function handleClose() {
+  // 取消待执行的防抖同步
+  if (syncTimeout) {
+    clearTimeout(syncTimeout)
+  }
   emit('close')
 }
 
@@ -103,6 +142,19 @@ function handleClose() {
 function handleModelUpdate(updatedNode: WorkflowNode) {
   localNode.value = updatedNode
 }
+
+/**
+ * 立即同步（用于重要配置变更）
+ */
+function syncImmediately() {
+  if (syncTimeout) {
+    clearTimeout(syncTimeout)
+  }
+  if (localNode.value.id) {
+    console.log('⚡ [Immediate] Syncing node config:', localNode.value.name)
+    emit('update', { ...localNode.value })
+  }
+}
 </script>
 
 <template>
@@ -110,15 +162,21 @@ function handleModelUpdate(updatedNode: WorkflowNode) {
     <template #header>
       <div class="panel-header">
         <span class="panel-title">节点配置</span>
-        <ElButton
-          v-if="!isStartOrEnd"
-          link
-          type="danger"
-          size="small"
-          @click="handleDelete"
-        >
-          删除节点
-        </ElButton>
+        <div class="header-actions">
+          <span v-if="localNode.id" class="sync-indicator" title="实时同步中">
+            <span class="sync-dot"></span>
+            实时同步
+          </span>
+          <ElButton
+            v-if="!isStartOrEnd"
+            link
+            type="danger"
+            size="small"
+            @click="handleDelete"
+          >
+            删除节点
+          </ElButton>
+        </div>
       </div>
     </template>
 
@@ -137,15 +195,22 @@ function handleModelUpdate(updatedNode: WorkflowNode) {
       @update:model-value="handleModelUpdate"
     />
 
-    <ElDivider v-if="!isStartOrEnd" />
+    <!-- 提示文字 -->
+    <div v-if="!isStartOrEnd" class="sync-hint">
+      <ElIcon :size="14" color="#909399">
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="10" />
+          <line x1="12" y1="16" x2="12" y2="12" />
+          <line x1="12" y1="8" x2="12.01" y2="8" />
+        </svg>
+      </ElIcon>
+      <span>修改后将自动同步到画布</span>
+    </div>
 
-    <!-- 操作按钮 -->
+    <!-- 操作按钮（只保留关闭） -->
     <div class="panel-actions">
       <ElButton @click="handleClose">
-        取消
-      </ElButton>
-      <ElButton type="primary" @click="handleSave">
-        保存
+        关闭
       </ElButton>
     </div>
   </ElCard>
@@ -188,8 +253,51 @@ function handleModelUpdate(updatedNode: WorkflowNode) {
   color: #303133;
 }
 
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.sync-indicator {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  color: #67c23a;
+}
+
+.sync-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #67c23a;
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+.sync-hint {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 12px;
+  padding: 8px 12px;
+  background: #f5f7fa;
+  border-radius: 4px;
+  font-size: 12px;
+  color: #909399;
+}
+
 .panel-actions {
-  margin-top: 16px;
+  margin-top: auto;
   display: flex;
   justify-content: flex-end;
   gap: 8px;

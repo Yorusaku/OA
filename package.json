@@ -13,5 +13,8 @@
     "docs:build": "vitepress build docs",
     "docs:preview": "vitepress preview docs",
     "docs:api": "typedoc --options typedoc.json"
+  },
+  "devDependencies": {
+    "turbo": "^2.3.3"
   }
 }

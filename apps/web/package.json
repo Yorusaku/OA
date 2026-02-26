@@ -18,6 +18,8 @@
   },
   "dependencies": {
     "@element-plus/icons-vue": "^2.3.2",
+    "@logicflow/core": "^2.1.11",
+    "@logicflow/extension": "^2.1.13",
     "@oa/utils": "workspace:*",
     "@tanstack/vue-query": "latest",
     "@vueuse/core": "latest",
@@ -26,6 +28,7 @@
     "echarts": "^6.0.0",
     "element-plus": "latest",
     "msw": "^2.0.0",
+    "nanoid": "^5.1.6",
     "pdfjs-dist": "^5.4.624",
     "pinia": "latest",
     "vue": "latest",

@@ -1,31 +1,16 @@
 <script setup lang="ts">
-import type { Connection, Edge, Node } from '@vue-flow/core'
 /**
  * WorkflowCanvas - 工作流画布组件
- * 基于 @vue-flow/core 实现流程编排画布
+ * 基于 LogicFlow 2.x 实现流程编排画布
+ * 核心原则：LogicFlow 实例不被 Vue 深度代理，使用普通变量存储
  */
-import type { WorkflowDefinition, WorkflowEdge, WorkflowNode } from '@/types/workflow'
-import { Background } from '@vue-flow/background'
-import { Controls } from '@vue-flow/controls'
-import {
-  ConnectionMode,
-  onConnect,
-  onNodeClick,
-  onEdgeClick,
-  onNodeDragStop,
-  project,
-  useVueFlow,
-  VueFlow,
-} from '@vue-flow/core'
-import { MiniMap } from '@vue-flow/minimap'
-import { onMounted, watch } from 'vue'
+import LogicFlow from '@logicflow/core'
+import { DndPanel } from '@logicflow/extension'
+import type { WorkflowDefinition, WorkflowEdge, WorkflowNode, WorkflowNodeType } from '@/types/workflow'
+import { shallowRef, onMounted, onBeforeUnmount, watch } from 'vue'
 
-import ApprovalNode from './nodes/ApprovalNode.vue'
-import CcNode from './nodes/CcNode.vue'
-import ConditionNode from './nodes/ConditionNode.vue'
-import EndNode from './nodes/EndNode.vue'
-// 导入节点组件
-import StartNode from './nodes/StartNode.vue'
+// 引入 LogicFlow 样式（必须！否则画布会空白）
+import '@logicflow/core/dist/index.css'
 
 // ==================== Props & Emits ====================
 const props = withDefaults(defineProps<{
@@ -59,319 +44,478 @@ const emit = defineEmits<{
   nodeSelect: [node: WorkflowNode]
   /** 节点删除 */
   nodeDelete: [nodeId: string]
-  /** 从外部拖拽节点到画布 */
+  /** 从外部拖拽节点到画布（新增节点） */
   nodeDrop: [type: WorkflowNode['type'], position: { x: number, y: number }]
 }>()
 
-// ==================== 自定义节点类型注册 ====================
-const nodeTypes = {
-  start: StartNode,
-  approval: ApprovalNode,
-  cc: CcNode,
-  condition: ConditionNode,
-  end: EndNode,
-}
+// ==================== LogicFlow 实例 ====================
+// 核心原则：使用普通变量，不被 Vue 深度代理
+let lf: LogicFlow | null = null
+const containerRef = shallowRef<HTMLElement | null>(null)
 
-// ==================== Vue Flow 初始化 ====================
-const {
-  addNodes,
-  removeNodes,
-  addEdges,
-  removeEdges,
-  setElements,
-  findNode,
-  getNodes,
-  getEdges,
-  onConnect,
-  onNodeClick,
-  onEdgeClick,
-  onNodeDragStop,
-  project,
-} = useVueFlow()
+// 是否已初始化
+let isInitialized = false
 
-// 2. 修复：添加节点
-function addNode(node: WorkflowNode) {
-  if (props.readonly) return
-  // 使用 Vue Flow 官方 API 注入节点
-  addNodes([toVueFlowNode(node)])
-}
+// ==================== 数据适配器 (Adapter) ====================
 
-// 3. 修复：删除节点
-function deleteNode(nodeId: string) {
-  if (props.readonly) return
-  // 使用 Vue Flow 官方 API 移除节点
-  removeNodes([nodeId])
-  // 注意：这里不要再 emit('nodeDelete')，避免和 Editor 形成无限循环
-}
-
-// 4. 新增：更新节点 (用于响应禁用状态等属性变化)
-function updateNode(node: WorkflowNode) {
-  const currentElements = [...getNodes.value, ...getEdges.value]
-  
-  const newElements = currentElements.map(el => {
-    if (el.id === node.id) {
-      return {
-        ...el,
-        data: { ...el.data, ...node }
+/**
+ * 将 WorkflowDefinition 转换为 LogicFlow GraphData
+ */
+function toLogicFlowData(definition: WorkflowDefinition) {
+  return {
+    nodes: definition.nodes.map(node => ({
+      id: node.id,
+      type: 'rect',  // 使用标准矩形节点
+      x: node.position?.x || 0,
+      y: node.position?.y || 0,
+      text: node.name,
+      properties: { 
+        ...node,
+        nodeType: node.type  // 保存原始类型用于样式判断
       }
+    })),
+    edges: definition.edges.map(edge => ({
+      id: edge.id,
+      sourceNodeId: edge.source,  // ✅ 正确映射
+      targetNodeId: edge.target,  // ✅ 正确映射
+      type: 'polyline',           // 使用折线
+      text: edge.label || '',
+      properties: { ...edge }  // 保留完整业务数据
+    }))
+  }
+}
+
+/**
+ * 将 LogicFlow GraphData 转换为 WorkflowDefinition
+ * 注意：LogicFlow 导出的 text 可能是字符串或 { value: string } 对象
+ */
+function toWorkflowDefinition(graphData: ReturnType<typeof toLogicFlowData>): WorkflowDefinition {
+  return {
+    id: '',
+    name: '',
+    status: 'draft',
+    nodes: graphData.nodes.map((node: any) => {
+      // 兼容 text 可能是字符串或对象
+      const textValue = typeof node.text === 'string' ? node.text : (node.text as any)?.value || ''
+      const props = node.properties as WorkflowNode || {} as WorkflowNode
+      return {
+        ...props,
+        id: node.id,
+        type: (props.type || 'approval') as WorkflowNodeType,
+        name: textValue,
+        position: { x: node.x || 0, y: node.y || 0 }
+      }
+    }),
+    edges: graphData.edges.map((edge: any) => {
+      const textValue = typeof edge.text === 'string' ? edge.text : (edge.text as any)?.value || ''
+      const props = edge.properties as WorkflowEdge || {} as WorkflowEdge
+      return {
+        ...props,
+        id: edge.id,
+        source: edge.sourceNodeId,
+        target: edge.targetNodeId,
+        label: textValue
+      }
+    })
+  }
+}
+
+/**
+ * 根据节点类型获取样式
+ */
+function getNodeStyle(type: WorkflowNodeType) {
+  const styleMap: Record<WorkflowNodeType, any> = {
+    start: {
+      fill: '#667eea',
+      stroke: '#667eea',
+      strokeWidth: 2,
+      color: '#fff'
+    },
+    approval: {
+      fill: '#ecf5ff',
+      stroke: '#409eff',
+      strokeWidth: 2,
+      color: '#303133'
+    },
+    cc: {
+      fill: '#f0f9ff',
+      stroke: '#67c23a',
+      strokeWidth: 2,
+      color: '#303133'
+    },
+    condition: {
+      fill: '#fdf6ec',
+      stroke: '#e6a23c',
+      strokeWidth: 2,
+      color: '#303133'
+    },
+    end: {
+      fill: '#f4f4f5',
+      stroke: '#909399',
+      strokeWidth: 2,
+      color: '#303133'
     }
-    return el
-  })
-  
-  setElements(newElements)
+  }
+  return styleMap[type] || styleMap.approval
 }
 
-// ==================== 数据转换 ====================
 /**
- * 将 WorkflowNode 转换为 Vue Flow Node
+ * 应用节点样式
  */
-function toVueFlowNode(node: WorkflowNode): Node {
+function applyNodeStyle(nodeId: string, type: WorkflowNodeType, enabled?: boolean) {
+  if (!lf) return
+  
+  const style = enabled === false ? getDisabledStyle() : getNodeStyle(type)
+  lf.setElementStyle(nodeId, style)
+}
+
+/**
+ * 获取禁用状态样式
+ */
+function getDisabledStyle() {
   return {
-    id: node.id,
-    type: node.type,
-    position: node.position || { x: 0, y: 0 },
-    data: { ...node },
-    draggable: !props.readonly,
-    selectable: true,
-    deletable: !props.readonly,
+    fill: '#f5f7fa',
+    stroke: '#dcdfe6',
+    strokeWidth: 2,
+    strokeDasharray: '3 3',
+    opacity: 0.6,
+    color: '#909399'
   }
-}
-
-/**
- * 将 WorkflowEdge 转换为 Vue Flow Edge
- */
-function toVueFlowEdge(edge: WorkflowEdge): Edge {
-  return {
-    id: edge.id,
-    source: edge.source,
-    target: edge.target,
-    label: edge.label || '',
-    data: { ...edge },
-    deletable: !props.readonly,
-  }
-}
-
-/**
- * 将 Vue Flow Node 转换回 WorkflowNode
- */
-function toWorkflowNode(node: Node): WorkflowNode {
-  return {
-    ...(node.data as WorkflowNode),
-    position: { ...node.position },
-  }
-}
-
-// ==================== 监听 definition 变化，同步到画布 ====================
-// 1. 画布全量初始化 (只在初次加载时执行一次，防止覆盖现有画布)
-watch(
-  () => props.definition,
-  (newDef) => {
-    if (!newDef) return
-    if (!newDef.nodes || !newDef.edges) return
-    if (getNodes.value.length === 0 && (newDef?.nodes?.length || newDef?.edges?.length)) {
-      const nodes = newDef.nodes.map(toVueFlowNode)
-      const edges = newDef.edges.map(toVueFlowEdge)
-      setElements([...nodes, ...edges])
-    }
-  },
-  { immediate: true },
-)
-
-// ==================== 事件处理 ====================
-/**
- * 处理节点连接
- */
-onConnect((connection: Connection) => {
-  if (props.readonly)
-    return
-
-  const newEdge: WorkflowEdge = {
-    id: `edge-${Date.now()}`,
-    source: connection.source || '',
-    target: connection.target || '',
-    label: '',
-  }
-
-  addEdges(toVueFlowEdge(newEdge))
-  emit('edgeChange', [newEdge])
-})
-
-/**
- * 处理节点点击
- */
-onNodeClick((event) => {
-  const nodeData = event.node.data as WorkflowNode
-  emit('nodeSelect', nodeData)
-})
-
-/**
- * 处理节点拖拽结束
- */
-onNodeDragStop((event) => {
-  const updatedNodes = event.nodes.map(toWorkflowNode)
-  emit('nodeChange', updatedNodes)
-})
-
-// ==================== 拖拽相关处理 ====================
-/**
- * 处理拖拽悬停
- */
-function onDragOver(event: DragEvent) {
-  event.preventDefault()
-  if (event.dataTransfer) {
-    event.dataTransfer.dropEffect = 'copy'
-  }
-}
-
-/**
- * 处理节点放置
- */
-function onDrop(event: DragEvent) {
-  event.preventDefault()
-  
-  let type = event.dataTransfer?.getData('application/vueflow') as WorkflowNode['type']
-  if (!type) {
-    type = event.dataTransfer?.getData('node-type') as WorkflowNode['type']
-  }
-  
-  if (!type) {
-    console.error('❌ Drop 失败: 浏览器拦截了 dataTransfer 数据')
-    return
-  }
-  
-  const bounds = (event.currentTarget as HTMLElement).getBoundingClientRect()
-  const position = project({ 
-    x: event.clientX - bounds.left, 
-    y: event.clientY - bounds.top, 
-  })
-  
-  emit('nodeDrop', type, position)
 }
 
 // ==================== 对外暴露方法 ====================
 
 /**
+ * 添加节点
+ */
+function addNode(node: WorkflowNode) {
+  if (props.readonly || !lf) return
+  lf.addNode({
+    id: node.id,
+    type: 'rect',  // 使用标准矩形节点
+    x: node.position?.x || 0,
+    y: node.position?.y || 0,
+    text: node.name,
+    properties: { 
+      ...node,
+      nodeType: node.type  // 保存原始类型
+    }
+  })
+  
+  // 应用样式
+  setTimeout(() => {
+    applyNodeStyle(node.id, node.type, node.enabled)
+  }, 0)
+}
+
+/**
+ * 删除节点
+ */
+function deleteNode(nodeId: string) {
+  if (props.readonly || !lf) return
+  lf.deleteNode(nodeId)
+}
+
+/**
+ * 更新节点属性
+ */
+function updateNode(node: WorkflowNode) {
+  if (!lf) return
+  
+  console.log('🔄 updateNode called with:', node)
+  
+  // 更新节点属性
+  lf.setProperties(node.id, { ...node })
+  
+  // 获取节点 model 并更新文本
+  const model = lf.getNodeModelById(node.id)
+  if (model) {
+    console.log('🔄 Found model, updating text and style')
+    // 更新文本
+    if (model.setText) {
+      model.setText(node.name)
+    } else if (model.text) {
+      model.text.value = node.name
+    }
+    
+    // 应用样式（根据启用状态）
+    applyNodeStyle(node.id, node.type, node.enabled)
+  } else {
+    console.error('❌ Model not found for node:', node.id)
+  }
+}
+
+/**
  * 获取当前画布的工作流定义
  */
 function getDefinition(): WorkflowDefinition {
-  return props.definition
+  if (!lf) return props.definition
+  const graphData = lf.getData()
+  return toWorkflowDefinition(graphData)
+}
+
+/**
+ * 开始拖拽（用于外部拖拽入场）
+ * 注意：LogicFlow 2.x 通过 lf.dnd.startDrag 实现
+ */
+function startDrag(nodeConfig: { type: string, text?: string, properties?: any }) {
+  console.log('🎨 WorkflowCanvas.startDrag called with:', nodeConfig)
+  console.log('🎨 lf instance:', lf)
+  console.log('🎨 lf.dnd:', lf?.dnd)
+  
+  if (!lf) {
+    console.error('❌ LogicFlow instance is not initialized')
+    return
+  }
+  
+  if (!lf.dnd) {
+    console.error('❌ lf.dnd is not available. Did you register DndPanel plugin?')
+    return
+  }
+  
+  // LogicFlow 2.x: 使用 lf.dnd.startDrag
+  lf.dnd.startDrag({
+    type: nodeConfig.type,
+    text: nodeConfig.text,
+    properties: nodeConfig.properties
+  })
+  
+  console.log('✅ startDrag completed')
 }
 
 defineExpose({
   addNode,
   deleteNode,
-  updateNode, // <--- 必须暴露出来给 Editor 调用
+  updateNode,
   getDefinition,
+  startDrag
 })
+
+// ==================== 生命周期 ====================
+
+onMounted(async () => {
+  if (!containerRef.value) return
+
+  // 动态导入 LogicFlow
+  const { default: LogicFlowConstructor } = await import('@logicflow/core')
+
+  // 初始化 LogicFlow 实例
+  lf = new LogicFlowConstructor({
+    container: containerRef.value,
+    grid: {
+      visible: props.showGrid,
+      type: 'dot',
+      size: 20
+    },
+    style: {
+      rect: {
+        rx: 8,
+        ry: 8
+      }
+    },
+    stopScrollZoom: false,
+    stopMoveGraph: false,
+    allowRotation: false,
+    multipleSelectKey: 'shift',
+    snapline: true,
+    keyboard: {
+      enabled: true
+    },
+    plugins: [DndPanel]
+  })
+
+  // 设置主题样式（根据节点类型）
+  lf.setTheme({
+    rect: {
+      rx: 8,
+      ry: 8,
+      strokeWidth: 2
+    },
+    text: {
+      color: '#303133',
+      fontSize: 12
+    }
+  })
+
+  // 渲染初始数据
+  const graphData = toLogicFlowData(props.definition)
+  lf.render(graphData)
+
+  // 应用节点样式（渲染完成后）
+  graphData.nodes.forEach(node => {
+    const properties = node.properties as WorkflowNode
+    if (properties?.type) {
+      applyNodeStyle(node.id, properties.type, properties.enabled)
+    }
+  })
+
+  // 绑定事件
+  lf.on('node:click', ({ data, e }) => {
+    console.log('🖱️ node:click event fired', data)
+    const nodeData = data.properties as WorkflowNode
+    console.log('🖱️ Emitting nodeSelect with:', nodeData)
+    emit('nodeSelect', nodeData)
+  })
+
+  lf.on('edge:click', ({ data }) => {
+    const edgeData = data.properties as WorkflowEdge
+    if (edgeData) {
+      emit('edgeChange', [edgeData])
+    }
+  })
+
+  lf.on('node:dragend', () => {
+    syncNodePositions()
+  })
+
+  lf.on('node:delete', ({ data }) => {
+    emit('nodeDelete', data.id)
+  })
+
+  lf.on('edge:add', ({ data }) => {
+    const edge: WorkflowEdge = {
+      id: data.id,
+      source: data.sourceNodeId,
+      target: data.targetNodeId,
+      label: typeof data.text === 'string' ? data.text : (data.text as any)?.value || ''
+    }
+    emit('edgeChange', [edge])
+  })
+
+  lf.on('edge:delete', () => {
+    // 边删除时，通知父组件刷新数据
+    if (lf) {
+      const graphData = lf.getData()
+      const edges = toWorkflowDefinition(graphData).edges
+      emit('edgeChange', edges)
+    }
+  })
+
+  lf.on('node:add', ({ data }) => {
+    // 当通过 startDrag 添加节点时，通知父组件更新数据
+    const properties = data.properties as WorkflowNode || {} as WorkflowNode
+    const textValue = typeof data.text === 'string' ? data.text : (data.text as any)?.value || ''
+    const node: WorkflowNode = {
+      ...properties,
+      id: data.id,
+      type: (properties.type || 'approval') as WorkflowNodeType,
+      name: textValue,
+      position: { x: data.x || 0, y: data.y || 0 },
+      enabled: true
+    }
+    emit('nodeDrop', node.type, node.position!)
+  })
+
+  isInitialized = true
+})
+
+onBeforeUnmount(() => {
+  if (lf) {
+    lf.destroy()
+    lf = null
+  }
+})
+
+// ==================== 同步节点位置 ====================
+
+/**
+ * 同步节点位置到父组件
+ */
+function syncNodePositions() {
+  if (!lf) return
+  const graphData = lf.getData()
+  const nodes = graphData.nodes.map((node: any) => {
+    const textValue = typeof node.text === 'string' ? node.text : (node.text as any)?.value || ''
+    const props = node.properties as WorkflowNode || {} as WorkflowNode
+    return {
+      ...props,
+      id: node.id,
+      type: (props.type || 'approval') as WorkflowNodeType,
+      name: textValue,
+      position: { x: node.x || 0, y: node.y || 0 }
+    }
+  })
+  emit('nodeChange', nodes)
+}
+
+// ==================== 监听 definition 变化 ====================
+
+watch(
+  () => props.definition,
+  (newDef) => {
+    if (!newDef || !lf || !isInitialized) return
+    if (!newDef.nodes || !newDef.edges) return
+
+    // 只在画布为空时初始化
+    const currentData = lf.getData()
+    if (currentData.nodes.length === 0 && currentData.edges.length === 0) {
+      const graphData = toLogicFlowData(newDef)
+      lf.render(graphData)
+      // 样式由 WorkflowNodeModel 自动处理，无需手动设置
+    }
+  },
+  { immediate: true }
+)
+
+// ==================== 只读模式 ====================
+
+watch(
+  () => props.readonly,
+  (readonly) => {
+    if (!lf) return
+    // LogicFlow 没有直接的只读模式，需要禁用交互
+    lf.updateConfiguration({
+      stopMoveGraph: readonly,
+      allowRotation: false
+    })
+  }
+)
 </script>
 
 <template>
-  <div class="workflow-canvas">
-    <VueFlow
-      :connection-mode="ConnectionMode.Loose"
-      :fit-view-on-init="true"
-      :snap-to-grid="true"
-      :snap-grid="[15, 15]"
-      :delete-key-code="['Backspace', 'Delete']"
-      :nodes-connectable="!readonly"
-      :nodes-draggable="!readonly"
-      :zoom-on-scroll="true"
-      :zoom-on-pinch="true"
-      :pan-on-drag="true"
-      :min-zoom="0.1"
-      :max-zoom="2"
-      @dragover.prevent="onDragOver"
-      @drop.prevent="onDrop"
-      @nodes-change="(changes) => {
-        const nodes = changes
-          .filter((c): c is any => c.type === 'position' && c.position != null)
-          .map(c => ({ id: (c as any).id, position: c.position as any }))
-          .map(toWorkflowNode)
-        emit('nodeChange', nodes)
-      }"
-      @edges-change="(changes) => {
-        const edges = changes
-          .filter(c => c.type !== 'remove')
-          .map(c => (c as any).item)
-          .filter((e: Edge) => e?.data)
-          .map((e: Edge) => e.data as WorkflowEdge)
-        emit('edgeChange', edges)
-      }"
-    >
-      <template #node-start="props">
-        <StartNode v-bind="props" />
-      </template>
-      <template #node-approval="props">
-        <ApprovalNode v-bind="props" />
-      </template>
-      <template #node-cc="props">
-        <CcNode v-bind="props" />
-      </template>
-      <template #node-condition="props">
-        <ConditionNode v-bind="props" />
-      </template>
-      <template #node-end="props">
-        <EndNode v-bind="props" />
-      </template>
-
-      <Background v-if="showGrid" :gap="20" :size="1" />
-      <Controls v-if="!readonly" />
-      <MiniMap
-        v-if="showMinimap"
-        :node-color="(node) => {
-          const type = (node.data as WorkflowNode)?.type
-          switch (type) {
-          case 'start': return '#667eea'
-          case 'approval': return '#409eff'
-          case 'cc': return '#67c23a'
-          case 'condition': return '#e6a23c'
-          case 'end': return '#909399'
-          default: return '#409eff'
-          }
-        }"
-      />
-    </VueFlow>
-  </div>
+  <div ref="containerRef" class="workflow-canvas" style="width: 100%; height: 800px; background: #fafafa;"></div>
 </template>
-
-<style>
-@import '@vue-flow/core/dist/style.css';
-@import '@vue-flow/core/dist/theme-default.css';
-@import '@vue-flow/controls/dist/style.css';
-@import '@vue-flow/minimap/dist/style.css';
-</style>
 
 <style scoped>
 .workflow-canvas {
   width: 100%;
   height: 100%;
-  min-height: 500px;
+  min-height: 600px;
   background: #f5f7fa;
   border-radius: 8px;
   overflow: hidden;
   position: relative;
 }
 
-:deep(.vue-flow__node) {
-  cursor: pointer;
+:deep(.lf-container) {
+  background: transparent;
 }
 
-:deep(.vue-flow__node:hover) {
+:deep(.lf-node) {
+  cursor: pointer;
+  transition: filter 0.3s ease;
+}
+
+:deep(.lf-node:hover) {
   filter: brightness(0.95);
 }
 
-:deep(.vue-flow__edge-path) {
-  stroke: #409eff;
-  stroke-width: 2;
+:deep(.lf-edge) {
+  cursor: pointer;
 }
 
-:deep(.vue-flow__controls) {
+:deep(.lf-edge-text) {
+  font-size: 12px;
+  fill: #606266;
+}
+
+:deep(.lf-control) {
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   border-radius: 4px;
 }
 
-:deep(.vue-flow__minimap) {
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-  border-radius: 4px;
+:deep(.lf-dnd) {
+  position: absolute;
+  z-index: 1000;
 }
 </style>

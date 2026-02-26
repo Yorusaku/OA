@@ -54,7 +54,7 @@
 | **组织架构** | `/org/tree` | 部门树展示、成员列表管理 | 递归组件 + 懒加载 |
 | **通讯录** | `/contacts/list` | 全员通讯录、虚拟滚动优化 | 虚拟列表万级数据流畅渲染 |
 | **系统管理** | `/system/*` | 用户管理、角色管理、权限配置 | RBAC 权限模型 |
-| **流程管理** | `/workflow/*` | 流程定义、流程编辑器 | @vue-flow 可视化编排 |
+| **流程管理** | `/workflow/*` | 流程定义、流程编辑器 | LogicFlow 可视化编排 |
 
 ---
 
@@ -129,7 +129,7 @@ OA/
 | 模块 | 技术 | 说明 | 解决的问题 |
 |------|------|------|------------|
 | **表单引擎** | VeeValidate 4 + Zod | 声明式表单校验、Schema 驱动 | 复杂联动校验、动态规则注入 |
-| **流程引擎** | @vue-flow/core | 基于 Vue 3 的流程图编辑库 | 可视化流程编排、节点自定义 |
+| **流程引擎** | LogicFlow | 原生 JS 驱动的图形编排库 | 框架无关、避免响应式冲突、拖拽式流程编排 |
 | **图表** | ECharts | 数据可视化、工作台统计 | 大数据量渲染、交互式图表 |
 | **HTTP 客户端** | Axios | 统一拦截器、错误处理 | 请求取消、401 统一处理 |
 | **文档处理** | xlsx + pdf.js | Excel 导入导出、PDF 预览 | 纯前端文件流处理 |
@@ -526,7 +526,7 @@ function handleSubmit(values) {
 │               Workflow Designer 引擎                 │
 ├─────────────────────────────────────────────────────┤
 │  ┌─────────────────────────────────────────────┐    │
-│  │            @vue-flow/core 画布               │    │
+│  │            LogicFlow 画布                    │    │
 │  │  - 节点拖拽                                  │    │
 │  │  - 连线编辑                                  │    │
 │  │  - 缩放平移                                  │    │
@@ -835,7 +835,7 @@ export function setupAuthDirective(app: App) {
 | 职责领域 | 具体内容 | 量化成果 |
 |----------|----------|----------|
 | **表单引擎开发** | 设计并实现基于 JSON Schema 的表单配置化渲染方案 | 新单据交付周期 3 天 → 2 小时 |
-| **流程引擎开发** | 基于 @vue-flow/core 实现可视化流程设计器 | 流程变更无需发版 |
+| **流程引擎开发** | 基于 LogicFlow 实现可视化流程设计器 | 流程变更无需发版 |
 | **Vue Query 架构** | 服务端状态与客户端状态分离架构设计 | 无效请求减少 60% |
 | **文档处理引擎** | Web Worker + 纯前端 Excel/PDF 处理 | 服务器带宽成本降低 70% |
 | **性能优化** | 虚拟滚动、请求取消、缓存策略 | 万级列表流畅渲染 |
@@ -853,10 +853,11 @@ export function setupAuthDirective(app: App) {
 
 #### 2. 流程编排引擎开发
 
-- 基于 @vue-flow/core 实现可视化流程设计器
+- 基于 LogicFlow 实现可视化流程设计器
 - 支持 5 种节点类型（发起/审批/抄送/条件/结束）
 - 实现节点配置面板，支持处理人配置、表单绑定、条件表达式
 - 设计工作流定义 JSON 结构，支持流程保存与加载
+- 迁移 Vue Flow 至 LogicFlow，解决响应式死循环问题
 - **成果**：流程变更无需发版，业务方可自助配置
 
 #### 3. Vue Query 状态架构
@@ -889,7 +890,7 @@ export function setupAuthDirective(app: App) {
 我核心负责的是日常复杂业务线需求的交付，以及对难维护的老模块进行局部架构升级。
 
 比如，因为小团队人手紧、发版慢，我主动引入了 Vee-validate 去做动态表单引擎，
-并调研了 @vue-flow 把审批流改成了可视化连线。
+并将审批流引擎从 Vue Flow 迁移至 LogicFlow，解决了响应式冲突导致的死循环问题。
 
 我的工作重心就是在保证系统稳定运行的前提下，用工程化的手段把最难啃的业务模块给拿下来。
 
@@ -914,7 +915,7 @@ export function setupAuthDirective(app: App) {
 最终效果是支持了 12+ 种字段类型和 8 种条件操作符，覆盖了客户 95% 的表单场景。"
 ```
 
-### Q3: 为什么要引入 @vue-flow/core 去做工作流视图？
+### Q3: 为什么要引入 LogicFlow 去做工作流视图？
 
 **回答思路**：原有问题 → 技术方案 → 实现细节 → 收益
 
@@ -923,8 +924,12 @@ export function setupAuthDirective(app: App) {
 
 以前的审批流是前后端写死的，加个会签节点都要双端同时发版，极其低效。
 
-引入 @vue-flow/core 后，我们将审批人、条件网关封装为特定的 Custom Nodes。
-行政管理员可以直接在画布上拖拽连线，前端将其序列化为包含 nodes 和 edges 的 JSON 拓扑图下发给后端。
+而且最初使用的 Vue Flow 与 Vue 3 的响应式系统存在冲突，经常出现死循环和拖拽失效的问题。
+
+引入 LogicFlow 后，我们将审批人、条件网关封装为特定的节点配置。
+LogicFlow 是原生 JS 驱动的，不依赖任何框架，彻底避免了响应式冲突。
+
+前端将画布上的节点和连线序列化为包含 nodes 和 edges 的 JSON 拓扑图下发给后端。
 
 具体来说，我设计了 5 种节点类型（发起/审批/抄送/条件/结束），
 每种节点有独立的配置面板，支持处理人配置、表单绑定、条件表达式等。
@@ -1167,8 +1172,8 @@ UI 框架是 Element Plus，状态管理用 Pinia 和 Vue Query。
 在项目中，我主导引入了 Vee-validate 去做动态表单引擎，
 把新单据的交付周期从 3 天缩短到了 2 小时。
 
-另外我还调研了 @vue-flow 把审批流改成了可视化连线，
-现在流程变更业务方可以自己配置，不需要发版了。
+另外我将审批流引擎从 Vue Flow 迁移至 LogicFlow，
+解决了响应式冲突导致的死循环问题，现在流程变更业务方可以自己配置，不需要发版了。
 
 我对 Vue 3 的 Composition API 和 TypeScript 有比较深入的理解，
 也积累了一些性能优化和工程化方面的经验。
@@ -1190,7 +1195,7 @@ UI 框架是 Element Plus，状态管理用 Pinia 和 Vue Query。
 
 【技术方案】
 1. 引入 Vee-validate 做动态表单引擎，用 JSON Schema 驱动表单渲染
-2. 基于 @vue-flow 做可视化工作流，支持拖拽式流程编排
+2. 基于 LogicFlow 做可视化工作流，支持拖拽式流程编排
 3. 用 Vue Query 重构服务端状态管理，优化请求缓存策略
 4. 利用 Web Worker 实现纯前端 Excel/PDF 处理
 
@@ -1271,7 +1276,7 @@ OA/
 - [TypeScript 官方文档](https://www.typescriptlang.org/)
 - [Vue Query 官方文档](https://tanstack.com/query/latest)
 - [VeeValidate 官方文档](https://vee-validate.logaretm.com/)
-- [@vue-flow 官方文档](https://vueflow.dev/)
+- [LogicFlow 官方文档](https://logicflow.org/)
 
 ---
 

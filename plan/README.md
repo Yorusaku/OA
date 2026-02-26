@@ -9,7 +9,7 @@
 1. `phase-0-2-init-monorepo.md` Monorepo + Turborepo 基建、`apps/web` 初始化、权限壳和后台布局导航。
 2. `phase-3-vue-query-server-state.md` Vue Query 接管服务端状态与 API 封装。
 3. `phase-4-dynamic-form-engine.md` 动态表单引擎（JSON Schema + VeeValidate + 联动校验）。
-4. `phase-5-workflow-engine.md` 可视化流程编排引擎（@vue-flow/core）。
+4. `phase-5-workflow-engine.md` 可视化流程编排引擎（@vue-flow/core）📜 **历史文档**。
 5. `phase-6-business-modules.md` 审批中心 / 工作台 / 组织架构 / 通讯录 / 系统管理等业务模块。
 6. `phase-7-performance-optimization.md` 性能与体验优化（虚拟滚动 / 懒加载 / Tailwind + Element 主题统一）。
 7. `phase-8-polish-and-integration.md` 联调、统一异常处理、401 登录过期逻辑、端到端 Demo 与 README 收尾。
@@ -18,8 +18,11 @@
 10. `phase-10-feature-enhancement.md` 功能扩展与增强（智能表单 + 审批增强 + 数据可视化）。
 11. `phase-11-devops-and-documentation.md` DevOps、测试与文档完善（自动化 + 测试 + 文档）。
 12. `phase-13-document-engine.md` 文档与表格引擎（Excel 导入导出 + PDF 预览）🆕。
+13. `phase-14-migrate-to-logicflow.md` 工作流引擎迁移至 LogicFlow（全量重构）🆕。
 
 > 使用方式：每轮开发前，打开对应 `phase-*.md`，复制文件中的整段 Prompt 粘贴给 Agent，即可约束它只做当前阶段的工作。
+>
+> **注意**：`phase-5-workflow-engine.md` 是历史文档，已不再使用。当前工作流引擎基于 LogicFlow（见 `phase-14-migrate-to-logicflow.md`）。
 
 ## 二、各阶段建议自测流程（你自己快速验收用）
 
@@ -54,6 +57,8 @@
 
 ### 4. 阶段 5：流程编排引擎
 
+> **注意**：此阶段已完成历史使命，当前工作流引擎已迁移至 LogicFlow（见阶段 14）。
+
 - 打开流程列表页：
   - 能看到流程定义列表（名称、状态等）；
   - 能进入某个流程的编辑页面。
@@ -61,6 +66,29 @@
   - 能添加不同类型的节点、拖拽位置、连线、删除节点/连线；
   - 选中节点后，右侧或弹窗能编辑节点属性（名称、处理人、绑定的表单 Schema 等）；
   - 点击保存后重新打开该流程，节点与连线布局、配置能正确还原。
+
+### 14. 阶段 14：工作流引擎迁移至 LogicFlow 🆕
+
+- 验证画布渲染：
+  - 打开流程编辑器页面，画布正常渲染；
+  - 节点显示正确颜色和样式（不同类型节点颜色不同）；
+  - 网格、缩放、平移功能正常。
+- 验证拖拽添加：
+  - 从工具栏点击或拖拽节点到画布；
+  - 节点成功添加到画布上；
+  - 节点位置正确。
+- 验证连线功能：
+  - 从节点拖拽连线到另一个节点；
+  - 连线成功创建；
+  - 删除连线功能正常。
+- 验证节点配置：
+  - 点击节点弹出配置面板；
+  - 修改节点属性后保存；
+  - 画布上节点实时更新。
+- 验证流程保存：
+  - 点击保存按钮；
+  - 流程数据正确提交；
+  - 重新加载流程数据完整。
 
 ### 5. 阶段 6：业务模块
 
