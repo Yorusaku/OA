@@ -258,3 +258,84 @@ describe('DynamicForm - Edge Cases', () => {
     }).not.toThrow(TypeError)
   })
 })
+
+// ==================== 节点级表单权限测试（红灯阶段） ====================
+describe('DynamicForm - Node-Level Permissions (Red)', () => {
+  describe('hidden 权限测试', () => {
+    it('传入 { amount: \'hidden\' } 时，amount 字段的 hidden 属性应被设为 true', () => {
+      const wrapper = mount(DynamicForm, {
+        global: {
+          plugins: [ElementPlus],
+        },
+        props: {
+          schema: mockSchema,
+          permissions: { amount: 'hidden' },
+        },
+      })
+
+      expect(wrapper.exists()).toBe(true)
+    })
+  })
+
+  describe('readonly 权限测试', () => {
+    it('传入 { reason: \'readonly\' } 时，reason 字段的 readonly/disabled 应被设为 true', () => {
+      const wrapper = mount(DynamicForm, {
+        global: {
+          plugins: [ElementPlus],
+        },
+        props: {
+          schema: mockSchema,
+          permissions: { reason: 'readonly' },
+        },
+      })
+
+      expect(wrapper.exists()).toBe(true)
+    })
+  })
+
+  describe('required 权限测试', () => {
+    it('传入 { hr_comment: \'required\' } 时，hr_comment 字段的验证规则应包含 required: true', () => {
+      const wrapper = mount(DynamicForm, {
+        global: {
+          plugins: [ElementPlus],
+        },
+        props: {
+          schema: mockSchema,
+          permissions: { hr_comment: 'required' },
+        },
+      })
+
+      expect(wrapper.exists()).toBe(true)
+    })
+  })
+
+  describe('permissions 类型错误测试', () => {
+    it('permissions 为 undefined 时应该安全处理', () => {
+      expect(() => {
+        mount(DynamicForm, {
+          global: {
+            plugins: [ElementPlus],
+          },
+          props: {
+            schema: mockSchema,
+            permissions: undefined,
+          },
+        })
+      }).not.toThrow(TypeError)
+    })
+
+    it('permissions 为空对象时应该安全处理', () => {
+      expect(() => {
+        mount(DynamicForm, {
+          global: {
+            plugins: [ElementPlus],
+          },
+          props: {
+            schema: mockSchema,
+            permissions: {},
+          },
+        })
+      }).not.toThrow(TypeError)
+    })
+  })
+})
