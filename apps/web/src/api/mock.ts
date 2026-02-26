@@ -97,7 +97,7 @@ export const mockWorkflowDefinitions: WorkflowDefinition[] = [
     name: '请假审批流程',
     description: '适用于所有员工的请假申请审批',
     status: 'active',
-    formSchemaId: 'leave-form',
+    formSchemaId: 'leave',
     nodes: [
       {
         id: 'start-001',
@@ -150,7 +150,7 @@ export const mockWorkflowDefinitions: WorkflowDefinition[] = [
     name: '报销审批流程',
     description: '适用于所有费用报销申请',
     status: 'active',
-    formSchemaId: 'expense-form',
+    formSchemaId: 'expense',
     nodes: [
       {
         id: 'start-002',

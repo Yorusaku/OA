@@ -31,41 +31,41 @@ button,
 .el-button {
   background-color: var(--el-button-bg-color, var(--el-color-white)) !important;
   border-color: var(--el-button-border-color, var(--el-border-color)) !important;
-  color: var(--el-button-text-color, var(--el-color-white)) !important;
+  color: var(--el-color-white) !important;
 }
 
 .el-button:not(.is-plain):hover {
-  color: var(--el-button-hover-text-color, var(--el-color-white)) !important;
+  color: var(--el-color-white) !important;
 }
 
 .el-button--primary {
   background-color: var(--el-color-primary) !important;
   border-color: var(--el-color-primary) !important;
-  color: var(--el-button-text-color, var(--el-color-white)) !important;
+  color: var(--el-color-white) !important;
 }
 
 .el-button--success {
   background-color: var(--el-color-success) !important;
   border-color: var(--el-color-success) !important;
-  color: var(--el-button-text-color, var(--el-color-white)) !important;
+  color: var(--el-color-white) !important;
 }
 
 .el-button--danger {
   background-color: var(--el-color-danger) !important;
   border-color: var(--el-color-danger) !important;
-  color: var(--el-button-text-color, var(--el-color-white)) !important;
+  color: var(--el-color-white) !important;
 }
 
 .el-button--warning {
   background-color: var(--el-color-warning) !important;
   border-color: var(--el-color-warning) !important;
-  color: var(--el-button-text-color, var(--el-color-white)) !important;
+  color: var(--el-color-white) !important;
 }
 
 .el-button--info {
   background-color: var(--el-color-info) !important;
   border-color: var(--el-color-info) !important;
-  color: var(--el-button-text-color, var(--el-color-white)) !important;
+  color: var(--el-color-white) !important;
 }
 
 /* 修复 is-plain 等变体的覆盖 */

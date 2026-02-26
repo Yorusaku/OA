@@ -5,12 +5,13 @@ import type { VueQueryPluginOptions } from '@tanstack/vue-query'
 import { QueryClient, VueQueryPlugin } from '@tanstack/vue-query'
 import { createPinia } from 'pinia'
 import { createApp } from 'vue'
+import ElementPlus from 'element-plus'
 import App from './App.vue'
 import { setupAuthDirective } from './directives/auth'
 import { router } from './router'
 import { setupFormCreate } from '@/plugins/form-create'
-import './styles/index.css' // 🚀 1. 先引入 Tailwind 等基础样式
-import 'element-plus/dist/index.css' // 🚀 2. Element Plus 全量 CSS（必须在 Tailwind 之后，利用 CSS 后发优势覆盖）
+import './styles/index.css'
+import 'element-plus/dist/index.css'
 
 async function bootstrap() {
   if (import.meta.env.VITE_USE_MOCK === 'true') {
@@ -41,7 +42,8 @@ async function bootstrap() {
 
   app.use(router)
   app.use(VueQueryPlugin, vueQueryOptions)
-  setupFormCreate(app) // 🚀 注入动态表单白名单与引擎
+  app.use(ElementPlus)
+  setupFormCreate(app)
   setupAuthDirective(app)
   app.mount('#app')
 }
