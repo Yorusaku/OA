@@ -100,6 +100,17 @@ export const constantRoutes: RouteRecordRaw[] = [
               permission: 'approval:todo',
             },
           },
+          {
+            path: 'detail/:id',
+            name: 'ApprovalDetail',
+            component: () => import('@/views/approval/ApprovalDetail.vue'),
+            meta: {
+              title: '审批详情',
+              requiresAuth: true,
+              permission: 'approval:detail',
+              hidden: true, // 不在菜单中显示
+            },
+          },
         ],
       },
       {

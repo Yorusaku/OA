@@ -1,5 +1,8 @@
 <script setup lang="ts">
+import { useRouter } from 'vue-router'
 import { useApprovalList, useWorkbenchStats } from '@/composables/useApproval'
+
+const router = useRouter()
 
 const { data: stats, isLoading: statsLoading, error: statsError } = useWorkbenchStats()
 const {
@@ -7,6 +10,16 @@ const {
   isLoading: listLoading,
   error: listError,
 } = useApprovalList({ page: 1, pageSize: 10, status: 'pending' })
+
+// 跳转到待办审批页面
+function goToApprovalTodo() {
+  router.push('/approval/todo')
+}
+
+// 跳转到审批详情页（而不是弹窗）
+function goToApprovalDetail(item: any) {
+  router.push(`/approval/detail/${item.id}`)
+}
 </script>
 
 <template>
@@ -88,6 +101,9 @@ const {
           <template #header>
             <div class="flex justify-between items-center">
               <span>待办审批</span>
+              <el-button type="primary" size="small" @click="goToApprovalTodo">
+                查看更多
+              </el-button>
             </div>
           </template>
           <div v-if="listLoading" class="text-center py-8 text-slate-500">
@@ -103,7 +119,8 @@ const {
             <div
               v-for="item in approvalList.list"
               :key="item.id"
-              class="border rounded-lg p-3 hover:bg-slate-50"
+              class="border rounded-lg p-3 hover:bg-slate-50 cursor-pointer"
+              @click="goToApprovalDetail(item)"
             >
               <div class="flex justify-between items-start">
                 <div class="font-medium">

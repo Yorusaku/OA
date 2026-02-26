@@ -28,7 +28,7 @@ export interface ConditionConfig {
   /** 依赖的字段 key */
   field: string
   /** 比较操作符 */
-  operator?: 'eq' | 'ne' | 'gt' | 'gte' | 'lt' | 'lte' | 'in' | 'includes' | 'exists'
+  operator?: 'eq' | 'ne' | 'gt' | 'gte' | 'lt' | 'lte' | 'in' | 'contains' | 'exists'
   /** 比较值 */
   value?: any
 }

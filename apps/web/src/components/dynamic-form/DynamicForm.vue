@@ -7,10 +7,9 @@
 import { ref, computed, watch } from 'vue'
 import formCreate from '@form-create/element-ui'
 import type { FormSchema } from '@/types/form-schema'
+import { ElButton } from 'element-plus'
 
-// 获取 form-create 的 Vue 3 挂载组件
-const FormCreateComponent = formCreate.$form()
-
+// ==================== Props & Emits ====================
 const props = withDefaults(defineProps<{
   /** 表单 schema 配置 */
   schema: FormSchema
@@ -20,18 +19,22 @@ const props = withDefaults(defineProps<{
   disabled?: boolean
   /** 是否只读 */
   readonly?: boolean
+  /** 是否显示提交按钮 */
+  showSubmit?: boolean
+  /** 是否显示重置按钮 */
+  showCancel?: boolean
 }>(), {
   modelValue: () => ({}),
   disabled: false,
-  readonly: false
+  readonly: false,
+  showSubmit: false,
+  showCancel: false
 })
 
 const emit = defineEmits(['update:modelValue', 'submit', 'reset'])
 
 // form-create API 实例
 const fApi = ref<any>({})
-
-// 内部表单数据
 const formData = ref({ ...props.modelValue })
 
 // 🚀 核心：Schema 适配器 (Adapter)
@@ -40,90 +43,32 @@ const parsedRules = computed(() => {
   if (!props.schema || !props.schema.fields) return []
   
   return props.schema.fields.map(field => {
-    // 构建验证规则
-    const validateRules: any[] = []
-    if (field.required) {
-      validateRules.push({
-        required: true,
-        message: `${field.label}是必填项`,
-        trigger: 'blur'
-      })
-    }
-    if (field.rules?.min != null) {
-      validateRules.push({
-        min: field.rules.min,
-        message: `${field.label}长度不能少于${field.rules.min}个字符`,
-        trigger: 'blur'
-      })
-    }
-    if (field.rules?.max != null) {
-      validateRules.push({
-        max: field.rules.max,
-        message: `${field.label}长度不能超过${field.rules.max}个字符`,
-        trigger: 'blur'
-      })
-    }
-    if (field.rules?.pattern) {
-      validateRules.push({
-        pattern: typeof field.rules.pattern === 'string' 
-          ? new RegExp(field.rules.pattern) 
-          : field.rules.pattern,
-        message: field.rules.message || `${field.label}格式不正确`,
-        trigger: 'blur'
-      })
-    }
-    if (field.rules?.type) {
-      validateRules.push({
-        type: field.rules.type,
-        message: `${field.label}类型不正确`,
-        trigger: 'blur'
-      })
-    }
-
-    // 映射字段类型
-    let fieldType = field.type
-    let inputType = 'text'
-    
-    if (field.type === 'textarea') {
-      fieldType = 'input'
-      inputType = 'textarea'
-    } else if (field.type === 'number') {
-      fieldType = 'input'
-      inputType = 'number'
-    } else if (field.type === 'datetime') {
-      fieldType = 'input'
-      inputType = 'date'
-    } else if (field.type === 'date') {
-      fieldType = 'input'
-      inputType = 'date'
-    } else if (field.type === 'time') {
-      fieldType = 'input'
-      inputType = 'time'
-    }
-
-    return {
-      type: fieldType,
+    const rule: any = {
+      type: field.type === 'textarea' ? 'input' : field.type,
       field: field.key,
       title: field.label,
       value: field.defaultValue,
       props: {
-        type: inputType,
+        type: field.type === 'textarea' ? 'textarea' : field.type,
         placeholder: field.placeholder,
         disabled: props.disabled || field.disabled,
         readonly: props.readonly || field.readonly,
         clearable: true,
         ...field.componentProps
       },
-      options: field.options 
-        ? field.options.map(opt => ({ 
-            label: opt.label, 
-            value: opt.value,
-            disabled: opt.disabled 
-          })) 
-        : [],
-      validate: validateRules,
-      info: field.description || ''
+      validate: field.required ? [{ required: true, message: `${field.label}是必填项`, trigger: 'blur' }] : []
     }
+    
+    // 处理选项字段（select/radio/checkbox）
+    if (field.options) {
+      rule.options = field.options.map(opt => ({
+        label: opt.label,
+        value: opt.value,
+        disabled: opt.disabled
+      }))
+    }
+    
+    return rule
   })
 })
 
@@ -134,11 +79,7 @@ const options = computed(() => ({
   form: {
     labelWidth: props.schema.labelWidth || '100px',
     disabled: props.disabled,
-    size: 'default',
-    labelPosition: 'right'
-  },
-  row: {
-    gutter: props.schema.gutter || 20
+    size: 'default'
   }
 }))
 
@@ -158,62 +99,78 @@ watch(() => props.modelValue, (newVal) => {
   }
 }, { deep: true })
 
-// 暴露 API 给父组件
+// ==================== 对外暴露方法 ====================
+/**
+ * 手动触发表单校验
+ */
+function validate() {
+  return fApi.value.validate()
+}
+
+/**
+ * 获取当前表单值
+ */
+function getValues() {
+  return formData.value
+}
+
+/**
+ * 设置表单值
+ */
+function setValues(values: Record<string, any>) {
+  formData.value = { ...values }
+  if (fApi.value && fApi.value.setValue) {
+    fApi.value.setValue(values)
+  }
+}
+
+/**
+ * 重置表单
+ */
+function resetFields() {
+  if (fApi.value && fApi.value.reset) {
+    fApi.value.reset()
+  }
+}
+
+/**
+ * 提交表单
+ */
+function handleSubmit() {
+  if (fApi.value) {
+    fApi.value.submit()
+  }
+}
+
 defineExpose({
-  /**
-   * 手动触发表单校验
-   */
-  validate: async () => {
-    try {
-      await fApi.value.validate()
-      return true
-    } catch (e) {
-      console.error('表单验证失败:', e)
-      return false
-    }
-  },
-  
-  /**
-   * 获取当前表单值
-   */
-  getValues: () => formData.value,
-  
-  /**
-   * 设置表单值
-   */
-  setValues: (values: Record<string, any>) => {
-    formData.value = { ...values }
-    if (fApi.value && fApi.value.setValue) {
-      fApi.value.setValue(values)
-    }
-  },
-  
-  /**
-   * 重置表单
-   */
-  resetFields: () => {
-    if (fApi.value && fApi.value.resetFields) {
-      fApi.value.resetFields()
-    }
-    emit('reset')
-  },
-  
-  /**
-   * 获取 form-create API 实例
-   */
-  getApi: () => fApi.value
+  validate,
+  getValues,
+  setValues,
+  resetFields,
+  handleSubmit
 })
 </script>
 
 <template>
   <div class="enterprise-dynamic-form">
-    <FormCreateComponent
+    <component
+      :is="formCreate.component"
       v-model:api="fApi"
       v-model="formData"
       :rule="parsedRules"
       :option="options"
       @submit="emit('submit', formData)"
     />
+    
+    <!-- 自定义按钮区 -->
+    <div v-if="showSubmit || showCancel" class="form-actions">
+      <ElButton v-if="showCancel" @click="resetFields">
+        {{ schema.cancelButton?.text || '重置' }}
+      </ElButton>
+      <ElButton v-if="showSubmit" type="primary" @click="handleSubmit">
+        {{ schema.submitButton?.text || '提交' }}
+      </ElButton>
+    </div>
   </div>
 </template>
 
@@ -234,5 +191,12 @@ defineExpose({
 
 :deep(.el-form-item__content) {
   width: 100%;
+}
+
+.form-actions {
+  margin-top: 24px;
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
 }
 </style>
