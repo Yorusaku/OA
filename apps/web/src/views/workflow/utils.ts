@@ -23,16 +23,13 @@ export function getDefaultNodeName(type: WorkflowNode['type']): string {
 }
 
 /**
- * 获取默认节点位置
+ * 获取默认节点位置（固定在视口左上角附近，防止越界）
  */
-export function getDefaultPosition(nodes: WorkflowNode[]): { x: number, y: number } {
-  const baseY = 100
-  const spacing = 200
-  const nextIndex = nodes.filter(n => n.type !== 'start').length
-
+export function getDefaultPosition(_nodes: WorkflowNode[]): { x: number, y: number } {
+  // 🚀 固定在左上角 (100, 100) 附近随机偏移，确保节点永远落在可视区域
   return {
-    x: 400,
-    y: baseY + nextIndex * spacing,
+    x: 100 + Math.floor(Math.random() * 50),
+    y: 100 + Math.floor(Math.random() * 50),
   }
 }
 

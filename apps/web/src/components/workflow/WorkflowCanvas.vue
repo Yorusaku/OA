@@ -4,13 +4,57 @@
  * 基于 LogicFlow 2.x 实现流程编排画布
  * 核心原则：LogicFlow 实例不被 Vue 深度代理，使用普通变量存储
  */
-import LogicFlow from '@logicflow/core'
-import { DndPanel } from '@logicflow/extension'
+import LogicFlow, { RectNode, RectNodeModel } from '@logicflow/core'
+import { DndPanel, SelectionSelect, Menu, Control, MiniMap } from '@logicflow/extension'
 import type { WorkflowDefinition, WorkflowEdge, WorkflowNode, WorkflowNodeType } from '@/types/workflow'
 import { shallowRef, onMounted, onBeforeUnmount, watch } from 'vue'
 
 // 引入 LogicFlow 样式（必须！否则画布会空白）
 import '@logicflow/core/dist/index.css'
+import '@logicflow/extension/lib/style/index.css' // 🚀 修复插件样式错乱
+
+/**
+ * 自定义工作流节点 Model
+ * 重写 getNodeStyle 实现样式自动响应业务数据
+ */
+class CustomWorkflowNodeModel extends RectNodeModel {
+  getNodeStyle() {
+    const style = super.getNodeStyle()
+    const properties = this.properties as any
+
+    // 默认基础样式
+    style.radius = 6
+    style.strokeWidth = 2
+
+    // 1. 根据业务类型设置颜色
+    const type = properties?.type || 'approval'
+    const styleMap: Record<string, any> = {
+      start: { fill: '#ebf4ff', stroke: '#667eea' },
+      approval: { fill: '#ecf5ff', stroke: '#409eff' },
+      cc: { fill: '#f0f9eb', stroke: '#67c23a' },
+      condition: { fill: '#fdf6ec', stroke: '#e6a23c' },
+      end: { fill: '#f4f4f5', stroke: '#909399' }
+    }
+    
+    const typeStyle = styleMap[type] || styleMap.approval
+    style.fill = typeStyle.fill
+    style.stroke = typeStyle.stroke
+
+    // 2. 响应禁用状态
+    if (properties?.enabled === false) {
+      style.fill = '#f5f7fa'
+      style.stroke = '#c0c4cc'
+      style.strokeDasharray = '5 5'
+    }
+
+    return style
+  }
+}
+
+/**
+ * 自定义工作流节点 View
+ */
+class CustomWorkflowNode extends RectNode {}
 
 // ==================== Props & Emits ====================
 const props = withDefaults(defineProps<{
@@ -65,23 +109,20 @@ function toLogicFlowData(definition: WorkflowDefinition) {
   return {
     nodes: definition.nodes.map(node => ({
       id: node.id,
-      type: 'rect',  // 使用标准矩形节点
+      type: 'workflow-node',  // 🚀 使用自定义节点类型
       x: node.position?.x || 0,
       y: node.position?.y || 0,
       text: node.name,
-      properties: { 
-        ...node,
-        nodeType: node.type  // 保存原始类型用于样式判断
-      }
-    })),
+      properties: { ...node }
+    })) as any[],
     edges: definition.edges.map(edge => ({
       id: edge.id,
       sourceNodeId: edge.source,  // ✅ 正确映射
       targetNodeId: edge.target,  // ✅ 正确映射
       type: 'polyline',           // 使用折线
       text: edge.label || '',
-      properties: { ...edge }  // 保留完整业务数据
-    }))
+      properties: { ...edge }
+    })) as any[]
   }
 }
 
@@ -120,92 +161,24 @@ function toWorkflowDefinition(graphData: ReturnType<typeof toLogicFlowData>): Wo
   }
 }
 
-/**
- * 根据节点类型获取样式
- */
-function getNodeStyle(type: WorkflowNodeType) {
-  const styleMap: Record<WorkflowNodeType, any> = {
-    start: {
-      fill: '#667eea',
-      stroke: '#667eea',
-      strokeWidth: 2,
-      color: '#fff'
-    },
-    approval: {
-      fill: '#ecf5ff',
-      stroke: '#409eff',
-      strokeWidth: 2,
-      color: '#303133'
-    },
-    cc: {
-      fill: '#f0f9ff',
-      stroke: '#67c23a',
-      strokeWidth: 2,
-      color: '#303133'
-    },
-    condition: {
-      fill: '#fdf6ec',
-      stroke: '#e6a23c',
-      strokeWidth: 2,
-      color: '#303133'
-    },
-    end: {
-      fill: '#f4f4f5',
-      stroke: '#909399',
-      strokeWidth: 2,
-      color: '#303133'
-    }
-  }
-  return styleMap[type] || styleMap.approval
-}
-
-/**
- * 应用节点样式
- */
-function applyNodeStyle(nodeId: string, type: WorkflowNodeType, enabled?: boolean) {
-  if (!lf) return
-  
-  const style = enabled === false ? getDisabledStyle() : getNodeStyle(type)
-  lf.setElementStyle(nodeId, style)
-}
-
-/**
- * 获取禁用状态样式
- */
-function getDisabledStyle() {
-  return {
-    fill: '#f5f7fa',
-    stroke: '#dcdfe6',
-    strokeWidth: 2,
-    strokeDasharray: '3 3',
-    opacity: 0.6,
-    color: '#909399'
-  }
-}
-
 // ==================== 对外暴露方法 ====================
 
 /**
- * 添加节点
+ * 添加节点（深度克隆切断 Vue Proxy）
  */
 function addNode(node: WorkflowNode) {
   if (props.readonly || !lf) return
+  
   lf.addNode({
     id: node.id,
-    type: 'rect',  // 使用标准矩形节点
-    x: node.position?.x || 0,
-    y: node.position?.y || 0,
+    type: 'workflow-node', // 🚀 使用自定义彩色节点类型
+    x: node.position?.x || 100,
+    y: node.position?.y || 100,
     text: node.name,
-    properties: { 
-      ...node,
-      nodeType: node.type  // 保存原始类型
-    }
+    // 🚀 深度克隆，彻底切断 Vue Proxy 代理，进行数据"脱水"
+    properties: JSON.parse(JSON.stringify(node))
   })
-  
-  // 应用样式
-  setTimeout(() => {
-    applyNodeStyle(node.id, node.type, node.enabled)
-  }, 0)
+  // ⚠️ 绝对不要在这里写 setTimeout 或者调用任何 applyNodeStyle 等旧函数！
 }
 
 /**
@@ -217,32 +190,19 @@ function deleteNode(nodeId: string) {
 }
 
 /**
- * 更新节点属性
+ * 更新节点属性（深度克隆 + 安全隔离）
  */
 function updateNode(node: WorkflowNode) {
   if (!lf) return
   
-  console.log('🔄 updateNode called with:', node)
+  // 1. 深度克隆，脱去 Proxy 外衣，防止破坏 LF 内部状态
+  const pureNode = JSON.parse(JSON.stringify(node))
   
-  // 更新节点属性
-  lf.setProperties(node.id, { ...node })
+  // 2. 更新业务属性，LogicFlow 的 WorkflowNodeModel 会自动触发重绘颜色
+  lf.setProperties(pureNode.id, pureNode)
   
-  // 获取节点 model 并更新文本
-  const model = lf.getNodeModelById(node.id)
-  if (model) {
-    console.log('🔄 Found model, updating text and style')
-    // 更新文本
-    if (model.setText) {
-      model.setText(node.name)
-    } else if (model.text) {
-      model.text.value = node.name
-    }
-    
-    // 应用样式（根据启用状态）
-    applyNodeStyle(node.id, node.type, node.enabled)
-  } else {
-    console.error('❌ Model not found for node:', node.id)
-  }
+  // 3. 必须使用原生专门的 API 更新文字视图
+  lf.updateText(pureNode.id, pureNode.name)
 }
 
 /**
@@ -250,36 +210,24 @@ function updateNode(node: WorkflowNode) {
  */
 function getDefinition(): WorkflowDefinition {
   if (!lf) return props.definition
-  const graphData = lf.getData()
+  // 🚀 必须使用 getGraphData()，绝对不能用 getData()
+  const graphData = lf.getGraphData() as { nodes: any[]; edges: any[] }
   return toWorkflowDefinition(graphData)
 }
 
 /**
  * 开始拖拽（用于外部拖拽入场）
- * 注意：LogicFlow 2.x 通过 lf.dnd.startDrag 实现
  */
 function startDrag(nodeConfig: { type: string, text?: string, properties?: any }) {
-  console.log('🎨 WorkflowCanvas.startDrag called with:', nodeConfig)
-  console.log('🎨 lf instance:', lf)
-  console.log('🎨 lf.dnd:', lf?.dnd)
+  if (!lf?.dnd) return
   
-  if (!lf) {
-    console.error('❌ LogicFlow instance is not initialized')
-    return
-  }
-  
-  if (!lf.dnd) {
-    console.error('❌ lf.dnd is not available. Did you register DndPanel plugin?')
-    return
-  }
-  
-  // LogicFlow 2.x: 使用 lf.dnd.startDrag
+  // 🚀 强制使用 workflow-node 类型
   lf.dnd.startDrag({
-    type: nodeConfig.type,
+    type: 'workflow-node',
     text: nodeConfig.text,
     properties: nodeConfig.properties
   })
-  
+
   console.log('✅ startDrag completed')
 }
 
@@ -321,10 +269,17 @@ onMounted(async () => {
     keyboard: {
       enabled: true
     },
-    plugins: [DndPanel]
+    plugins: [DndPanel, SelectionSelect, Menu, Control, MiniMap]
   })
 
-  // 设置主题样式（根据节点类型）
+  // 🚀 注册自定义工作流节点
+  lf.register({
+    type: 'workflow-node',
+    view: CustomWorkflowNode,
+    model: CustomWorkflowNodeModel
+  })
+
+  // 设置主题样式
   lf.setTheme({
     rect: {
       rx: 8,
@@ -341,20 +296,20 @@ onMounted(async () => {
   const graphData = toLogicFlowData(props.definition)
   lf.render(graphData)
 
-  // 应用节点样式（渲染完成后）
-  graphData.nodes.forEach(node => {
-    const properties = node.properties as WorkflowNode
-    if (properties?.type) {
-      applyNodeStyle(node.id, properties.type, properties.enabled)
+  // 🚀 根据 props 决定是否显示小地图（LogicFlow 2.x API）
+  if (props.showMinimap) {
+    const extensions = Object.values(lf.extension)
+    const miniMap = extensions.find((ext: any) => ext?.name === 'mini-map') as any
+    if (miniMap && typeof miniMap.show === 'function') {
+      miniMap.show()
     }
-  })
+  }
 
   // 绑定事件
-  lf.on('node:click', ({ data, e }) => {
-    console.log('🖱️ node:click event fired', data)
-    const nodeData = data.properties as WorkflowNode
-    console.log('🖱️ Emitting nodeSelect with:', nodeData)
-    emit('nodeSelect', nodeData)
+  lf.on('node:click', ({ data }) => {
+    // 🚀 深拷贝解构，防止外层右侧表单直接篡改 LF 内部内存对象
+    const pureData = JSON.parse(JSON.stringify(data.properties))
+    emit('nodeSelect', pureData as WorkflowNode)
   })
 
   lf.on('edge:click', ({ data }) => {
@@ -385,25 +340,16 @@ onMounted(async () => {
   lf.on('edge:delete', () => {
     // 边删除时，通知父组件刷新数据
     if (lf) {
-      const graphData = lf.getData()
+      // 🚀 必须使用 getGraphData
+      const graphData = lf.getGraphData() as { nodes: any[]; edges: any[] }
       const edges = toWorkflowDefinition(graphData).edges
       emit('edgeChange', edges)
     }
   })
 
-  lf.on('node:add', ({ data }) => {
-    // 当通过 startDrag 添加节点时，通知父组件更新数据
-    const properties = data.properties as WorkflowNode || {} as WorkflowNode
-    const textValue = typeof data.text === 'string' ? data.text : (data.text as any)?.value || ''
-    const node: WorkflowNode = {
-      ...properties,
-      id: data.id,
-      type: (properties.type || 'approval') as WorkflowNodeType,
-      name: textValue,
-      position: { x: data.x || 0, y: data.y || 0 },
-      enabled: true
-    }
-    emit('nodeDrop', node.type, node.position!)
+  lf.on('node:add', () => {
+    // 🚀 只做单向状态同步，绝不抛出 nodeDrop 造成循环调用！
+    syncNodePositions()
   })
 
   isInitialized = true
@@ -423,18 +369,9 @@ onBeforeUnmount(() => {
  */
 function syncNodePositions() {
   if (!lf) return
-  const graphData = lf.getData()
-  const nodes = graphData.nodes.map((node: any) => {
-    const textValue = typeof node.text === 'string' ? node.text : (node.text as any)?.value || ''
-    const props = node.properties as WorkflowNode || {} as WorkflowNode
-    return {
-      ...props,
-      id: node.id,
-      type: (props.type || 'approval') as WorkflowNodeType,
-      name: textValue,
-      position: { x: node.x || 0, y: node.y || 0 }
-    }
-  })
+  // 🚀 必须使用 getGraphData()，绝对不能用 getData()
+  const graphData = lf.getGraphData() as { nodes: any[]; edges: any[] }
+  const nodes = toWorkflowDefinition(graphData).nodes
   emit('nodeChange', nodes)
 }
 
@@ -447,7 +384,7 @@ watch(
     if (!newDef.nodes || !newDef.edges) return
 
     // 只在画布为空时初始化
-    const currentData = lf.getData()
+    const currentData = lf.getGraphData() as { nodes: any[]; edges: any[] }
     if (currentData.nodes.length === 0 && currentData.edges.length === 0) {
       const graphData = toLogicFlowData(newDef)
       lf.render(graphData)
@@ -510,8 +447,20 @@ watch(
 }
 
 :deep(.lf-control) {
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-  border-radius: 4px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  border-radius: 6px;
+  background: #ffffff;
+  padding: 4px;
+}
+
+:deep(.lf-mini-map) {
+  position: absolute;
+  bottom: 20px;
+  right: 20px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  border-radius: 6px;
+  overflow: hidden;
+  border: 1px solid #ebeef5;
 }
 
 :deep(.lf-dnd) {

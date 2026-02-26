@@ -17,6 +17,7 @@ import {
   ElMessage,
 } from 'element-plus'
 import { computed, ref, watch } from 'vue'
+import { debounce } from 'lodash-es'
 import { ApprovalConfig, BaseConfig, ConditionConfig } from './configs'
 
 // ==================== Props & Emits ====================
@@ -49,34 +50,32 @@ const localNode = ref<WorkflowNode>({
   enabled: true,
 })
 
-// 防抖定时器引用
-let syncTimeout: ReturnType<typeof setTimeout> | null = null
+// 标志位：区分外部传入 vs 内部修改
+let isExternalUpdate = false
 
 // ==================== 实时同步逻辑 ====================
 /**
  * 防抖同步函数
- * 延迟 500ms 同步，避免输入过快导致频繁刷新
+ * 🚀 150ms 黄金微观防抖，兼顾性能与实时性
  */
-function debouncedSync() {
-  // 清除之前的定时器
-  if (syncTimeout) {
-    clearTimeout(syncTimeout)
+const debouncedSync = debounce(() => {
+  // 如果是外部传入的变化，不触发同步
+  if (isExternalUpdate) {
+    isExternalUpdate = false
+    return
   }
   
-  // 创建新的防抖定时器（500ms 延迟）
-  syncTimeout = setTimeout(() => {
-    if (localNode.value.id) {
-      console.log('🔄 [Debounce] Syncing node config:', localNode.value.name)
-      emit('update', { ...localNode.value })
-    }
-  }, 500)
-}
+  if (localNode.value.id) {
+    emit('update', { ...localNode.value })
+  }
+}, 150) // 🚀 锁定 150ms
 
-// 同步 node prop 到本地状态
+// 同步 node prop 到本地状态（外部传入）
 watch(
   () => props.node,
   (newNode) => {
     if (newNode) {
+      isExternalUpdate = true // 标记为外部传入
       localNode.value = {
         ...newNode,
         handler: newNode.handler || { type: 'role', mode: 'or' },
@@ -86,13 +85,12 @@ watch(
   { immediate: true, deep: true },
 )
 
-// 深度监听 localNode 变化，实时同步到画布
+// 深度监听 localNode 变化，实时同步到画布（内部修改）
 watch(
   () => localNode.value,
   () => {
     // 只有当节点有 ID 时才同步（避免初始化时同步空数据）
     if (localNode.value.id) {
-      console.log('🔄 [Watch] Node config changed, scheduling sync...')
       debouncedSync()
     }
   },
@@ -130,9 +128,7 @@ function handleDelete() {
  */
 function handleClose() {
   // 取消待执行的防抖同步
-  if (syncTimeout) {
-    clearTimeout(syncTimeout)
-  }
+  debouncedSync.cancel()
   emit('close')
 }
 
@@ -141,19 +137,6 @@ function handleClose() {
  */
 function handleModelUpdate(updatedNode: WorkflowNode) {
   localNode.value = updatedNode
-}
-
-/**
- * 立即同步（用于重要配置变更）
- */
-function syncImmediately() {
-  if (syncTimeout) {
-    clearTimeout(syncTimeout)
-  }
-  if (localNode.value.id) {
-    console.log('⚡ [Immediate] Syncing node config:', localNode.value.name)
-    emit('update', { ...localNode.value })
-  }
 }
 </script>
 
