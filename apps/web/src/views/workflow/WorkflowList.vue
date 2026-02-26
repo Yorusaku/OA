@@ -105,11 +105,11 @@ function handleReset() {
 </script>
 
 <template>
-  <div class="workflow-list">
+  <div class="p-6">
     <ElCard>
       <template #header>
-        <div class="card-header">
-          <h2>流程管理</h2>
+        <div class="flex justify-between items-center">
+          <h2 class="text-lg font-semibold text-gray-800">流程管理</h2>
           <ElButton type="primary" @click="handleCreate">
             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <line x1="12" y1="5" x2="12" y2="19" />
@@ -121,15 +121,15 @@ function handleReset() {
       </template>
 
       <!-- 搜索栏 -->
-      <div class="search-bar">
+      <div class="mb-4 flex items-center gap-4">
         <ElInput
           v-model="searchForm.keyword"
           placeholder="搜索流程名称"
           clearable
-          style="width: 240px"
+          class="w-60"
           @keyup.enter="handleSearch"
         />
-        <ElSelect v-model="searchForm.status" placeholder="流程状态" clearable style="width: 150px">
+        <ElSelect v-model="searchForm.status" placeholder="流程状态" clearable class="w-40">
           <ElOption label="草稿" value="draft" />
           <ElOption label="启用" value="active" />
           <ElOption label="停用" value="inactive" />
@@ -163,7 +163,7 @@ function handleReset() {
         <ElTableColumn prop="formSchemaId" label="绑定表单" width="120">
           <template #default="{ row }">
             <span v-if="row.formSchemaId">已绑定</span>
-            <span v-else class="text-muted">未绑定</span>
+            <span v-else class="text-gray-500">未绑定</span>
           </template>
         </ElTableColumn>
         <ElTableColumn prop="updatedAt" label="更新时间" width="180" />
@@ -185,7 +185,7 @@ function handleReset() {
       </ElTable>
 
       <!-- 分页 -->
-      <div class="pagination">
+      <div class="mt-4 flex justify-end">
         <ElPagination
           v-model:current-page="pagination.page"
           v-model:page-size="pagination.pageSize"
@@ -199,35 +199,4 @@ function handleReset() {
 </template>
 
 <style scoped>
-.workflow-list {
-  padding: 20px;
-}
-
-.card-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.card-header h2 {
-  margin: 0;
-  font-size: 18px;
-  color: #303133;
-}
-
-.search-bar {
-  display: flex;
-  gap: 12px;
-  margin-bottom: 20px;
-}
-
-.pagination {
-  margin-top: 20px;
-  display: flex;
-  justify-content: flex-end;
-}
-
-.text-muted {
-  color: #909399;
-}
 </style>

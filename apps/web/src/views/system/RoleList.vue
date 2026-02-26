@@ -132,11 +132,11 @@ function handleSubmit() {
 </script>
 
 <template>
-  <div class="system-roles">
+  <div class="p-6">
     <ElCard>
       <template #header>
-        <div class="card-header">
-          <h2>角色管理</h2>
+        <div class="flex justify-between items-center">
+          <h2 class="text-lg font-semibold text-gray-800">角色管理</h2>
           <ElButton type="primary" @click="handleAdd">
             新增角色
           </ElButton>
@@ -150,12 +150,11 @@ function handleSubmit() {
         <ElTableColumn prop="description" label="描述" min-width="200" />
         <ElTableColumn label="权限" min-width="200">
           <template #default="{ row }">
-            <div class="permission-tags">
+            <div class="flex flex-wrap gap-1">
               <ElTag
                 v-for="perm in row.permissions.slice(0, 3)"
                 :key="perm"
                 size="small"
-                style="margin-right: 4px; margin-bottom: 4px"
               >
                 {{ perm }}
               </ElTag>
@@ -223,24 +222,4 @@ function handleSubmit() {
 </template>
 
 <style scoped>
-.system-roles {
-  padding: 20px;
-}
-
-.card-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.card-header h2 {
-  margin: 0;
-  font-size: 18px;
-  color: #303133;
-}
-
-.permission-tags {
-  display: flex;
-  flex-wrap: wrap;
-}
 </style>

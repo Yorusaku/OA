@@ -2,8 +2,6 @@
 import {
   ElButton,
   ElCard,
-  ElDialog,
-  ElInput,
   ElMessage,
   ElPagination,
   ElTable,
@@ -11,13 +9,10 @@ import {
   ElTag,
 } from 'element-plus'
 import { useRouter } from 'vue-router'
-/**
- * 待我审批 - 需要我处理的审批单
- */
 import { ref } from 'vue'
 import { DynamicForm } from '@/components/dynamic-form'
 import type { FormSchema } from '@/types/form-schema'
-import { useApprovalList, useSubmitApproval } from '@/composables/useApproval'
+import { useApprovalList } from '@/composables/useApproval'
 
 const router = useRouter()
 
@@ -65,53 +60,9 @@ const { data, isLoading, refetch } = useApprovalList({
 })
 
 // ==================== 审批操作 ====================
-const actionDialogVisible = ref(false)
-const selectedRecord = ref<any>(null)
-const comment = ref('')
-
 function handleApprove(row: any) {
-  selectedRecord.value = row
-
-  // 🚀 模拟后端返回该审批单关联的 Schema 和填写的 Data
-  if (row.type === 'leave') {
-    currentSchema.value = mockFormSchemas.leave
-    currentFormData.value = { leaveType: 'sick', days: 2.5, reason: '重感冒发烧，去医院打点滴。' }
-  } else if (row.type === 'expense') {
-    currentSchema.value = mockFormSchemas.expense
-    currentFormData.value = { expenseType: 'travel', amount: 1250, description: '上海出张往返高铁及两晚住宿费。' }
-  } else {
-    currentSchema.value = null
-    currentFormData.value = {}
-  }
-
-  actionDialogVisible.value = true
-}
-
-/**
- * 跳转到详情页
- */
-function goToDetail(row: any) {
-  router.push(`/approval/detail/${row.id}`)
-}
-
-const submitMutation = useSubmitApproval()
-
-async function handleConfirmApprove(approved: boolean) {
-  try {
-    await submitMutation.mutateAsync({
-      title: selectedRecord.value?.title || '审批',
-      type: 'leave',
-      applicant: '当前用户',
-      amount: 0,
-    })
-
-    ElMessage.success(approved ? '已通过' : '已驳回')
-    actionDialogVisible.value = false
-    refetch()
-  }
-  catch (error) {
-    ElMessage.error('操作失败')
-  }
+  // 跳转到详情页，并携带单据 ID 和类型
+  router.push(`/approval/detail/${row.id || 'mock-id'}?type=${row.type}`)
 }
 
 // ==================== 状态映射 ====================
@@ -123,19 +74,19 @@ const statusMap: Record<string, { text: string, type: string }> = {
 </script>
 
 <template>
-  <div class="approval-todo">
+  <div class="p-6">
     <ElCard>
       <template #header>
-        <h2>待我审批</h2>
+        <h2 class="text-lg font-semibold text-gray-800">待我审批</h2>
       </template>
 
       <!-- 搜索栏 -->
-      <div class="search-bar mb-4">
+      <div class="mb-4 flex items-center gap-4">
         <ElInput
           v-model="searchForm.keyword"
           placeholder="搜索申请标题"
           clearable
-          style="width: 240px"
+          class="w-60"
         />
       </div>
 
@@ -171,9 +122,6 @@ const statusMap: Record<string, { text: string, type: string }> = {
             <ElButton link type="primary" @click="handleApprove(row)">
               审批
             </ElButton>
-            <ElButton link type="info" @click="goToDetail(row)">
-              查看详情
-            </ElButton>
           </template>
         </ElTableColumn>
       </ElTable>
@@ -188,83 +136,8 @@ const statusMap: Record<string, { text: string, type: string }> = {
         class="mt-4 flex justify-end"
       />
     </ElCard>
-
-    <!-- 审批操作对话框 -->
-    <ElDialog
-      v-model="actionDialogVisible"
-      :title="'审批处理 - ' + (selectedRecord?.title || '')"
-      width="650px"
-      destroy-on-close
-    >
-      <div v-if="selectedRecord" class="approval-dialog-body">
-        <!-- 单据详情 -->
-        <div class="detail-section" v-if="currentSchema">
-          <div class="section-title">单据详情</div>
-          <div class="form-container">
-            <DynamicForm 
-              :schema="currentSchema" 
-              v-model="currentFormData" 
-              :readonly="true" 
-              :disabled="true" 
-            />
-          </div>
-        </div>
-
-        <!-- 审批意见 -->
-        <div class="action-section">
-          <div class="section-title">审批意见</div>
-          <ElInput
-            v-model="comment"
-            type="textarea"
-            :rows="3"
-            placeholder="请输入审批意见（驳回时必填）"
-          />
-        </div>
-      </div>
-
-      <template #footer>
-        <ElButton @click="actionDialogVisible = false">
-          取消
-        </ElButton>
-        <ElButton type="danger" @click="handleConfirmApprove(false)">
-          驳回
-        </ElButton>
-        <ElButton type="primary" @click="handleConfirmApprove(true)">
-          通过
-        </ElButton>
-      </template>
-    </ElDialog>
   </div>
 </template>
 
 <style scoped>
-.approval-todo {
-  padding: 20px;
-}
-
-.search-bar {
-  display: flex;
-  align-items: center;
-}
-
-.approval-dialog-body {
-  display: flex;
-  flex-direction: column;
-  gap: 24px;
-}
-
-.section-title {
-  font-size: 15px;
-  font-weight: 600;
-  color: #303133;
-  margin-bottom: 16px;
-  padding-bottom: 8px;
-  border-bottom: 1px solid #ebeef5;
-}
-
-.form-container {
-  background-color: #f8f9fa;
-  padding: 16px 16px 0 16px;
-  border-radius: 4px;
-}
 </style>

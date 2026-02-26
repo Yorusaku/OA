@@ -64,7 +64,8 @@ function getMenuIcon(title: string) {
   <div class="relative h-full">
     <el-aside
       :width="appStore.sidebarCollapsed ? '60px' : '200px'"
-      class="border-r border-slate-200 h-full overflow-hidden"
+      class="h-full overflow-hidden bg-white border-r border-slate-200 transition-all duration-300"
+      style="display: flex; flex-direction: column;"
     >
       <!-- Logo 区域 -->
       <div
@@ -145,13 +146,6 @@ function getMenuIcon(title: string) {
 </template>
 
 <style scoped>
-.el-aside {
-  background-color: #ffffff;
-  transition: width 0.3s ease;
-  display: flex;
-  flex-direction: column;
-}
-
 .scrollbar-hidden {
   scrollbar-width: none;
   -ms-overflow-style: none;

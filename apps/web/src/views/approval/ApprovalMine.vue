@@ -56,25 +56,25 @@ const statusMap: Record<string, { text: string, type: 'primary' | 'success' | 'w
 </script>
 
 <template>
-  <div class="approval-mine">
+  <div class="p-6">
     <ElCard>
       <template #header>
-        <h2>我的申请</h2>
+        <h2 class="text-lg font-semibold text-gray-800">我的申请</h2>
       </template>
 
       <!-- 搜索栏 -->
-      <div class="search-bar mb-4">
+      <div class="mb-4 flex items-center gap-4 flex-wrap">
         <ElInput
           v-model="searchForm.keyword"
           placeholder="搜索申请标题"
           clearable
-          style="width: 240px"
+          class="w-60"
         />
         <ElSelect
           v-model="searchForm.status"
           placeholder="审批状态"
           clearable
-          style="width: 150px; margin-left: 12px"
+          class="w-40"
         >
           <ElOption label="审批中" value="pending" />
           <ElOption label="已通过" value="approved" />
@@ -166,12 +166,4 @@ const statusMap: Record<string, { text: string, type: 'primary' | 'success' | 'w
 </template>
 
 <style scoped>
-.approval-mine {
-  padding: 20px;
-}
-
-.search-bar {
-  display: flex;
-  align-items: center;
-}
 </style>

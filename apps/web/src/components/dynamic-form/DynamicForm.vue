@@ -4,7 +4,7 @@
  * 基于 @form-create/element-ui 实现
  * 支持 JSON Schema 驱动、表单验证、联动逻辑
  */
-import { ref, computed, watch } from 'vue'
+import { onMounted, onUnmounted, ref, watch } from 'vue'
 import formCreate from '@form-create/element-ui'
 import type { FormSchema } from '@/types/form-schema'
 import { ElButton } from 'element-plus'
@@ -34,14 +34,13 @@ const props = withDefaults(defineProps<{
 const emit = defineEmits(['update:modelValue', 'submit', 'reset'])
 
 // form-create API 实例
-const fApi = ref<any>({})
+const fApi = ref<any>(null)
 const formData = ref({ ...props.modelValue })
+const elRef = ref<HTMLDivElement | null>(null)
 
-// 🚀 核心：Schema 适配器 (Adapter)
-// 将我们业务的 FormSchema 转换为 form-create 需要的 Rule[]
-const parsedRules = computed(() => {
+// ==================== 生成规则 ====================
+function getRules() {
   if (!props.schema || !props.schema.fields) return []
-  
   return props.schema.fields.map(field => {
     const rule: any = {
       type: field.type === 'textarea' ? 'input' : field.type,
@@ -58,7 +57,7 @@ const parsedRules = computed(() => {
       },
       validate: field.required ? [{ required: true, message: `${field.label}是必填项`, trigger: 'blur' }] : []
     }
-    
+
     // 处理选项字段（select/radio/checkbox）
     if (field.options) {
       rule.options = field.options.map(opt => ({
@@ -67,75 +66,95 @@ const parsedRules = computed(() => {
         disabled: opt.disabled
       }))
     }
-    
+
     return rule
   })
+}
+
+// ==================== form-create 配置 ====================
+function getOptions() {
+  return {
+    submitBtn: false,
+    resetBtn: false,
+    form: {
+      labelWidth: props.schema.labelWidth || '100px',
+      disabled: props.disabled,
+      size: 'default'
+    }
+  }
+}
+
+// ==================== 初始化表单 ====================
+function initForm() {
+  if (!elRef.value) return
+  
+  // 清空容器
+  elRef.value.innerHTML = ''
+  
+  // 创建表单实例
+  fApi.value = formCreate.create(getRules(), {
+    ...getOptions(),
+    el: elRef.value
+  })
+  
+  // 设置初始值
+  if (props.modelValue && fApi.value) {
+    fApi.value.setValue(props.modelValue)
+  }
+  
+  console.log('[DynamicForm] form created with el:', elRef.value)
+}
+
+// ==================== 监听变化 ====================
+watch(() => props.schema, () => {
+  if (fApi.value) {
+    fApi.value.rule(getRules())
+  }
 })
 
-// form-create 全局配置
-const options = computed(() => ({
-  submitBtn: false, // 隐藏默认提交按钮，由外部控制
-  resetBtn: false,
-  form: {
-    labelWidth: props.schema.labelWidth || '100px',
-    disabled: props.disabled,
-    size: 'default'
+watch(() => props.modelValue, (newVal) => {
+  if (newVal && fApi.value) {
+    fApi.value.setValue(newVal)
   }
-}))
+}, { deep: true })
 
-// 监听数据变化抛出给父组件
+// 监听表单数据变化
 watch(formData, (newVal) => {
   emit('update:modelValue', newVal)
 }, { deep: true })
 
-// 监听外部数据变化同步进来
-watch(() => props.modelValue, (newVal) => {
-  if (newVal) {
-    formData.value = { ...newVal }
-    // 同步到 form-create 实例
-    if (fApi.value && fApi.value.setValue) {
-      fApi.value.setValue(newVal)
-    }
+// ==================== 生命钩子 ====================
+onMounted(() => {
+  initForm()
+})
+
+onUnmounted(() => {
+  if (fApi.value) {
+    fApi.value.unmount()
   }
-}, { deep: true })
+})
 
 // ==================== 对外暴露方法 ====================
-/**
- * 手动触发表单校验
- */
 function validate() {
-  return fApi.value.validate()
+  return fApi.value?.validate()
 }
 
-/**
- * 获取当前表单值
- */
 function getValues() {
-  return formData.value
+  return fApi.value?.formData(true)
 }
 
-/**
- * 设置表单值
- */
 function setValues(values: Record<string, any>) {
-  formData.value = { ...values }
-  if (fApi.value && fApi.value.setValue) {
+  if (fApi.value) {
     fApi.value.setValue(values)
   }
 }
 
-/**
- * 重置表单
- */
 function resetFields() {
-  if (fApi.value && fApi.value.reset) {
+  if (fApi.value) {
     fApi.value.reset()
   }
 }
 
-/**
- * 提交表单
- */
 function handleSubmit() {
   if (fApi.value) {
     fApi.value.submit()
@@ -153,31 +172,14 @@ defineExpose({
 
 <template>
   <div class="enterprise-dynamic-form">
-    <component
-      :is="formCreate.component"
-      v-model:api="fApi"
-      v-model="formData"
-      :rule="parsedRules"
-      :option="options"
-      @submit="emit('submit', formData)"
-    />
-    
-    <!-- 自定义按钮区 -->
-    <div v-if="showSubmit || showCancel" class="form-actions">
-      <ElButton v-if="showCancel" @click="resetFields">
-        {{ schema.cancelButton?.text || '重置' }}
-      </ElButton>
-      <ElButton v-if="showSubmit" type="primary" @click="handleSubmit">
-        {{ schema.submitButton?.text || '提交' }}
-      </ElButton>
-    </div>
+    <!-- form-create 会自动挂载到这个元素 -->
+    <div ref="elRef"></div>
   </div>
 </template>
 
 <style scoped>
 .enterprise-dynamic-form {
   width: 100%;
-  padding: 16px 0;
 }
 
 :deep(.el-form-item) {
@@ -191,12 +193,5 @@ defineExpose({
 
 :deep(.el-form-item__content) {
   width: 100%;
-}
-
-.form-actions {
-  margin-top: 24px;
-  display: flex;
-  justify-content: flex-end;
-  gap: 12px;
 }
 </style>

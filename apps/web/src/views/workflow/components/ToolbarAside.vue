@@ -26,24 +26,31 @@ const nodeTypes: Array<{ type: WorkflowNode['type'], label: string, icon: string
 </script>
 
 <template>
-  <div class="toolbar-aside">
-    <div class="toolbar-section">
-      <h4>节点工具箱</h4>
-      <div class="dnd-node-list">
+  <div class="bg-white border-r border-gray-200 flex flex-col w-60 z-10 overflow-y-auto h-full p-4">
+    <div class="border-b border-gray-100 pb-4 mb-4">
+      <h4 class="text-sm font-semibold text-gray-700 mb-3">节点工具箱</h4>
+      <div class="flex flex-col gap-3">
         <div
           v-for="node in nodeTypes"
           :key="node.type"
-          :class="['dnd-node', `is-${node.type}`]"
+          :class="[
+            'flex items-center justify-center h-10 border border-dashed rounded cursor-grab select-none transition-colors text-sm hover:shadow-sm',
+            node.type === 'start' ? 'border-blue-300 bg-blue-50 text-blue-600 hover:border-blue-400' : '',
+            node.type === 'approval' ? 'border-orange-300 bg-orange-50 text-orange-600 hover:border-orange-400' : '',
+            node.type === 'cc' ? 'border-green-300 bg-green-50 text-green-600 hover:border-green-400' : '',
+            node.type === 'condition' ? 'border-green-300 bg-green-50 text-green-600 hover:border-green-400' : '',
+            node.type === 'end' ? 'border-gray-300 bg-gray-50 text-gray-600 hover:border-gray-400' : ''
+          ]"
           @mousedown.prevent="$emit('dragStart', $event, node.type)"
           @click="$emit('addNode', node.type)"
         >
-          <span class="icon">{{ node.icon }}</span> {{ node.label }}
+          <span class="mr-2">{{ node.icon }}</span> {{ node.label }}
         </div>
       </div>
     </div>
 
-    <div class="toolbar-section">
-      <h4>流程信息</h4>
+    <div class="border-b border-gray-100 pb-4 mb-4 flex-1">
+      <h4 class="text-sm font-semibold text-gray-700 mb-3">流程信息</h4>
       <ElForm label-width="60px" size="small">
         <ElFormItem label="描述">
           <ElInput
@@ -60,63 +67,4 @@ const nodeTypes: Array<{ type: WorkflowNode['type'], label: string, icon: string
 </template>
 
 <style scoped>
-.toolbar-aside {
-  background: #f5f7fa;
-  border-right: 1px solid #ebeef5;
-  padding: 16px;
-  overflow-y: auto;
-  height: 100%;
-}
-
-.toolbar-section {
-  margin-bottom: 24px;
-}
-
-.toolbar-section h4 {
-  margin: 0 0 12px 0;
-  font-size: 14px;
-  color: #303133;
-  font-weight: 600;
-}
-
-.dnd-node-list {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.dnd-node {
-  padding: 10px 16px;
-  background: white;
-  border: 1px solid #ebeef5;
-  border-radius: 6px;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
-  font-size: 14px;
-  color: #303133;
-  cursor: grab;
-  display: flex;
-  align-items: center;
-  transition: all 0.2s ease;
-  user-select: none;
-}
-
-.dnd-node:hover {
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-  transform: translateY(-2px);
-}
-
-.dnd-node:active {
-  cursor: grabbing;
-}
-
-.dnd-node .icon {
-  margin-right: 8px;
-  font-size: 16px;
-}
-
-.dnd-node.is-start { border-left: 4px solid #667eea; }
-.dnd-node.is-approval { border-left: 4px solid #409eff; }
-.dnd-node.is-cc { border-left: 4px solid #67c23a; }
-.dnd-node.is-condition { border-left: 4px solid #e6a23c; }
-.dnd-node.is-end { border-left: 4px solid #909399; }
 </style>

@@ -86,15 +86,15 @@ const viewMode = ref('list') // 'list' or 'tree'
 </script>
 
 <template>
-  <div class="contacts">
+  <div class="p-6">
     <ElCard>
       <template #header>
-        <div class="card-header">
-          <h2>通讯录</h2>
+        <div class="flex justify-between items-center">
+          <h2 class="text-lg font-semibold text-gray-800">通讯录</h2>
           <ElSpace>
             <ElSelect
               v-model="viewMode"
-              style="width: 120px"
+              class="w-32"
             >
               <ElOption label="列表视图" value="list" />
               <ElOption label="树形视图" value="tree" />
@@ -104,18 +104,18 @@ const viewMode = ref('list') // 'list' or 'tree'
       </template>
 
       <!-- 搜索栏 -->
-      <div class="search-bar mb-4">
+      <div class="mb-4 flex items-center gap-4 flex-wrap">
         <ElInput
           v-model="searchForm.keyword"
           placeholder="搜索姓名/手机号/邮箱"
           clearable
-          style="width: 240px"
+          class="w-60"
         />
         <ElSelect
           v-model="searchForm.dept"
           placeholder="选择部门"
           clearable
-          style="width: 150px; margin-left: 12px"
+          class="w-40"
         >
           <ElOption
             v-for="dept in deptList"
@@ -128,7 +128,7 @@ const viewMode = ref('list') // 'list' or 'tree'
           v-model="searchForm.status"
           placeholder="状态"
           clearable
-          style="width: 120px; margin-left: 12px"
+          class="w-32"
         >
           <ElOption label="在职" value="active" />
           <ElOption label="离职" value="inactive" />
@@ -136,15 +136,15 @@ const viewMode = ref('list') // 'list' or 'tree'
       </div>
 
       <!-- 统计信息 -->
-      <div class="stats mb-4 text-sm text-gray-500">
+      <div class="mb-4 text-sm text-gray-500">
         共 {{ filteredUsers.length }} 人
-        <span v-if="searchForm.keyword || searchForm.dept || searchForm.status">
+        <span v-if="searchForm.keyword || searchForm.dept || searchForm.status" class="ml-2 text-gray-400">
           （已筛选）
         </span>
       </div>
 
       <!-- 列表视图 -->
-      <div v-show="viewMode === 'list'" v-bind="containerProps" class="virtual-list-container" style="height: 500px; overflow: auto">
+      <div v-show="viewMode === 'list'" v-bind="containerProps" class="border border-gray-200 rounded overflow-hidden" style="height: 500px; overflow: auto">
         <div v-bind="wrapperProps">
           <ElTable
             :data="virtualList"
@@ -175,13 +175,13 @@ const viewMode = ref('list') // 'list' or 'tree'
       </div>
 
       <!-- 树形视图 -->
-      <div v-show="viewMode === 'tree'" class="tree-view p-4">
+      <div v-show="viewMode === 'tree'" class="min-h-[400px] p-4">
         <ElTree
           :data="deptList || []"
           :props="{ children: 'children', label: 'name' }"
         >
           <template #default="{ node, data }">
-            <span class="tree-node">
+            <span class="flex items-center">
               <span>{{ node.label }}</span>
               <span v-if="data.userCount" class="text-sm text-gray-400 ml-2">
                 ({{ data.userCount }}人)
@@ -195,43 +195,7 @@ const viewMode = ref('list') // 'list' or 'tree'
 </template>
 
 <style scoped>
-.contacts {
-  padding: 20px;
-}
-
-.card-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.card-header h2 {
-  margin: 0;
-  font-size: 18px;
-  color: #303133;
-}
-
-.search-bar {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px;
-}
-
-.virtual-list-container {
-  border: 1px solid #ebeef5;
-  border-radius: 4px;
-}
-
 :deep(.virtual-table-row) {
   height: 80px;
-}
-
-.tree-view {
-  min-height: 400px;
-}
-
-.tree-node {
-  display: flex;
-  align-items: center;
 }
 </style>

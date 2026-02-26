@@ -2,7 +2,7 @@
 /**
  * NodeConfigPanel - 节点属性配置面板
  * 使用策略模式和动态组件将配置表单拆分到独立子组件
- * 
+ *
  * 交互优化：实时同步模式
  * - 去掉保存按钮
  * - 使用 watch 深度监听 + 防抖
@@ -64,7 +64,7 @@ const debouncedSync = debounce(() => {
     isExternalUpdate = false
     return
   }
-  
+
   if (localNode.value.id) {
     emit('update', { ...localNode.value })
   }
@@ -141,13 +141,13 @@ function handleModelUpdate(updatedNode: WorkflowNode) {
 </script>
 
 <template>
-  <ElCard v-if="node" class="node-config-panel" shadow="never">
+  <ElCard v-if="node" class="h-full flex flex-col shadow-none" shadow="never">
     <template #header>
-      <div class="panel-header">
-        <span class="panel-title">节点配置</span>
-        <div class="header-actions">
-          <span v-if="localNode.id" class="sync-indicator" title="实时同步中">
-            <span class="sync-dot"></span>
+      <div class="flex justify-between items-center">
+        <span class="text-base font-semibold text-gray-800">节点配置</span>
+        <div class="flex items-center gap-3">
+          <span v-if="localNode.id" class="flex items-center gap-2 text-xs text-green-600" title="实时同步中">
+            <span class="w-2 h-2 bg-green-600 rounded-full animate-pulse"></span>
             实时同步
           </span>
           <ElButton
@@ -179,7 +179,7 @@ function handleModelUpdate(updatedNode: WorkflowNode) {
     />
 
     <!-- 提示文字 -->
-    <div v-if="!isStartOrEnd" class="sync-hint">
+    <div v-if="!isStartOrEnd" class="flex items-center gap-2 mt-3 p-3 bg-gray-50 rounded text-sm text-gray-500">
       <ElIcon :size="14" color="#909399">
         <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <circle cx="12" cy="12" r="10" />
@@ -191,14 +191,14 @@ function handleModelUpdate(updatedNode: WorkflowNode) {
     </div>
 
     <!-- 操作按钮（只保留关闭） -->
-    <div class="panel-actions">
+    <div class="mt-auto pt-4 border-t border-gray-200 flex justify-end gap-2">
       <ElButton @click="handleClose">
         关闭
       </ElButton>
     </div>
   </ElCard>
 
-  <div v-else class="empty-state">
+  <div v-else class="flex flex-col items-center justify-center h-full text-gray-500">
     <ElIcon :size="48" color="#909399">
       <svg
         xmlns="http://www.w3.org/2000/svg"
@@ -213,93 +213,9 @@ function handleModelUpdate(updatedNode: WorkflowNode) {
         <path d="M12 6v6l4 2" />
       </svg>
     </ElIcon>
-    <p>点击节点进行配置</p>
+    <p class="mt-4 text-sm">点击节点进行配置</p>
   </div>
 </template>
 
 <style scoped>
-.node-config-panel {
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-}
-
-.panel-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.panel-title {
-  font-size: 16px;
-  font-weight: 600;
-  color: #303133;
-}
-
-.header-actions {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.sync-indicator {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  font-size: 12px;
-  color: #67c23a;
-}
-
-.sync-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: #67c23a;
-  animation: pulse 2s infinite;
-}
-
-@keyframes pulse {
-  0%, 100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0.5;
-  }
-}
-
-.sync-hint {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  margin-top: 12px;
-  padding: 8px 12px;
-  background: #f5f7fa;
-  border-radius: 4px;
-  font-size: 12px;
-  color: #909399;
-}
-
-.panel-actions {
-  margin-top: auto;
-  display: flex;
-  justify-content: flex-end;
-  gap: 8px;
-  padding-top: 16px;
-  border-top: 1px solid #ebeef5;
-}
-
-.empty-state {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  height: 100%;
-  color: #909399;
-  text-align: center;
-}
-
-.empty-state p {
-  margin-top: 16px;
-  font-size: 14px;
-}
 </style>

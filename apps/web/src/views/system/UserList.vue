@@ -131,11 +131,11 @@ function handleSubmit() {
 </script>
 
 <template>
-  <div class="system-users">
+  <div class="p-6">
     <ElCard>
       <template #header>
-        <div class="card-header">
-          <h2>用户管理</h2>
+        <div class="flex justify-between items-center">
+          <h2 class="text-lg font-semibold text-gray-800">用户管理</h2>
           <ElButton type="primary" @click="handleAdd">
             新增用户
           </ElButton>
@@ -143,19 +143,19 @@ function handleSubmit() {
       </template>
 
       <!-- 搜索栏 -->
-      <div class="search-bar mb-4">
+      <div class="mb-4 flex items-center gap-4 flex-wrap">
         <ElInput
           v-model="searchForm.keyword"
           placeholder="搜索用户名/姓名"
           clearable
-          style="width: 240px"
+          class="w-60"
           @keyup.enter="handleSearch"
         />
         <ElSelect
           v-model="searchForm.role"
           placeholder="角色"
           clearable
-          style="width: 150px; margin-left: 12px"
+          class="w-40"
         >
           <ElOption label="管理员" value="admin" />
           <ElOption label="普通用户" value="user" />
@@ -165,12 +165,12 @@ function handleSubmit() {
           v-model="searchForm.status"
           placeholder="状态"
           clearable
-          style="width: 120px; margin-left: 12px"
+          class="w-32"
         >
           <ElOption label="启用" value="active" />
           <ElOption label="禁用" value="inactive" />
         </ElSelect>
-        <ElButton type="primary" style="margin-left: 12px" @click="handleSearch">
+        <ElButton type="primary" @click="handleSearch">
           搜索
         </ElButton>
       </div>
@@ -235,7 +235,7 @@ function handleSubmit() {
           <ElInput v-model="formModel.email" />
         </ElFormItem>
         <ElFormItem label="角色" required>
-          <ElSelect v-model="formModel.role" style="width: 100%">
+          <ElSelect v-model="formModel.role" class="w-full">
             <ElOption label="普通用户" value="user" />
             <ElOption label="经理" value="manager" />
             <ElOption label="管理员" value="admin" />
@@ -258,25 +258,4 @@ function handleSubmit() {
 </template>
 
 <style scoped>
-.system-users {
-  padding: 20px;
-}
-
-.card-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.card-header h2 {
-  margin: 0;
-  font-size: 18px;
-  color: #303133;
-}
-
-.search-bar {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px;
-}
 </style>

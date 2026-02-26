@@ -22,7 +22,7 @@ function onLogout() {
 </script>
 
 <template>
-  <el-header class="h-14 flex items-center justify-between border-b border-slate-200 px-4">
+  <el-header class="h-14 flex items-center justify-between bg-white border-b border-slate-200 px-4">
     <!-- 左侧占位（可放置面包屑、搜索等） -->
     <div class="flex items-center gap-2" />
 
@@ -31,7 +31,7 @@ function onLogout() {
       <span class="text-sm text-slate-600">
         {{ userStore.userInfo?.name || '未登录用户' }}
       </span>
-      <el-button type="primary" link @click="onLogout">
+      <el-button type="danger" plain size="small" @click="onLogout">
         退出登录
       </el-button>
     </div>
@@ -39,7 +39,4 @@ function onLogout() {
 </template>
 
 <style scoped>
-.el-header {
-  background-color: #ffffff;
-}
 </style>

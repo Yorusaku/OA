@@ -8,8 +8,9 @@ import { createApp } from 'vue'
 import App from './App.vue'
 import { setupAuthDirective } from './directives/auth'
 import { router } from './router'
-import './styles/index.css'
-import 'element-plus/dist/index.css'
+import { setupFormCreate } from '@/plugins/form-create'
+import './styles/index.css' // 🚀 1. 先引入 Tailwind 等基础样式
+import 'element-plus/dist/index.css' // 🚀 2. Element Plus 全量 CSS（必须在 Tailwind 之后，利用 CSS 后发优势覆盖）
 
 async function bootstrap() {
   if (import.meta.env.VITE_USE_MOCK === 'true') {
@@ -38,8 +39,9 @@ async function bootstrap() {
     queryClient,
   }
 
-  app.use(VueQueryPlugin, vueQueryOptions)
   app.use(router)
+  app.use(VueQueryPlugin, vueQueryOptions)
+  setupFormCreate(app) // 🚀 注入动态表单白名单与引擎
   setupAuthDirective(app)
   app.mount('#app')
 }

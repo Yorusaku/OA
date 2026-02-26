@@ -76,18 +76,18 @@ function updateCondition(index: number, field: keyof ConditionExpression, value:
 
     <ElForm label-width="80px" label-position="top" size="small">
       <ElFormItem label="条件分支">
-        <div class="condition-list">
+        <div class="flex flex-col gap-3">
           <div
             v-for="(cond, index) in conditions"
             :key="cond.id"
-            class="condition-item"
+            class="p-3 bg-gray-50 rounded"
           >
-            <div class="condition-header">
+            <div class="flex justify-between items-center mb-2">
               <ElInput
                 v-model="cond.name"
                 placeholder="条件名称"
                 size="small"
-                style="width: 150px"
+                class="w-36"
                 @update:model-value="updateCondition(index, 'name', $event)"
               />
               <ElButton
@@ -99,12 +99,12 @@ function updateCondition(index: number, field: keyof ConditionExpression, value:
                 删除
               </ElButton>
             </div>
-            <div class="condition-body">
+            <div class="flex items-center gap-2">
               <ElSelect
                 v-model="cond.fieldKey"
                 placeholder="选择字段"
                 size="small"
-                style="width: 120px"
+                class="w-30"
                 @update:model-value="updateCondition(index, 'fieldKey', $event)"
               >
                 <ElOption
@@ -118,7 +118,7 @@ function updateCondition(index: number, field: keyof ConditionExpression, value:
                 v-model="cond.operator"
                 placeholder="操作符"
                 size="small"
-                style="width: 100px"
+                class="w-24"
                 @update:model-value="updateCondition(index, 'operator', $event)"
               >
                 <ElOption
@@ -132,7 +132,7 @@ function updateCondition(index: number, field: keyof ConditionExpression, value:
                 v-model="cond.value"
                 placeholder="比较值"
                 size="small"
-                style="width: 120px"
+                class="w-30"
                 @update:model-value="updateCondition(index, 'value', $event)"
               />
             </div>
@@ -147,27 +147,4 @@ function updateCondition(index: number, field: keyof ConditionExpression, value:
 </template>
 
 <style scoped>
-.condition-list {
-  width: 100%;
-}
-
-.condition-item {
-  margin-bottom: 12px;
-  padding: 10px;
-  background: #f5f7fa;
-  border-radius: 4px;
-}
-
-.condition-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 8px;
-}
-
-.condition-body {
-  display: flex;
-  gap: 8px;
-  align-items: center;
-}
 </style>

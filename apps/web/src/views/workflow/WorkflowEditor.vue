@@ -36,7 +36,7 @@ const {
 </script>
 
 <template>
-  <div class="workflow-editor">
+  <div class="h-screen flex flex-col overflow-hidden bg-gray-50">
     <EditorHeader
       :workflow-name="workflowName"
       :workflow-status="workflowStatus"
@@ -47,7 +47,7 @@ const {
       @back="handleBack"
     />
 
-    <ElContainer class="editor-body">
+    <ElContainer class="flex-1 overflow-hidden">
       <ToolbarAside
         :workflow-description="workflowDescription"
         @update:workflow-description="workflowDescription = $event"
@@ -55,7 +55,7 @@ const {
         @drag-start="handleDragStart"
       />
 
-      <ElMain class="canvas-main">
+      <ElMain class="p-0 overflow-hidden bg-gray-50 relative">
         <WorkflowCanvas
           ref="canvasRef"
           :definition="definition"
@@ -70,7 +70,7 @@ const {
         />
       </ElMain>
 
-      <ElAside width="320px" class="config-aside">
+      <ElAside width="320px" class="bg-white border-l border-gray-200 p-4 overflow-y-auto shadow-sm z-10">
         <NodeConfigPanel
           :node="selectedNode"
           :form-schemas="formSchemas || []"
@@ -84,28 +84,4 @@ const {
 </template>
 
 <style scoped>
-.workflow-editor {
-  height: 100vh;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-}
-
-.editor-body {
-  flex: 1;
-  overflow: hidden;
-}
-
-.canvas-main {
-  padding: 0;
-  overflow: hidden;
-  background: #f5f7fa;
-}
-
-.config-aside {
-  background: white;
-  border-left: 1px solid #ebeef5;
-  padding: 16px;
-  overflow-y: auto;
-}
 </style>

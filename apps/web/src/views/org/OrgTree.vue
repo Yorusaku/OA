@@ -64,20 +64,16 @@ function handleNodeClick(data: any) {
 </script>
 
 <template>
-  <div class="org-tree">
+  <div class="p-6">
     <ElCard>
       <template #header>
-        <div class="card-header">
-          <h2>组织架构</h2>
-        </div>
+        <h2 class="text-lg font-semibold text-gray-800">组织架构</h2>
       </template>
 
-      <div class="org-layout">
+      <div class="flex gap-5 min-h-[500px]">
         <!-- 左侧部门树 -->
-        <div class="dept-tree">
-          <h4 class="tree-title">
-            部门列表
-          </h4>
+        <div class="w-64 border-r border-gray-200 pr-5">
+          <h4 class="text-sm font-semibold text-gray-700 mb-4">部门列表</h4>
           <ElTree
             v-loading="treeLoading"
             :data="deptTree || []"
@@ -88,14 +84,14 @@ function handleNodeClick(data: any) {
         </div>
 
         <!-- 右侧成员列表 -->
-        <div class="member-list">
-          <div class="list-header">
-            <h4>{{ selectedDeptName }}</h4>
+        <div class="flex-1 overflow-hidden">
+          <div class="mb-4 flex justify-between items-center">
+            <h4 class="text-base font-semibold text-gray-800">{{ selectedDeptName }}</h4>
             <ElInput
               v-model="searchKeyword"
               placeholder="搜索成员"
               clearable
-              style="width: 200px"
+              class="w-52"
             />
           </div>
 
@@ -127,50 +123,4 @@ function handleNodeClick(data: any) {
 </template>
 
 <style scoped>
-.org-tree {
-  padding: 20px;
-}
-
-.card-header h2 {
-  margin: 0;
-  font-size: 18px;
-  color: #303133;
-}
-
-.org-layout {
-  display: flex;
-  gap: 20px;
-  min-height: 500px;
-}
-
-.dept-tree {
-  width: 250px;
-  border-right: 1px solid #ebeef5;
-  padding-right: 20px;
-}
-
-.tree-title {
-  margin: 0 0 16px 0;
-  font-size: 14px;
-  color: #303133;
-  font-weight: 600;
-}
-
-.member-list {
-  flex: 1;
-  overflow: hidden;
-}
-
-.list-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 16px;
-}
-
-.list-header h4 {
-  margin: 0;
-  font-size: 16px;
-  color: #303133;
-}
 </style>

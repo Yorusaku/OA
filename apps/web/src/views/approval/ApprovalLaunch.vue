@@ -10,7 +10,7 @@ import {
   ElStep,
   ElSteps,
 } from 'element-plus'
-import { computed, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { DynamicForm } from '@/components/dynamic-form'
 import { useWorkflowList } from '@/composables/useWorkflow'
@@ -19,11 +19,25 @@ const router = useRouter()
 
 const currentStep = ref(1)
 
-const { data: workflows } = useWorkflowList({ page: 1, pageSize: 100 })
+console.log('_approval Launch mounted_')
+
+const { data: workflows, isLoading, error } = useWorkflowList({ page: 1, pageSize: 100 })
+
+console.log('_workflows data_:')
+console.log(workflows.value)
+
 const selectedWorkflowId = ref('')
 
 const selectedWorkflow = computed(() => {
-  return workflows.value?.list?.find(w => w.id === selectedWorkflowId.value)
+  const wf = workflows.value?.list?.find(w => w.id === selectedWorkflowId.value)
+  console.log('_selectedWorkflow computed_:')
+  console.log(wf)
+  return wf
+})
+
+// 监听 selectedWorkflowId 变化
+watch(selectedWorkflowId, (newId, oldId) => {
+  console.log('_selectedWorkflowId changed_:', { oldId, newId })
 })
 
 const mockFormSchemas: Record<string, FormSchema> = {
@@ -68,12 +82,26 @@ const mockFormSchemas: Record<string, FormSchema> = {
 }
 
 const currentFormSchema = computed(() => {
+  console.log('_currentFormSchema computed_:')
+  console.log({
+    selectedWorkflowId: selectedWorkflowId.value,
+    formSchemaId: selectedWorkflow.value?.formSchemaId,
+    exist: !!selectedWorkflow.value?.formSchemaId,
+  })
   if (!selectedWorkflow.value?.formSchemaId)
     return null
-  return mockFormSchemas[selectedWorkflow.value.formSchemaId] || null
+  const schema = mockFormSchemas[selectedWorkflow.value.formSchemaId]
+  console.log('found schema:', schema)
+  return schema || null
+})
+
+// 监听 currentFormSchema 变化
+watch(currentFormSchema, (newVal, oldVal) => {
+  console.log('_currentFormSchema changed_:', { oldVal, newVal })
 })
 
 const formData = ref({})
+console.log('_formData initialized_')
 
 const submitDialogVisible = ref(false)
 
@@ -111,13 +139,19 @@ function handleSubmit() {
 </script>
 
 <template>
-  <div class="approval-launch">
+  <div class="p-6 max-w-3xl mx-auto">
     <ElCard>
       <template #header>
-        <div class="card-header">
-          <h2>发起审批</h2>
-        </div>
+        <h2 class="text-lg font-semibold text-gray-800">发起审批</h2>
       </template>
+
+      <!-- 调试信息 -->
+      <div class="mb-4 p-3 bg-blue-50 rounded text-xs text-blue-800 font-mono">
+        <p>DEBUG: currentStep={{ currentStep }}</p>
+        <p>DEBUG: selectedWorkflowId={{ selectedWorkflowId }}</p>
+        <p>DEBUG: selectedWorkflow={{ selectedWorkflow ? JSON.stringify({id: selectedWorkflow.id, name: selectedWorkflow.name, formSchemaId: selectedWorkflow.formSchemaId}) : 'null' }}</p>
+        <p>DEBUG: currentFormSchema={{ currentFormSchema ? 'exists' : 'null' }}</p>
+      </div>
 
       <ElSteps :active="currentStep" class="mb-6">
         <ElStep title="选择流程" description="选择要发起的审批流程" />
@@ -125,13 +159,13 @@ function handleSubmit() {
         <ElStep title="提交确认" description="确认信息并提交" />
       </ElSteps>
 
-      <div v-show="currentStep === 1" class="step-content">
-        <div class="form-section">
-          <label class="section-label">选择审批流程</label>
+      <div v-show="currentStep === 1" class="step-content min-h-[400px] py-6">
+        <div class="mb-6">
+          <label class="block mb-2 text-sm text-gray-600">选择审批流程</label>
           <ElSelect
             v-model="selectedWorkflowId"
             placeholder="请选择流程"
-            style="width: 400px"
+            class="w-96"
           >
             <ElOption
               v-for="wf in workflows?.list"
@@ -139,43 +173,49 @@ function handleSubmit() {
               :label="wf.name"
               :value="wf.id"
             >
-              <div class="option-content">
+              <div class="flex flex-col gap-1">
                 <span>{{ wf.name }}</span>
-                <span class="option-desc">{{ wf.description }}</span>
+                <span class="text-xs text-gray-500">{{ wf.description }}</span>
               </div>
             </ElOption>
           </ElSelect>
         </div>
 
-        <div v-if="selectedWorkflow" class="workflow-info">
-          <h4>流程信息</h4>
-          <p><strong>名称：</strong>{{ selectedWorkflow.name }}</p>
-          <p><strong>描述：</strong>{{ selectedWorkflow.description }}</p>
-          <p><strong>绑定表单：</strong>{{ selectedWorkflow.formSchemaId || '未绑定' }}</p>
+        <div v-if="selectedWorkflow" class="mt-6 p-4 bg-gray-50 rounded border border-gray-100">
+          <h4 class="font-semibold text-gray-800 mb-3">流程信息</h4>
+          <p class="text-sm text-gray-600"><strong>名称：</strong>{{ selectedWorkflow.name }}</p>
+          <p class="text-sm text-gray-600"><strong>描述：</strong>{{ selectedWorkflow.description }}</p>
+          <p class="text-sm text-gray-600"><strong>绑定表单：</strong>{{ selectedWorkflow.formSchemaId || '未绑定' }}</p>
         </div>
       </div>
 
-      <div v-show="currentStep === 2" class="step-content">
+      <div v-show="currentStep === 2" class="step-content min-h-[400px] py-6">
+        <div v-if="!selectedWorkflow" class="flex items-center justify-center h-75 text-gray-500">
+          <p>请先选择流程</p>
+        </div>
+        <div v-else-if="!selectedWorkflow.formSchemaId" class="flex items-center justify-center h-75 text-orange-500">
+          <p>该流程未绑定表单 Schema</p>
+        </div>
+        <div v-else-if="!currentFormSchema" class="flex items-center justify-center h-75 text-red-500">
+          <p>未找到对应的表单 Schema: {{ selectedWorkflow.formSchemaId }}</p>
+        </div>
         <DynamicForm
-          v-if="currentFormSchema"
+          v-else
           v-model="formData"
           :schema="currentFormSchema"
         />
-        <div v-else class="empty-state">
-          <p>该流程未配置表单 Schema</p>
-        </div>
       </div>
 
-      <div v-show="currentStep === 3" class="step-content">
-        <div class="confirm-section">
-          <h4>请确认以下信息</h4>
-          <ElCard shadow="never" class="confirm-data">
-            <pre>{{ JSON.stringify(formData, null, 2) }}</pre>
+      <div v-show="currentStep === 3" class="step-content min-h-[400px] py-6">
+        <div class="mb-4">
+          <h4 class="font-semibold text-gray-800 mb-4">请确认以下信息</h4>
+          <ElCard shadow="never" class="bg-gray-50">
+            <pre class="m-0 p-4 text-sm text-gray-600 max-h-100 overflow-auto">{{ JSON.stringify(formData, null, 2) }}</pre>
           </ElCard>
         </div>
       </div>
 
-      <div class="actions">
+      <div class="mt-6 pt-6 border-t border-gray-200 flex justify-center gap-4">
         <ElButton @click="handleBack">
           {{ currentStep === 1 ? '取消' : '上一步' }}
         </ElButton>
@@ -190,8 +230,8 @@ function handleSubmit() {
       title="提交成功"
       width="400px"
     >
-      <div class="success-content">
-        <p>您的审批申请已提交</p>
+      <div class="text-center py-6">
+        <p class="mb-2">您的审批申请已提交</p>
         <p class="text-sm text-gray-500">
           您可以在"我的申请"中查看审批进度
         </p>
@@ -206,104 +246,4 @@ function handleSubmit() {
 </template>
 
 <style scoped>
-.approval-launch {
-  padding: 20px;
-  max-width: 900px;
-  margin: 0 auto;
-}
-
-.card-header h2 {
-  margin: 0;
-  font-size: 18px;
-  color: #303133;
-}
-
-.step-content {
-  min-height: 400px;
-  padding: 20px 0;
-}
-
-.form-section {
-  margin-bottom: 24px;
-}
-
-.section-label {
-  display: block;
-  margin-bottom: 8px;
-  font-size: 14px;
-  color: #606266;
-}
-
-.option-content {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.option-desc {
-  font-size: 12px;
-  color: #909399;
-}
-
-.workflow-info {
-  margin-top: 24px;
-  padding: 16px;
-  background: #f5f7fa;
-  border-radius: 4px;
-}
-
-.workflow-info h4 {
-  margin: 0 0 12px 0;
-  color: #303133;
-}
-
-.workflow-info p {
-  margin: 8px 0;
-  font-size: 14px;
-  color: #606266;
-}
-
-.empty-state {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  height: 300px;
-  color: #909399;
-}
-
-.confirm-section h4 {
-  margin: 0 0 16px 0;
-  color: #303133;
-}
-
-.confirm-data {
-  background: #f5f7fa;
-}
-
-.confirm-data pre {
-  margin: 0;
-  padding: 16px;
-  font-size: 13px;
-  color: #606266;
-  max-height: 400px;
-  overflow: auto;
-}
-
-.actions {
-  margin-top: 24px;
-  display: flex;
-  justify-content: center;
-  gap: 16px;
-  padding-top: 24px;
-  border-top: 1px solid #ebeef5;
-}
-
-.success-content {
-  text-align: center;
-  padding: 20px;
-}
-
-.success-content p {
-  margin: 8px 0;
-}
 </style>

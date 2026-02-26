@@ -15,3 +15,61 @@ body,
 body {
   @apply text-slate-800;
 }
+
+/* 🚀 修复 Tailwind Preflight 与 Element Plus 按钮的冲突 */
+/* Tailwind 的 Preflight 会将所有 button 背景设为 transparent，导致 el-button 变透明 */
+
+/* 仅对非 el-button 生效：普通按钮保持背景透明 */
+button,
+[type='button'],
+[type='reset'],
+[type='submit'] {
+  background-color: transparent;
+}
+
+/* 强制让 Element Plus 的按钮继承其自身的变量，防止被 Tailwind 扒光 */
+.el-button {
+  background-color: var(--el-button-bg-color, var(--el-color-white)) !important;
+  border-color: var(--el-button-border-color, var(--el-border-color)) !important;
+  color: var(--el-button-text-color, var(--el-color-white)) !important;
+}
+
+.el-button:not(.is-plain):hover {
+  color: var(--el-button-hover-text-color, var(--el-color-white)) !important;
+}
+
+.el-button--primary {
+  background-color: var(--el-color-primary) !important;
+  border-color: var(--el-color-primary) !important;
+  color: var(--el-button-text-color, var(--el-color-white)) !important;
+}
+
+.el-button--success {
+  background-color: var(--el-color-success) !important;
+  border-color: var(--el-color-success) !important;
+  color: var(--el-button-text-color, var(--el-color-white)) !important;
+}
+
+.el-button--danger {
+  background-color: var(--el-color-danger) !important;
+  border-color: var(--el-color-danger) !important;
+  color: var(--el-button-text-color, var(--el-color-white)) !important;
+}
+
+.el-button--warning {
+  background-color: var(--el-color-warning) !important;
+  border-color: var(--el-color-warning) !important;
+  color: var(--el-button-text-color, var(--el-color-white)) !important;
+}
+
+.el-button--info {
+  background-color: var(--el-color-info) !important;
+  border-color: var(--el-color-info) !important;
+  color: var(--el-button-text-color, var(--el-color-white)) !important;
+}
+
+/* 修复 is-plain 等变体的覆盖 */
+.el-button.is-plain {
+  background-color: var(--el-color-primary-light-9) !important;
+  color: var(--el-color-primary) !important;
+}
