@@ -150,3 +150,40 @@ export interface ConditionResult {
   /** 触发条件的字段值 */
   triggeredBy?: string
 }
+
+/**
+ * 节点级表单权限类型
+ * 用于在不同审批节点控制表单字段的可见性、可编辑性、必填性
+ * 
+ * @see permissions 映射表使用示例：{ hr_comment: 'required', amount: 'readonly', secret_note: 'hidden' }
+ */
+export type NodePermissionType
+  = 'hidden'    // 字段隐藏（不渲染到 DOM）
+  | 'readonly'  // 字段只读（用户不可编辑）
+  | 'editable'  // 字段可编辑（恢复默认状态）
+  | 'required'  // 字段必填（强制校验）
+
+/**
+ * 权限类型说明
+ */
+export const PERMISSION_TYPE_LABELS = {
+  hidden: '隐藏',
+  readonly: '只读',
+  editable: '可编辑',
+  required: '必填',
+} as const
+
+/**
+ * 节点权限映射表
+ * key 是字段的 key，value 是权限类型
+ * 
+ * @example
+ * ```ts
+ * const permissions: PermissionsMap = {
+ *   hr_comment: 'required',  // HR 评论字段必填
+ *   amount: 'readonly',      // 金额字段只读
+ *   secret_note: 'hidden',   // 内部备注隐藏
+ * }
+ * ```
+ */
+export type PermissionsMap = Record<string, NodePermissionType>

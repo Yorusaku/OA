@@ -1,176 +1,96 @@
 <script setup lang="ts">
 /**
  * DynamicForm - 企业级动态表单组件
- * 基于 @form-create/element-ui 实现
- * 支持 JSON Schema 驱动、表单验证、联动逻辑
- *
- * @version 2.3.0
- * @since 2026-02-26
+ * 基于 @form-create/element-ui 实现（声明式渲染）
+ * 支持 JSON Schema 驱动、表单验证、联动逻辑、节点级权限控制
  */
-import { nextTick, onMounted, onUnmounted, ref, watch, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 import formCreate from '@form-create/element-ui'
-import type { FormSchema, FormFieldSchema } from '@/types/form-schema'
+import type { FormSchema } from '@/types/form-schema'
+import { useSchemaAdapter } from './composables/useSchemaAdapter'
+import { usePermissionMutator, type PermissionsMap } from './composables/usePermissionMutator'
+
+// 定义组件名称，便于测试和调试
+defineOptions({
+  name: 'DynamicForm'
+})
 
 // ==================== Props ====================
 const props = withDefaults(defineProps<{
   schema: FormSchema
-  modelValue?: any
+  modelValue?: Record<string, any>
   disabled?: boolean
   readonly?: boolean
   showSubmit?: boolean
   showCancel?: boolean
+  permissions?: PermissionsMap
 }>(), {
   modelValue: () => ({}),
   disabled: false,
   readonly: false,
   showSubmit: false,
-  showCancel: false
+  showCancel: false,
+  permissions: () => ({})
 })
 
 const emit = defineEmits<{
-  (e: 'update:modelValue', value: any): void
-  (e: 'submit', values: any): void
+  (e: 'update:modelValue', value: Record<string, any>): void
+  (e: 'submit', values: Record<string, any>): void
   (e: 'reset'): void
 }>()
 
 // ==================== State ====================
 const fApi = ref<any>(null)
-const formData = ref<Record<string, any>>({})
-const elRef = ref<HTMLDivElement | null>(null)
 
-// ==================== Computed (Adapter) ====================
-/** 类型映射：将表单 schema 类型映射到 form-create 类型 */
-const typeMap: Record<string, string> = {
-  textarea: 'input',
-  date: 'datePicker',
-  time: 'timePicker',
-  number: 'inputNumber',
-  upload: 'upload',
-  switch: 'switch',
-  slider: 'slider',
-  rate: 'rate',
-  color: 'colorPicker',
-}
+// ==================== Composables: 流水线处理 ====================
+// Step 1: Schema 适配器 - 将 FormSchema 转换为 baseRules
+const baseRules = useSchemaAdapter(props.schema)
 
-/** 生成表单规则 */
-const rules = computed(() => {
-  if (!props.schema?.fields?.length) return []
+// Step 2: 权限变异引擎 - 应用权限后得到最终 rules
+const finalRules = computed(() => {
+  const rules = usePermissionMutator(baseRules, props.permissions)
 
-  return props.schema.fields.map((field: FormFieldSchema) => {
-    const mappedType = typeMap[field.type] || field.type
+  // 如果组件处于 readonly 模式，应用 readonly 到所有字段
+  if (props.readonly) {
+    return rules.map((rule: any) => {
+      const clonedRule = { ...rule }
+      clonedRule.props = { ...clonedRule.props, disabled: true, readonly: true }
+      return clonedRule
+    })
+  }
 
-    const baseRule: any = {
-      type: mappedType,
-      field: field.key,
-      title: field.label,
-      value: field.defaultValue,
-      props: {
-        type: field.type === 'textarea' ? 'textarea' : undefined,
-        placeholder: field.placeholder,
-        disabled: props.disabled || field.disabled,
-        readonly: props.readonly || field.readonly,
-        clearable: true,
-        ...field.componentProps
-      },
-      validate: field.required
-        ? [{ required: true, message: `${field.label}是必填项`, trigger: 'blur' }]
-        : []
-    }
-
-    if (field.options?.length) {
-      baseRule.options = field.options.map((opt: any) => ({
-        label: opt.label,
-        value: opt.value,
-        disabled: opt.disabled
-      }))
-    }
-
-    return baseRule
-  })
+  return rules
 })
 
-/** form-create 配置 */
+// ==================== Computed: form-create 配置 ====================
 const formOptions = computed(() => ({
-  submitBtn: props.showSubmit ? {
-    show: true,
-    props: {
-      type: 'primary'
-    }
-  } : false,
-  resetBtn: props.showCancel ? {
-    show: true
-  } : false,
+  submitBtn: props.showSubmit
+    ? { show: true, props: { type: 'primary' } }
+    : false,
+  resetBtn: props.showCancel ? { show: true } : false,
   form: {
     labelWidth: props.schema?.labelWidth || '100px',
-    disabled: props.disabled,
-    size: props.disabled ? 'default' : undefined as any
-  }
+    disabled: props.disabled || props.readonly,
+    readonly: props.readonly,
+    size: props.disabled || props.readonly ? 'default' : undefined as any,
+  },
 }))
 
-// ==================== Watchers ====================
-/** 监听 schema 变化 */
-watch(rules, (newRules) => {
-  fApi.value?.rule?.(newRules)
-})
+// ==================== 声明式组件构造器 ====================
+const FormCreateComponent = computed(() => formCreate.$form())
 
-/** 监听外部 modelValue 变化，同步到 form-create */
-watch(() => props.modelValue, (newVal) => {
-  if (!newVal || !fApi.value) return
-
-  const currentFormData = fApi.value.formData?.() || {}
-  if (JSON.stringify(newVal) !== JSON.stringify(currentFormData)) {
-    fApi.value.setValue?.(newVal)
-  }
-}, { deep: true })
-
-/** 监听表单内部数据变化，同步到外部 */
-watch(() => fApi.value?.formData?.(), (newVal) => {
-  if (!newVal || JSON.stringify(newVal) === JSON.stringify(formData.value)) return
-
-  formData.value = { ...newVal }
-  emit('update:modelValue', newVal)
-}, { deep: true })
-
-// ==================== Lifecycle ====================
-/** 初始化表单 */
-const initForm = () => {
-  if (!elRef.value) return
-
-  try {
-    const api = formCreate(rules.value, {
-      ...formOptions.value,
-      el: elRef.value,
-      onSubmit: (formData: any) => {
-        emit('submit', formData)
-      },
-      onReset: () => {
-        emit('reset')
-      }
-    })
-
-    fApi.value = api
-
-    if (props.modelValue && api?.setValue) {
-      api.setValue(props.modelValue)
+// ==================== Watch: modelValue 变化时设置表单值 ====================
+watch(
+  () => props.modelValue,
+  (newVal) => {
+    if (newVal && fApi.value) {
+      fApi.value.setValues?.(newVal)
     }
-  }
-  catch (error) {
-    console.error('[DynamicForm] 初始化表单失败:', error)
-  }
-}
+  },
+  { deep: true, immediate: true }
+)
 
-onMounted(() => {
-  nextTick(() => {
-    initForm()
-  })
-})
-
-onUnmounted(() => {
-  fApi.value?.destroy?.()
-  fApi.value = null
-})
-
-// ==================== Expose ====================
+// ==================== Expose API ====================
 const validate = async (): Promise<boolean | undefined> => {
   return fApi.value?.validate?.()
 }
@@ -180,7 +100,7 @@ const getValues = (): any => {
 }
 
 const setValues = (values: any): void => {
-  fApi.value?.setValue?.(values)
+  fApi.value?.setValues?.(values)
 }
 
 const resetFields = (): void => {
@@ -189,6 +109,7 @@ const resetFields = (): void => {
 
 const handleSubmit = (): void => {
   fApi.value?.submit?.()
+  emit('submit', fApi.value?.formData?.())
 }
 
 defineExpose({
@@ -196,12 +117,18 @@ defineExpose({
   getValues,
   setValues,
   resetFields,
-  handleSubmit
+  handleSubmit,
 })
 </script>
 
 <template>
   <div class="dynamic-form w-full">
-    <div ref="elRef" />
+    <component
+      v-if="FormCreateComponent && finalRules.length > 0"
+      :is="FormCreateComponent"
+      v-model:api="fApi"
+      :rule="finalRules"
+      :option="formOptions"
+    />
   </div>
 </template>

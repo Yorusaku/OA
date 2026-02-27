@@ -38,6 +38,7 @@
     "xlsx": "^0.18.5"
   },
   "devDependencies": {
+    "@antfu/eslint-config": "latest",
     "@oa/config": "workspace:*",
     "@playwright/test": "^1.58.2",
     "@tailwindcss/postcss": "^4.2.0",

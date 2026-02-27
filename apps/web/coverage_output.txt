@@ -1,0 +1,42 @@
+
+> panorama-oa-web@0.0.0 test E:\frontend\allstack\OA\apps\web
+> vitest "--coverage" "--run"
+
+
+[1m[46m RUN [49m[22m [36mv4.0.18 [39m[90mE:/frontend/allstack/OA/apps/web[39m
+      [2mCoverage enabled with [22m[33mv8[39m
+
+ [31m❯[39m src/utils/__tests__/validators.test.ts [2m([22m[2m10 tests[22m[2m | [22m[31m1 failed[39m[2m)[22m[32m 9[2mms[22m[39m
+       [32m✓[39m should return true for valid phone numbers[32m 2[2mms[22m[39m
+       [32m✓[39m should return false for invalid phone numbers[32m 0[2mms[22m[39m
+       [32m✓[39m should return true for valid emails[32m 0[2mms[22m[39m
+       [32m✓[39m should return false for invalid emails[32m 0[2mms[22m[39m
+       [32m✓[39m should return true for valid Chinese ID cards[32m 0[2mms[22m[39m
+       [32m✓[39m should return false for invalid Chinese ID cards[32m 0[2mms[22m[39m
+       [32m✓[39m should return true for non-empty values[32m 0[2mms[22m[39m
+       [32m✓[39m should return false for empty values[32m 0[2mms[22m[39m
+       [32m✓[39m should return true for numbers[32m 0[2mms[22m[39m
+[31m       [31m×[31m should return false for non-numbers[39m[32m 5[2mms[22m[39m
+ [31m❯[39m src/utils/__tests__/helpers.test.ts [2m([22m[2m9 tests[22m[2m | [22m[31m9 failed[39m[2m)[22m[32m 9[2mms[22m[39m
+[31m       [31m×[31m should debounce function calls[39m[32m 5[2mms[22m[39m
+[31m       [31m×[31m should pass arguments correctly[39m[32m 1[2mms[22m[39m
+[31m       [31m×[31m should throttle function calls[39m[32m 0[2mms[22m[39m
+[31m       [31m×[31m should deep clone an object[39m[32m 0[2mms[22m[39m
+[31m       [31m×[31m should handle null and undefined[39m[32m 0[2mms[22m[39m
+[31m       [31m×[31m should handle arrays[39m[32m 0[2mms[22m[39m
+[31m       [31m×[31m should handle Date objects[39m[32m 0[2mms[22m[39m
+[31m       [31m×[31m should generate unique IDs[39m[32m 0[2mms[22m[39m
+[31m       [31m×[31m should return a promise that resolves after given ms[39m[32m 0[2mms[22m[39m
+ [32m✓[39m src/utils/__tests__/formatters.test.ts [2m([22m[2m12 tests[22m[2m)[22m[32m 4[2mms[22m[39m
+ [32m✓[39m src/composables/__tests__/useApprovalDetail.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 198[2mms[22m[39m
+ [32m✓[39m src/components/dynamic-form/__tests__/DynamicForm.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 18[2mms[22m[39m
+ [32m✓[39m src/views/approval/__tests__/ApprovalLaunch.test.ts [2m([22m[2m1 test[22m[2m)[22m[32m 263[2mms[22m[39m
+ [32m✓[39m src/views/approval/__tests__/ApprovalDetail.test.ts [2m([22m[2m7 tests[22m[2m)[22m[33m 1624[2mms[22m[39m
+     [33m[2m✓[22m[39m 应该挂载 DynamicForm 组件 [33m 393[2mms[22m[39m
+
+[2m Test Files [22m [1m[31m2 failed[39m[22m[2m | [22m[1m[32m5 passed[39m[22m[90m (7)[39m
+[2m      Tests [22m [1m[31m10 failed[39m[22m[2m | [22m[1m[32m35 passed[39m[22m[90m (45)[39m
+[2m   Start at [22m 16:22:25
+[2m   Duration [22m 3.98s[2m (transform 879ms, setup 0ms, import 3.80s, tests 2.12s, environment 4.80s)[22m
+
+ ELIFECYCLE  Test failed. See above for more details.

@@ -92,6 +92,9 @@ export interface WorkflowNode {
   timeout?: number
   /** 超时自动通过 */
   autoPassOnTimeout?: boolean
+  
+  /** 该节点的表单权限配置（密级字段保护） */
+  formPermissions?: PermissionsMap
 }
 
 /**
@@ -245,3 +248,20 @@ export interface WorkflowDesignerConfig {
   /** 是否允许删除节点 */
   allowDeleteNode?: boolean
 }
+
+/**
+ * 权限映射表（节点级表单权限类型）
+ * 用于在不同审批节点控制表单字段的可见性、可编辑性、必填性
+ */
+export type NodePermissionType 
+  = 'hidden'    // 字段隐藏（不渲染到 DOM）
+  | 'readonly'  // 字段只读（用户不可编辑）
+  | 'editable'  // 字段可编辑（恢复默认状态）
+  | 'required'  // 字段必填（强制校验）
+
+/**
+ * 节点权限映射表
+ * key 是字段的 key，value 是权限类型
+ * 示例：{ hr_comment: 'required', amount: 'readonly', secret_note: 'hidden' }
+ */
+export type PermissionsMap = Record<string, NodePermissionType>
