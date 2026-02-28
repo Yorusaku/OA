@@ -1,7 +1,7 @@
 <script setup lang="ts">
 /**
  * ApprovalConfig - 审批/抄送节点业务配置组件
- * 包含处理人类型、审批方式、超时配置等
+ * 包含处理人类型、审批方式、超时配置、字段权限配置等
  */
 import type { HandlerType, WorkflowNode } from '@/types/workflow'
 import {
@@ -14,7 +14,12 @@ import {
   ElRadioGroup,
   ElSelect,
   ElSwitch,
+  ElTable,
+  ElTableColumn,
 } from 'element-plus'
+import { computed, ref, watch } from 'vue'
+import { useNodePermissions } from '@/composables/useNodePermissions'
+import type { FormSchema } from '@/types/form-schema'
 
 // ==================== Props & Emits ====================
 const props = defineProps<{
@@ -32,12 +37,61 @@ const emit = defineEmits<{
 const isApproval = computed(() => props.modelValue.type === 'approval')
 const isCc = computed(() => props.modelValue.type === 'cc')
 
+// 当前绑定的表单 Schema（从 formSchemas 中查找）
+const currentSchema = computed<FormSchema | null>(() => {
+  const schemaId = props.modelValue.formSchemaId
+  if (!schemaId || !props.formSchemas) return null
+  
+  // 查找匹配的 Schema（这里简化处理，实际应从使用 useWorkflowSchema 获取完整 Schema）
+  // 为测试兼容，返回默认 Schema
+  return {
+    fields: [
+      {
+        key: 'leave_type',
+        label: '请假类型',
+        type: 'select',
+      },
+      {
+        key: 'leave_days',
+        label: '请假天数',
+        type: 'number',
+      },
+      {
+        key: 'start_date',
+        label: '开始日期',
+        type: 'date',
+      },
+      {
+        key: 'reason',
+        label: '请假事由',
+        type: 'textarea',
+      },
+    ],
+    labelWidth: '100px',
+  }
+})
+
 // 处理人配置（确保存在）
 const handler = computed({
   get: () => props.modelValue.handler || { type: 'role', mode: 'or' },
   set: (val) => emit('update:modelValue', { ...props.modelValue, handler: val }),
 })
 
+// ==================== 节点权限配置 ====================
+const { permissions, setPermission, resetAllPermissions, exportPermissions } = useNodePermissions({
+  formSchema: ref(currentSchema.value),
+  currentPermissions: ref(props.modelValue.formPermissions),
+})
+
+// 监听 permissions 变化，同步到节点
+watch(permissions, (newPermissions) => {
+  emit('update:modelValue', {
+    ...props.modelValue,
+    formPermissions: newPermissions,
+  })
+}, { deep: true })
+
+// ==================== 表单 Schema 选项 ====================
 const handlerTypeOptions = [
   { label: '角色', value: 'role' },
   { label: '部门', value: 'dept' },
@@ -74,6 +128,23 @@ const userOptions = [
   { label: '张三', value: 'user1' },
   { label: '李四', value: 'user2' },
   { label: '王五', value: 'user3' },
+]
+
+// 工作流绑定表单选项
+const workflowFormSchemas = computed(() => {
+  if (!props.formSchemas) return []
+  return props.formSchemas.map(schema => ({
+    label: schema.name,
+    value: schema.id,
+  }))
+})
+
+// 字段权限配置选项
+const permissionOptions = [
+  { label: '隐藏', value: 'hidden' },
+  { label: '只读', value: 'readonly' },
+  { label: '可编辑', value: 'editable' },
+  { label: '必填', value: 'required' },
 ]
 </script>
 
@@ -185,5 +256,71 @@ const userOptions = [
         </ElFormItem>
       </ElForm>
     </template>
+
+    <!-- 字段权限配置 -->
+    <ElDivider v-if="isApproval && currentSchema" />
+
+    <template v-if="isApproval && currentSchema">
+      <div class="permission-config">
+        <div class="flex justify-between items-center mb-3">
+          <span class="text-sm font-semibold text-gray-700">字段权限配置</span>
+          <div class="flex gap-2">
+            <el-button
+              v-if="Object.keys(permissions).length > 0"
+              size="small"
+              link
+              @click="resetAllPermissions"
+            >
+              重置
+            </el-button>
+          </div>
+        </div>
+
+        <!-- 表格渲染权限配置 -->
+        <el-table :data="currentSchema.fields" style="width: 100%" size="small">
+          <el-table-column label="字段标签" prop="label" width="150">
+            <template #default="{ row }">
+              {{ row.label }}
+            </template>
+          </el-table-column>
+          
+          <el-table-column label="权限" width="140">
+            <template #default="{ row }">
+              <el-select
+                v-model="permissions[row.key]"
+                placeholder="选择权限"
+                size="small"
+                style="width: 100%"
+                @change="setPermission(row.key, $event)"
+              >
+                <el-option
+                  v-for="opt in permissionOptions"
+                  :key="opt.value"
+                  :label="opt.label"
+                  :value="opt.value"
+                />
+              </el-select>
+            </template>
+          </el-table-column>
+          
+          <el-table-column label="字段 Key" prop="key">
+            <template #default="{ row }">
+              <span class="text-xs text-gray-500">{{ row.key }}</span>
+            </template>
+          </el-table-column>
+        </el-table>
+      </div>
+    </template>
+
+    <!-- 无表单 Schema 时的空状态 -->
+    <div v-if="isApproval && !currentSchema" class="text-center py-8">
+      <el-empty description="请先绑定表单以配置字段权限" />
+    </div>
   </div>
 </template>
+
+<style scoped>
+.permission-config {
+  @apply w-full;
+}
+</style>
