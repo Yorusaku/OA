@@ -49,6 +49,7 @@ declare module 'vue' {
     ExcelFieldMapper: typeof import('./components/document/excel/ExcelFieldMapper.vue')['default']
     ExcelImporter: typeof import('./components/document/excel/ExcelImporter.vue')['default']
     ExcelPreview: typeof import('./components/document/excel/ExcelPreview.vue')['default']
+    FormDesigner: typeof import('./components/form/FormDesigner.vue')['default']
     NodeConfigPanel: typeof import('./components/workflow/NodeConfigPanel.vue')['default']
     PdfThumbnail: typeof import('./components/document/pdf/PdfThumbnail.vue')['default']
     PdfToolbar: typeof import('./components/document/pdf/PdfToolbar.vue')['default']
