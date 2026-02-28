@@ -53,31 +53,76 @@ export const mockDictItems: Record<string, DictionaryItem[]> = {
 
 export const mockApprovalRecords: ApprovalRecord[] = [
   {
-    id: '1',
-    title: '年假申请 - 张三',
+    id: 'APPROVE-20260228-001',
+    title: '第一季度办公用品采购申请',
+    type: 'purchase',
+    status: 'pending',
+    applicant: '李四',
+    applicantAvatar: 'https://api.multiavatar.com/李四.png',
+    applyTime: '2026-02-28 09:30:00',
+    currentNodeName: '部门经理审批',
+    amount: 5000,
+    isUrgent: false,
+    workflowInstance: {
+      currentNodeId: 'node-approval-001',
+      tasks: [
+        { id: 'task-001', handlerId: 'user-001', status: 'pending' },
+      ],
+    },
+  },
+  {
+    id: 'APPROVE-20260228-002',
+    title: '张三的年假申请',
     type: 'leave',
     status: 'pending',
     applicant: '张三',
-    applyTime: '2026-02-23 10:30:00',
+    applicantAvatar: 'https://api.multiavatar.com/张三.png',
+    applyTime: '2026-02-28 08:15:00',
+    currentNodeName: '部门经理审批',
     amount: 5,
+    isUrgent: false,
+    workflowInstance: {
+      currentNodeId: 'node-approval-002',
+      tasks: [
+        { id: 'task-002', handlerId: 'user-002', status: 'pending' },
+      ],
+    },
   },
   {
-    id: '2',
-    title: '办公用品采购',
-    type: 'purchase',
-    status: 'approved',
-    applicant: '李四',
-    applyTime: '2026-02-22 14:20:00',
-    amount: 500,
-  },
-  {
-    id: '3',
-    title: '差旅费报销',
+    id: 'APPROVE-20260227-001',
+    title: '王五的差旅费报销',
     type: 'expense',
-    status: 'rejected',
+    status: 'approved',
     applicant: '王五',
-    applyTime: '2026-02-21 09:15:00',
+    applicantAvatar: 'https://api.multiavatar.com/王五.png',
+    applyTime: '2026-02-27 14:20:00',
+    currentNodeName: '财务审批',
     amount: 1200,
+    isUrgent: false,
+    workflowInstance: {
+      currentNodeId: 'node-approval-003',
+      tasks: [
+        { id: 'task-003', handlerId: 'user-003', status: 'approved' },
+      ],
+    },
+  },
+  {
+    id: 'APPROVE-20260226-001',
+    title: '项目采购申请 - 服务器设备',
+    type: 'purchase',
+    status: 'rejected',
+    applicant: '赵六',
+    applicantAvatar: 'https://api.multiavatar.com/赵六.png',
+    applyTime: '2026-02-26 10:00:00',
+    currentNodeName: '采购部审批',
+    amount: 25000,
+    isUrgent: true,
+    workflowInstance: {
+      currentNodeId: 'node-approval-004',
+      tasks: [
+        { id: 'task-004', handlerId: 'user-004', status: 'rejected' },
+      ],
+    },
   },
 ]
 
