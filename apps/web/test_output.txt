@@ -1,0 +1,14 @@
+
+[1m[46m RUN [49m[22m [36mv4.0.18 [39m[90mE:/frontend/allstack/OA/apps/web[39m
+
+ [31m❯[39m src/components/workflow/configs/ApprovalConfig.test.ts [2m([22m[2m4 tests[22m[2m | [22m[31m3 failed[39m[2m)[22m[33m 1291[2mms[22m[39m
+[31m     [31m×[31m （测试 1）当绑定表单下拉框选项应来源于 formList（而非静态 props）[39m[33m 580[2mms[22m[39m
+[31m     [31m×[31m （测试 2）当 formSchemaId 有效时，应正确渲染带有真实表单字段的权限配置表格[39m[33m 399[2mms[22m[39m
+[31m     [31m×[31m （测试 3）当 formSchemaId 存在但表单已被删除（脏数据），应优雅降级为 ElEmpty 并触发 update:modelValue[39m[32m 165[2mms[22m[39m
+     [32m✓[39m （测试 4）当未绑定表单（formSchemaId 为空），应渲染空状态提醒[32m 146[2mms[22m[39m
+
+[2m Test Files [22m [1m[31m1 failed[39m[22m[90m (1)[39m
+[2m      Tests [22m [1m[31m3 failed[39m[22m[2m | [22m[1m[32m1 passed[39m[22m[90m (4)[39m
+[2m   Start at [22m 19:15:20
+[2m   Duration [22m 3.19s[2m (transform 296ms, setup 0ms, import 1.12s, tests 1.29s, environment 594ms)[22m
+

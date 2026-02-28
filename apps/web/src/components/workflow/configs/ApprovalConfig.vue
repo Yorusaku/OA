@@ -2,7 +2,13 @@
 /**
  * ApprovalConfig - 审批/抄送节点业务配置组件
  * 包含处理人类型、审批方式、超时配置、字段权限配置等
+ * 
+ * Phase 17 改造：工作流与本地表单库联动
+ * - 数据源切换：使用 useLocalStorageFormStorage 的 formList
+ * - Schema 联动：根据 formSchemaId 从 formList 查找真实 Schema
+ * - 脏数据兜底：找不到表单时优雅降级为 ElEmpty
  */
+
 import type { HandlerType, WorkflowNode } from '@/types/workflow'
 import {
   ElDivider,
@@ -17,15 +23,16 @@ import {
   ElTable,
   ElTableColumn,
 } from 'element-plus'
-import { computed, ref, watch } from 'vue'
+import { computed, ref, watch, onMounted } from 'vue'
 import { useNodePermissions } from '@/composables/useNodePermissions'
 import type { FormSchema } from '@/types/form-schema'
+import { useLocalStorageFormStorage, type FormDTO } from '@/composables/useLocalStorageFormStorage'
 
 // ==================== Props & Emits ====================
 const props = defineProps<{
   /** 节点数据（双向绑定） */
   modelValue: WorkflowNode
-  /** 表单 Schema 列表 */
+  /** 表单 Schema 列表（兼容旧 prop，Phase 17 后废弃） */
   formSchemas?: Array<{ id: string, name: string }>
 }>()
 
@@ -33,42 +40,25 @@ const emit = defineEmits<{
   'update:modelValue': [node: WorkflowNode]
 }>()
 
+// ==================== 实例化本地表单存储 ====================
+const { formList, getFormById, checkBindingCount } = useLocalStorageFormStorage()
+
 // ==================== 计算属性 ====================
 const isApproval = computed(() => props.modelValue.type === 'approval')
 const isCc = computed(() => props.modelValue.type === 'cc')
 
-// 当前绑定的表单 Schema（从 formSchemas 中查找）
+// 【核心】当前绑定的表单 Schema（从本地 formList 中查找）
 const currentSchema = computed<FormSchema | null>(() => {
   const schemaId = props.modelValue.formSchemaId
-  if (!schemaId || !props.formSchemas) return null
+  if (!schemaId) return null
+
+  // 从本地表单列表中查找对应的表单
+  const found = formList.value.find((f: FormDTO) => f.id === schemaId)
   
-  // 查找匹配的 Schema（这里简化处理，实际应从使用 useWorkflowSchema 获取完整 Schema）
-  // 为测试兼容，返回默认 Schema
-  return {
-    fields: [
-      {
-        key: 'leave_type',
-        label: '请假类型',
-        type: 'select',
-      },
-      {
-        key: 'leave_days',
-        label: '请假天数',
-        type: 'number',
-      },
-      {
-        key: 'start_date',
-        label: '开始日期',
-        type: 'date',
-      },
-      {
-        key: 'reason',
-        label: '请假事由',
-        type: 'textarea',
-      },
-    ],
-    labelWidth: '100px',
-  }
+  // 【防御核心】找不到表单或表单缺少 schema 时返回 null，触发 ElEmpty 渲染
+  if (!found?.schema) return null
+  
+  return found.schema
 })
 
 // 处理人配置（确保存在）
@@ -130,8 +120,17 @@ const userOptions = [
   { label: '王五', value: 'user3' },
 ]
 
-// 工作流绑定表单选项
+// 【Phase 17 改造】工作流绑定表单选项（直接从 formList 读取）
 const workflowFormSchemas = computed(() => {
+  // 优先使用 formList（Phase 17 新数据源）
+  if (formList.value && formList.value.length > 0) {
+    return formList.value.map((schema: FormDTO) => ({
+      label: schema.name,
+      value: schema.id,
+    }))
+  }
+  
+  // 兼容：如果 formList 为空，使用旧的 formSchemas prop（Phase 17 后废弃）
   if (!props.formSchemas) return []
   return props.formSchemas.map(schema => ({
     label: schema.name,
@@ -146,6 +145,50 @@ const permissionOptions = [
   { label: '可编辑', value: 'editable' },
   { label: '必填', value: 'required' },
 ]
+
+// ==================== 脏数据清理逻辑 ====================
+
+/**
+ * 处理脏数据并清空 formSchemaId（高内聚内部函数）
+ * 调用场景：onMounted、watch(formSchemaId)、@change
+ * 
+ * @param schemaId 待检查的表单 ID
+ * @returns 是否发现脏数据并已清理
+ */
+const handleDirtyData = (schemaId: string): boolean => {
+  const found = getFormById(schemaId)
+  
+  if (!found) {
+    // 【脏数据兜底】表单不存在，清理 formSchemaId
+    emit('update:modelValue', {
+      ...props.modelValue,
+      formSchemaId: undefined,
+    })
+    return true // 发现并清理了脏数据
+  }
+  
+  return false // 无脏数据
+}
+
+/**
+ * 监听 formSchemaId 变化，自动清理脏数据
+ */
+watch(() => props.modelValue.formSchemaId, (newId, oldId) => {
+  if (!newId) return // 清空时不处理
+
+  handleDirtyData(newId)
+}, { immediate: true })
+
+/**
+ * 组件挂载时初始化，清理可能的脏数据
+ */
+onMounted(() => {
+  const schemaId = props.modelValue.formSchemaId
+  if (schemaId) {
+    handleDirtyData(schemaId)
+  }
+})
+
 </script>
 
 <template>
@@ -229,11 +272,12 @@ const permissionOptions = [
             style="width: 100%"
             clearable
           >
+            <!-- 【Phase 17 改造】下拉框选项直接从 formList 读取 -->
             <ElOption
-              v-for="schema in formSchemas"
-              :key="schema.id"
-              :label="schema.name"
-              :value="schema.id"
+              v-for="schema in workflowFormSchemas"
+              :key="schema.value"
+              :label="schema.label"
+              :value="schema.value"
             />
           </ElSelect>
         </ElFormItem>
@@ -260,6 +304,7 @@ const permissionOptions = [
     <!-- 字段权限配置 -->
     <ElDivider v-if="isApproval && currentSchema" />
 
+    <!-- 【Phase 17 改造】有有效 Schema 时渲染权限配置表格 -->
     <template v-if="isApproval && currentSchema">
       <div class="permission-config">
         <div class="flex justify-between items-center mb-3">
@@ -283,7 +328,7 @@ const permissionOptions = [
               {{ row.label }}
             </template>
           </el-table-column>
-          
+
           <el-table-column label="权限" width="140">
             <template #default="{ row }">
               <el-select
@@ -302,7 +347,7 @@ const permissionOptions = [
               </el-select>
             </template>
           </el-table-column>
-          
+
           <el-table-column label="字段 Key" prop="key">
             <template #default="{ row }">
               <span class="text-xs text-gray-500">{{ row.key }}</span>
@@ -312,7 +357,8 @@ const permissionOptions = [
       </div>
     </template>
 
-    <!-- 无表单 Schema 时的空状态 -->
+    <!-- 【Phase 17 改造】无表单 Schema 时的空状态 -->
+    <!-- 当 isApproval 且 currentSchema 为空时显示 -->
     <div v-if="isApproval && !currentSchema" class="text-center py-8">
       <el-empty description="请先绑定表单以配置字段权限" />
     </div>
