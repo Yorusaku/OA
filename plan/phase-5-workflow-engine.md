@@ -1,6 +1,7 @@
-# 阶段 5 Prompt：可视化流程编排引擎（@vue-flow/core）
+# 阶段 5 Prompt：可视化流程编排引擎（@vue-flow/core）📜 **历史文档**
 
-> 用途：交给 Agent 的完整指令，让它只实现「阶段 5」——基于 @vue-flow/core 搭建审批流程画布、节点组件和与表单 Schema 的绑定。
+> 用途：历史文档，记录基于 @vue-flow/core 的工作流引擎实现。
+> **注意**：此文档已不再使用，当前工作流引擎已迁移至 LogicFlow（见 `phase-14-migrate-to-logicflow.md`）。
 
 ```text
 你现在是编码 Agent，请严格按照下面项目说明和约束开发代码。

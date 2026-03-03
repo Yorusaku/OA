@@ -16,6 +16,8 @@ import Login from '@/views/auth/Login.vue'
 const MainLayout = () => import('@/layouts/MainLayout.vue')
 // 工作台
 const Dashboard = () => import('@/views/dashboard/Workbench.vue')
+// 动态表单联动演示
+const DynamicFormLinkageDemo = () => import('@/views/demo/DynamicFormLinkageDemo.vue')
 // 审批模块
 const ApprovalLaunch = () => import('@/views/approval/ApprovalLaunch.vue')
 const ApprovalMine = () => import('@/views/approval/ApprovalMine.vue')
@@ -150,6 +152,27 @@ export const constantRoutes: RouteRecordRaw[] = [
             component: ContactsList,
             meta: {
               title: '通讯录列表',
+              requiresAuth: true,
+            },
+          },
+        ],
+      },
+      {
+        path: 'demo',
+        name: 'Demo',
+        meta: {
+          title: '演示页面',
+          icon: 'bug',
+          requiresAuth: true,
+          permission: 'demo:view',
+        },
+        children: [
+          {
+            path: 'dynamic-form-linkage',
+            name: 'DynamicFormLinkageDemo',
+            component: DynamicFormLinkageDemo,
+            meta: {
+              title: '动态表单联动校验',
               requiresAuth: true,
             },
           },

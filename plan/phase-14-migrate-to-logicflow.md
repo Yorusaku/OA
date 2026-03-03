@@ -1,6 +1,7 @@
-# 阶段 14 Prompt：工作流引擎迁移至 LogicFlow（全量重构）
+# 阶段 14 Prompt：工作流引擎迁移至 LogicFlow（全量重构）✅ **已完成**
 
-> 用途：交给 Agent 的完整指令，让它将工作流引擎从 Vue Flow 迁移至 LogicFlow，解决响应式死循环和拖拽失效问题。
+> 用途：记录工作流引擎从 Vue Flow 迁移至 LogicFlow 的完整过程和技术方案。
+> **当前状态**：迁移已完成，工作流引擎现在基于 LogicFlow 实现。
 
 ---
 

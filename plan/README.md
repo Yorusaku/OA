@@ -9,7 +9,7 @@
 1. `phase-0-2-init-monorepo.md` Monorepo + Turborepo 基建、`apps/web` 初始化、权限壳和后台布局导航。
 2. `phase-3-vue-query-server-state.md` Vue Query 接管服务端状态与 API 封装。
 3. `phase-4-dynamic-form-engine.md` 动态表单引擎（JSON Schema + VeeValidate + 联动校验）。
-4. `phase-5-workflow-engine.md` 可视化流程编排引擎（@vue-flow/core）📜 **历史文档**。
+4. `phase-5-workflow-engine.md` 可视化流程编排引擎（@vue-flow/core）📜 **历史文档**（已废弃，使用 LogicFlow）。
 5. `phase-6-business-modules.md` 审批中心 / 工作台 / 组织架构 / 通讯录 / 系统管理等业务模块。
 6. `phase-7-performance-optimization.md` 性能与体验优化（虚拟滚动 / 懒加载 / Tailwind + Element 主题统一）。
 7. `phase-8-polish-and-integration.md` 联调、统一异常处理、401 登录过期逻辑、端到端 Demo 与 README 收尾。
