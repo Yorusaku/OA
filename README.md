@@ -23,19 +23,32 @@
    - 流程定义保存与加载
    - 框架无关的图形引擎，避免响应式冲突
 
-3. **文档与表格引擎** - 纯前端文档处理 🆕
+3. **文档与表格引擎** - 纯前端文档处理
    - Web Worker + 流式处理海量数据
    - Excel 导入导出（支持字段映射、数据验证）
    - PDF 跨端预览（支持缩放、翻页、打印）
    - 电子发票/审批单在线预览
 
-4. **Vue Query 服务端状态架构**
+4. **PWA 离线优先架构** - 渐进式 Web 应用 🆕
+   - Service Worker 离线缓存（Cache First + Network First + SWR）
+   - 可安装到桌面/主屏幕
+   - 离线状态提示与优雅降级
+   - 静态资源预缓存，API 请求智能缓存
+
+5. **性能优化体系** - 首屏 + 运行时 + 构建优化 🆕
+   - 路由懒加载 + 预加载（webpackPrefetch）
+   - 虚拟滚动（VirtualList）处理大列表
+   - 图片懒加载（v-lazy 指令 + Intersection Observer）
+   - Vite 构建优化（Terser 压缩、代码分割、Tree Shaking）
+   - Lighthouse CI 性能监控（FCP < 2s, LCP < 2.5s）
+
+6. **Vue Query 服务端状态架构**
    - 服务端状态与客户端状态彻底分离
    - 统一 QueryKey 管理
    - SWR 缓存策略优化
    - 自动请求去重与缓存
 
-5. **Monorepo + Turborepo 构建**
+7. **Monorepo + Turborepo 构建**
    - pnpm workspace 依赖管理
    - Turbo 加速构建
    - **共享包：@oa/utils（工具库）、@oa/config（工程化配置）**
@@ -53,6 +66,9 @@
 | **表单** | Element Plus async-validator |
 | **流程** | LogicFlow |
 | **文档** | xlsx (SheetJS) + pdf.js + comlink |
+| **PWA** | Service Worker + Web App Manifest |
+| **测试** | Playwright (E2E) + Vitest (单元测试) |
+| **性能** | Lighthouse CI + Virtual Scrolling + Lazy Loading |
 | **工具** | VueUse |
 
 ## 📁 目录结构
@@ -61,18 +77,34 @@
 OA/
 ├── apps/
 │   └── web/                    # 主应用
+│       ├── public/
+│       │   ├── manifest.json   # PWA 配置
+│       │   └── sw.js           # Service Worker
+│       ├── e2e/                # E2E 测试
+│       │   ├── pages/          # Page Object Model
+│       │   ├── approval-flow.spec.ts
+│       │   ├── form-validation.spec.ts
+│       │   ├── workflow-editor.spec.ts
+│       │   └── mobile-adaptation.spec.ts
 │       ├── src/
 │       │   ├── api/            # API 封装层
 │       │   ├── components/     # 公共组件
 │       │   │   ├── dynamic-form/   # 动态表单引擎
 │       │   │   ├── workflow/       # 流程编排引擎
-│       │   │   └── document/       # 文档处理引擎
+│       │   │   ├── document/       # 文档处理引擎
+│       │   │   ├── common/
+│       │   │   │   └── VirtualList.vue  # 虚拟滚动组件
+│       │   │   └── OfflineIndicator.vue # 离线状态提示
 │       │   ├── composables/    # 组合式函数 (Vue Query hooks)
 │       │   │   ├── useApproval.ts
 │       │   │   ├── useWorkflow.ts
 │       │   │   ├── useExcelImport.ts
 │       │   │   ├── useExcelExport.ts
-│       │   │   └── usePdfViewer.ts
+│       │   │   ├── usePdfViewer.ts
+│       │   │   └── useLazyImage.ts  # 图片懒加载
+│       │   ├── directives/     # 自定义指令
+│       │   │   ├── auth.ts     # 权限指令
+│       │   │   └── lazy.ts     # 图片懒加载指令
 │       │   ├── services/       # 服务层
 │       │   │   └── document/
 │       │   ├── workers/        # Web Worker
@@ -85,6 +117,8 @@ OA/
 │       │   ├── utils/          # 工具函数 (重新导出 @oa/utils)
 │       │   ├── views/          # 页面组件
 │       │   └── main.ts         # 入口文件
+│       ├── lighthouserc.json   # Lighthouse CI 配置
+│       ├── playwright.config.ts # Playwright 配置
 │       └── package.json
 │
 ├── packages/                   # 共享包
@@ -131,7 +165,34 @@ pnpm dev
 ### 构建
 
 ```bash
+# 生产构建
 pnpm build
+
+# 构建并分析包体积
+pnpm build:analyze
+```
+
+### 测试
+
+```bash
+# 单元测试
+pnpm test
+
+# E2E 测试
+pnpm test:e2e
+
+# E2E 测试 UI 模式
+pnpm test:e2e:ui
+
+# 冒烟测试
+pnpm test:smoke
+```
+
+### 性能审计
+
+```bash
+# Lighthouse CI 性能审计
+pnpm lighthouse
 ```
 
 ### 类型检查
@@ -189,7 +250,7 @@ import { WorkflowCanvas, NodeConfigPanel } from '@/components/workflow'
 - `condition` - 条件分支
 - `end` - 结束节点
 
-### 3. 文档与表格引擎 (`src/components/document`) 🆕
+### 3. 文档与表格引擎 (`src/components/document`)
 
 ```typescript
 // Excel 导入
@@ -219,7 +280,132 @@ import { DocumentPreview } from '@/components/document'
 - 流式处理大文件，避免内存溢出
 - 支持海量数据（10 万 + 行）解析
 
-### 4. Vue Query Hooks (`src/composables`)
+### 4. PWA 离线支持 (`public/sw.js`, `public/manifest.json`) 🆕
+
+```typescript
+// 离线状态监听
+import { OfflineIndicator } from '@/components/OfflineIndicator.vue'
+
+<OfflineIndicator />
+```
+
+**缓存策略：**
+- **Cache First** - 静态资源（JS/CSS/字体/图标）优先使用缓存
+- **Network First** - API 请求优先网络，失败时降级到缓存
+- **Stale While Revalidate** - 图片资源先返回缓存，后台更新
+
+**PWA 特性：**
+- 可安装到桌面/主屏幕（manifest.json）
+- 离线访问核心功能
+- 后台同步（Background Sync）
+- 自动更新提示
+
+### 5. 性能优化 🆕
+
+#### 5.1 路由懒加载 + 预加载
+
+```typescript
+// src/router/index.ts
+const Dashboard = () => import(
+  /* webpackChunkName: "dashboard", webpackPrefetch: true */
+  '@/views/dashboard/Workbench.vue'
+)
+```
+
+高优先级路由（工作台、待办、发起审批）使用 `webpackPrefetch` 预加载。
+
+#### 5.2 虚拟滚动
+
+```vue
+<script setup>
+import { VirtualList } from '@/components/common/VirtualList.vue'
+
+const items = ref([...]) // 10000+ 条数据
+</script>
+
+<template>
+  <VirtualList :items="items" :item-height="60">
+    <template #default="{ item }">
+      <div>{{ item.name }}</div>
+    </template>
+  </VirtualList>
+</template>
+```
+
+只渲染可见区域 + 缓冲区，支持海量数据列表。
+
+#### 5.3 图片懒加载
+
+```vue
+<!-- 指令方式 -->
+<img v-lazy="imageUrl" alt="description" />
+
+<!-- Composable 方式 -->
+<script setup>
+import { useLazyImage } from '@/composables/useLazyImage'
+
+const { observe, unobserve } = useLazyImage()
+</script>
+```
+
+基于 Intersection Observer API，自动加载可见区域图片。
+
+#### 5.4 构建优化
+
+```typescript
+// vite.config.ts
+build: {
+  minify: 'terser',
+  terserOptions: {
+    compress: {
+      drop_console: true,  // 移除 console.log
+      drop_debugger: true
+    }
+  },
+  rollupOptions: {
+    output: {
+      manualChunks: {
+        'vendor-framework': ['vue', 'vue-router', 'pinia'],
+        'vendor-element': ['element-plus'],
+        'vendor-logicflow': ['@logicflow/core', '@logicflow/extension'],
+        // ...
+      }
+    }
+  }
+}
+```
+
+**优化效果：**
+- 首屏加载时间 < 2s（FCP）
+- 最大内容绘制 < 2.5s（LCP）
+- 累积布局偏移 < 0.1（CLS）
+- 总阻塞时间 < 300ms（TBT）
+
+### 6. E2E 测试 (`e2e/`) 🆕
+
+```typescript
+// Page Object Model 示例
+import { test, expect } from '@playwright/test'
+import { LoginPage, ApprovalListPage } from './pages/ApprovalPages'
+
+test('提交审批流程', async ({ page }) => {
+  const loginPage = new LoginPage(page)
+  await loginPage.login('admin', 'admin123')
+  
+  const listPage = new ApprovalListPage(page)
+  await listPage.goto()
+  await listPage.clickLaunchButton()
+  // ...
+})
+```
+
+**测试覆盖：**
+- 审批流程（提交、审批、驳回、转交、批量操作）
+- 表单验证（必填、数字、日期、联动规则）
+- 流程编辑器（节点操作、连线、配置、验证）
+- 移动端适配（响应式布局、手势交互）
+
+### 7. Vue Query Hooks (`src/composables`)
 
 ```typescript
 // 审批相关
@@ -233,7 +419,7 @@ import { useDictByType } from '@/composables/useDict'
 import { useDeptTree } from '@/composables/useDept'
 ```
 
-### 5. 共享工具库 (`@oa/utils`)
+### 8. 共享工具库 (`@oa/utils`)
 
 ```typescript
 // 日期格式化
@@ -306,6 +492,11 @@ colors: {
 - [x] 阶段 8: 联调收尾（异常处理、401 处理、文档）
 - [x] 阶段 9: 文档与表格引擎（Excel 导入导出、PDF 预览）
 - [x] 阶段 10: Monorepo 架构优化（@oa/utils、@oa/config）
+- [x] 阶段 11: 应用中心与模板市场
+- [x] 阶段 12: 可视化动态表单设计器
+- [x] 阶段 13: PWA 支持（Service Worker、离线缓存、可安装）
+- [x] 阶段 14: E2E 测试覆盖（Playwright、Page Object Model）
+- [x] 阶段 15: 性能优化（路由懒加载、虚拟滚动、图片懒加载、构建优化）
 
 ## 📄 License
 
