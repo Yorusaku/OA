@@ -51,7 +51,7 @@ OA/
 
 ### 1. 动态表单引擎
 - JSON Schema 驱动的表单渲染
-- VeeValidate 集成用于表单验证
+- Element Plus async-validator 用于表单验证
 - 支持条件渲染和联动逻辑
 
 ### 2. 工作流引擎

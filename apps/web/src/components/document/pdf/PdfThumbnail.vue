@@ -115,7 +115,7 @@ defineExpose({
   </div>
 </template>
 
-<style scoped lang="scss">
+<style scoped >
 .pdf-thumbnail {
   height: 100%;
   overflow-y: auto;

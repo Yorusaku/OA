@@ -16,7 +16,7 @@ import {
 /**
  * WorkflowList - 流程定义列表页
  */
-import { ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useDeleteWorkflow, useWorkflowList } from '@/composables/useWorkflow'
 
@@ -35,11 +35,13 @@ const pagination = ref({
 })
 
 // ==================== Vue Query ====================
-const { data, isLoading, isError } = useWorkflowList({
+const queryParams = computed(() => ({
   page: pagination.value.page,
   pageSize: pagination.value.pageSize,
-  ...searchForm.value,
-})
+  keyword: searchForm.value.keyword || undefined,
+  status: searchForm.value.status || undefined,
+}))
+const { data, isLoading } = useWorkflowList(queryParams)
 
 const deleteMutation = useDeleteWorkflow()
 
@@ -102,6 +104,13 @@ function handleReset() {
   searchForm.value.status = ''
   pagination.value.page = 1
 }
+
+watch(
+  () => [searchForm.value.keyword, searchForm.value.status],
+  () => {
+    pagination.value.page = 1
+  },
+)
 </script>
 
 <template>

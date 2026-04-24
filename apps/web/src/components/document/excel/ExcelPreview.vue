@@ -191,7 +191,7 @@ function handleSizeChange(size: number) {
   </div>
 </template>
 
-<style scoped lang="scss">
+<style scoped >
 .excel-preview {
   width: 100%;
 }

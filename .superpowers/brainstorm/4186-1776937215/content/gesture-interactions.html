@@ -1,0 +1,199 @@
+<h2>手势交互设计</h2>
+<p class="subtitle">为移动端添加直观的手势操作，提升用户体验</p>
+
+<div class="section">
+  <h3>核心手势场景</h3>
+  <p>移动端 OA 系统中，以下场景可以通过手势操作提升效率：</p>
+</div>
+
+<div class="options" data-multiselect>
+  <div class="option" data-choice="swipe-actions" onclick="toggleSelect(this)">
+    <div class="letter">A</div>
+    <div class="content">
+      <h3>列表项滑动操作 - 推荐</h3>
+      <div class="mockup" style="margin: 16px 0; max-width: 360px;">
+        <div class="mockup-body" style="padding: 0; background: #f5f5f5;">
+          <div style="background: white; padding: 12px 16px; border-bottom: 1px solid #e5e5e5;">
+            <div style="font-weight: 600; font-size: 18px;">待我审批</div>
+          </div>
+
+          <div style="padding: 12px;">
+            <!-- 正常状态 -->
+            <div style="background: white; padding: 12px; border-radius: 8px; margin-bottom: 8px; border-left: 3px solid #409eff;">
+              <div style="font-weight: 600; margin-bottom: 4px;">请假申请 - 张三</div>
+              <div style="font-size: 12px; color: #999;">2024-04-23 10:30</div>
+            </div>
+
+            <!-- 左滑显示操作按钮 -->
+            <div style="position: relative; margin-bottom: 8px;">
+              <div style="position: absolute; right: 0; top: 0; bottom: 0; display: flex; border-radius: 8px; overflow: hidden;">
+                <div style="background: #67c23a; color: white; padding: 0 20px; display: flex; align-items: center; font-size: 14px;">✓ 通过</div>
+                <div style="background: #f56c6c; color: white; padding: 0 20px; display: flex; align-items: center; font-size: 14px;">✗ 驳回</div>
+              </div>
+              <div style="background: white; padding: 12px; border-radius: 8px; border-left: 3px solid #f56c6c; transform: translateX(-140px);">
+                <div style="font-weight: 600; margin-bottom: 4px;">报销申请 - 李四</div>
+                <div style="font-size: 12px; color: #999;">2024-04-23 09:15</div>
+              </div>
+            </div>
+
+            <div style="background: white; padding: 12px; border-radius: 8px; border-left: 3px solid #e6a23c;">
+              <div style="font-weight: 600; margin-bottom: 4px;">采购申请 - 王五</div>
+              <div style="font-size: 12px; color: #999;">2024-04-22 16:45</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <p style="margin-top: 12px; font-size: 14px; color: #666;">
+        <strong>使用场景：</strong>审批列表、我的申请列表<br>
+        <strong>操作：</strong>左滑显示"通过"和"驳回"按钮，快速审批<br>
+        <strong>优势：</strong>减少点击层级，提升审批效率
+      </p>
+    </div>
+  </div>
+
+  <div class="option" data-choice="pull-refresh" onclick="toggleSelect(this)">
+    <div class="letter">B</div>
+    <div class="content">
+      <h3>下拉刷新 - 推荐</h3>
+      <div class="mockup" style="margin: 16px 0; max-width: 360px;">
+        <div class="mockup-body" style="padding: 0; background: #f5f5f5;">
+          <div style="background: white; padding: 12px 16px; border-bottom: 1px solid #e5e5e5;">
+            <div style="font-weight: 600; font-size: 18px;">工作台</div>
+          </div>
+
+          <!-- 下拉刷新指示器 -->
+          <div style="padding: 20px; text-align: center; background: white;">
+            <div style="width: 32px; height: 32px; border: 3px solid #e5e5e5; border-top-color: #409eff; border-radius: 50%; margin: 0 auto 8px; animation: spin 1s linear infinite;"></div>
+            <div style="font-size: 14px; color: #999;">正在刷新...</div>
+          </div>
+
+          <div style="padding: 12px;">
+            <div style="background: white; padding: 16px; border-radius: 8px; margin-bottom: 12px;">
+              <div style="font-size: 12px; color: #999; margin-bottom: 8px;">待办事项</div>
+              <div style="font-size: 24px; font-weight: 600; color: #409eff;">5</div>
+            </div>
+            <div style="background: white; padding: 16px; border-radius: 8px;">
+              <div style="font-size: 12px; color: #999; margin-bottom: 8px;">本月审批</div>
+              <div style="font-size: 24px; font-weight: 600;">23</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <p style="margin-top: 12px; font-size: 14px; color: #666;">
+        <strong>使用场景：</strong>所有列表页面（工作台、审批列表、应用列表等）<br>
+        <strong>操作：</strong>下拉页面触发刷新<br>
+        <strong>优势：</strong>符合移动端用户习惯，获取最新数据
+      </p>
+    </div>
+  </div>
+
+  <div class="option" data-choice="long-press" onclick="toggleSelect(this)">
+    <div class="letter">C</div>
+    <div class="content">
+      <h3>长按多选</h3>
+      <div class="mockup" style="margin: 16px 0; max-width: 360px;">
+        <div class="mockup-body" style="padding: 0; background: #f5f5f5;">
+          <div style="background: white; padding: 12px 16px; border-bottom: 1px solid #e5e5e5; display: flex; justify-content: space-between; align-items: center;">
+            <div>
+              <div style="font-weight: 600; font-size: 18px;">待我审批</div>
+              <div style="font-size: 12px; color: #409eff; margin-top: 4px;">已选择 2 项</div>
+            </div>
+            <div style="font-size: 14px; color: #409eff;">取消</div>
+          </div>
+
+          <div style="padding: 12px;">
+            <div style="background: white; padding: 12px; border-radius: 8px; margin-bottom: 8px; border-left: 3px solid #409eff; display: flex; align-items: center; gap: 12px;">
+              <div style="width: 20px; height: 20px; background: #409eff; border-radius: 4px; display: flex; align-items: center; justify-content: center; color: white; font-size: 12px;">✓</div>
+              <div style="flex: 1;">
+                <div style="font-weight: 600; margin-bottom: 4px;">请假申请 - 张三</div>
+                <div style="font-size: 12px; color: #999;">2024-04-23 10:30</div>
+              </div>
+            </div>
+
+            <div style="background: white; padding: 12px; border-radius: 8px; margin-bottom: 8px; border-left: 3px solid #f56c6c; display: flex; align-items: center; gap: 12px;">
+              <div style="width: 20px; height: 20px; background: #409eff; border-radius: 4px; display: flex; align-items: center; justify-content: center; color: white; font-size: 12px;">✓</div>
+              <div style="flex: 1;">
+                <div style="font-weight: 600; margin-bottom: 4px;">报销申请 - 李四</div>
+                <div style="font-size: 12px; color: #999;">2024-04-23 09:15</div>
+              </div>
+            </div>
+
+            <div style="background: white; padding: 12px; border-radius: 8px; border-left: 3px solid #e6a23c; display: flex; align-items: center; gap: 12px;">
+              <div style="width: 20px; height: 20px; border: 2px solid #ddd; border-radius: 4px;"></div>
+              <div style="flex: 1;">
+                <div style="font-weight: 600; margin-bottom: 4px;">采购申请 - 王五</div>
+                <div style="font-size: 12px; color: #999;">2024-04-22 16:45</div>
+              </div>
+            </div>
+          </div>
+
+          <div style="background: white; border-top: 1px solid #e5e5e5; padding: 12px 16px; display: flex; gap: 12px;">
+            <button style="flex: 1; padding: 12px; background: #67c23a; color: white; border: none; border-radius: 4px; font-size: 14px;">批量通过</button>
+            <button style="flex: 1; padding: 12px; background: #f56c6c; color: white; border: none; border-radius: 4px; font-size: 14px;">批量驳回</button>
+          </div>
+        </div>
+      </div>
+      <p style="margin-top: 12px; font-size: 14px; color: #666;">
+        <strong>使用场景：</strong>审批列表<br>
+        <strong>操作：</strong>长按列表项进入多选模式<br>
+        <strong>优势：</strong>批量处理审批，提升效率
+      </p>
+    </div>
+  </div>
+
+  <div class="option" data-choice="swipe-back" onclick="toggleSelect(this)">
+    <div class="letter">D</div>
+    <div class="content">
+      <h3>右滑返回 - 推荐</h3>
+      <div class="mockup" style="margin: 16px 0; max-width: 360px;">
+        <div class="mockup-body" style="padding: 0; background: #f5f5f5; position: relative;">
+          <!-- 返回手势指示 -->
+          <div style="position: absolute; left: 20px; top: 50%; transform: translateY(-50%); opacity: 0.3;">
+            <div style="font-size: 48px; color: #409eff;">←</div>
+          </div>
+
+          <div style="background: white; padding: 12px 16px; border-bottom: 1px solid #e5e5e5; display: flex; align-items: center; gap: 12px;">
+            <div style="width: 24px; height: 24px; background: #409eff; border-radius: 4px;"></div>
+            <div style="font-weight: 600; font-size: 16px; flex: 1;">请假申请详情</div>
+          </div>
+
+          <div style="padding: 16px;">
+            <div style="background: white; padding: 16px; border-radius: 8px;">
+              <div style="height: 200px; background: #f0f0f0; border-radius: 4px; display: flex; align-items: center; justify-content: center; color: #999;">
+                审批详情内容
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <p style="margin-top: 12px; font-size: 14px; color: #666;">
+        <strong>使用场景：</strong>所有详情页面<br>
+        <strong>操作：</strong>从屏幕左边缘右滑返回上一页<br>
+        <strong>优势：</strong>符合 iOS 和 Android 原生手势习惯
+      </p>
+    </div>
+  </div>
+</div>
+
+<div class="section" style="margin-top: 32px; padding: 16px; background: #fff3e0; border-radius: 8px; border-left: 4px solid #ff9800;">
+  <h4 style="margin-top: 0;">⚠️ 注意事项</h4>
+  <ul style="margin: 8px 0 0 20px;">
+    <li><strong>手势冲突：</strong>需要处理滑动操作与页面滚动的冲突</li>
+    <li><strong>视觉反馈：</strong>手势操作需要明确的视觉提示和动画</li>
+    <li><strong>容错性：</strong>提供撤销机制，防止误操作</li>
+    <li><strong>可发现性：</strong>首次使用时提供引导提示</li>
+  </ul>
+</div>
+
+<div class="section" style="margin-top: 16px; padding: 16px; background: #f0f5ff; border-radius: 8px; border-left: 4px solid #409eff;">
+  <h4 style="margin-top: 0;">💡 推荐组合</h4>
+  <p>建议实现以下手势功能（可多选）：</p>
+  <ul style="margin: 8px 0 0 20px;">
+    <li><strong>A - 列表项滑动操作：</strong>快速审批的核心功能</li>
+    <li><strong>B - 下拉刷新：</strong>移动端标配，用户习惯</li>
+    <li><strong>D - 右滑返回：</strong>提升导航体验</li>
+  </ul>
+  <p style="margin-top: 12px; margin-bottom: 0;">
+    <strong>C - 长按多选</strong>可以作为可选功能，如果批量审批场景较多可以实现。
+  </p>
+</div>

@@ -21,9 +21,7 @@ export function isUrl(url: string): boolean {
 }
 
 export function isNumber(value: any): boolean {
-  if (value === null || value === undefined)
-    return false
-  return !Number.isNaN(Number(value))
+  return typeof value === 'number' && Number.isFinite(value)
 }
 
 export function isPositiveNumber(value: any): boolean {

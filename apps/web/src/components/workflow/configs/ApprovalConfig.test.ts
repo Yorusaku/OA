@@ -10,7 +10,7 @@
 
 import { describe, expect, it, beforeEach, vi } from 'vitest'
 import { mount } from '@vue/test-utils'
-import { createApp } from 'vue'
+import { createApp, ref } from 'vue'
 import ElementPlus from 'element-plus'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import type { FormDTO } from '@/composables/useLocalStorageFormStorage'
@@ -145,7 +145,7 @@ describe('ApprovalConfig - Phase 17：工作流与本地表单库联动（红灯
     // Arrange：Mock useLocalStorageFormStorage 返回真实数据
     const { useLocalStorageFormStorage } = await import('@/composables/useLocalStorageFormStorage')
     
-    const mockFormListRef = { value: mockFormListData }
+    const mockFormListRef = ref(mockFormListData)
     
     vi.mocked(useLocalStorageFormStorage).mockReturnValue({
       formList: mockFormListRef,
@@ -195,7 +195,7 @@ describe('ApprovalConfig - Phase 17：工作流与本地表单库联动（红灯
     // Arrange：Mock useLocalStorageFormStorage 返回有效数据
     const { useLocalStorageFormStorage } = await import('@/composables/useLocalStorageFormStorage')
     
-    const mockFormListRef = { value: mockFormListData }
+    const mockFormListRef = ref(mockFormListData)
     
     vi.mocked(useLocalStorageFormStorage).mockReturnValue({
       formList: mockFormListRef,
@@ -244,7 +244,7 @@ describe('ApprovalConfig - Phase 17：工作流与本地表单库联动（红灯
     // Arrange：Mock useLocalStorageFormStorage 返回清理后的 formList（不含 deletedFormId）
     const { useLocalStorageFormStorage } = await import('@/composables/useLocalStorageFormStorage')
     
-    const mockFormListRef = { value: mockFormListData }
+    const mockFormListRef = ref(mockFormListData)
     
     // formList 中没有 form-deleted-999（模拟用户手动删除表单）
     vi.mocked(useLocalStorageFormStorage).mockReturnValue({
@@ -295,7 +295,7 @@ describe('ApprovalConfig - Phase 17：工作流与本地表单库联动（红灯
     // Arrange：Mock useLocalStorageFormStorage
     const { useLocalStorageFormStorage } = await import('@/composables/useLocalStorageFormStorage')
     
-    const mockFormListRef = { value: mockFormListData }
+    const mockFormListRef = ref(mockFormListData)
     
     vi.mocked(useLocalStorageFormStorage).mockReturnValue({
       formList: mockFormListRef,

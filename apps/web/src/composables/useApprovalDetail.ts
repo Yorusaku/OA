@@ -1,13 +1,27 @@
-import { useQuery } from '@tanstack/vue-query'
-import type { WorkflowDefinition, WorkflowNode, WorkflowInstance } from '@/types/workflow'
+﻿import { useQuery } from '@tanstack/vue-query'
+import { getApprovalDetail } from '@/api/approval'
+import { mockExpenseSchema, mockLeaveSchema, mockPurchaseSchema, mockWorkflowDefinitions } from '@/api/mock'
+import type { ApprovalAction, ApprovalRecord as BaseApprovalRecord, ApprovalStatus, ApprovalTrailItem } from '@/api/types'
 import type { FormSchema, PermissionsMap } from '@/types/form-schema'
+import type { WorkflowDefinition, WorkflowInstance, WorkflowNode } from '@/types/workflow'
 
-export interface ApprovalRecord {
+export interface ApprovalHistoryRecord {
   id: string
   handlerId: string
   handlerName: string
-  status: 'approved' | 'rejected' | 'pending'
+  status: ApprovalStatus
   handledAt: string
+  comment?: string
+  attachments?: string[]
+}
+
+export interface ApprovalTimelineItem {
+  id: string
+  action: 'create' | ApprovalAction
+  status: ApprovalStatus
+  operatorName: string
+  operatedAt: string
+  summary: string
   comment?: string
   attachments?: string[]
 }
@@ -15,170 +29,234 @@ export interface ApprovalRecord {
 export interface ApprovalDetail {
   id: string
   title: string
-  type: 'leave' | 'expense' | 'other'
+  type: 'leave' | 'expense' | 'purchase' | 'other'
   applicant: string
   applyTime: string
-  status: 'pending' | 'approved' | 'rejected'
+  status: ApprovalStatus
   description?: string
   amount?: number
   formData?: Record<string, any>
+  currentNodeName?: string
+
+  deadlineAt?: string
+  escalatedAt?: string
+  lastRemindAt?: string
+  remindCount: number
+  isOverdue: boolean
+  slaStatus: 'normal' | 'overdue' | 'escalated'
+
   workflowDefinition?: WorkflowDefinition
-  history?: ApprovalRecord[]
-  
-  // === 新增字段（ADR-001：审批权限引擎集成）===
-  
-  /** 表单 Schema 结构（当前节点对应的 Schema） */
+  history?: ApprovalHistoryRecord[]
   formSchema?: FormSchema
-  
-  /** 当前登录用户在当前节点的表单权限映射表 */
   nodePermissions?: PermissionsMap
-  
-  /** 当前正在处理的工作流节点（用于显示节点信息） */
   currentNode?: WorkflowNode
-  
-  /** 工作流实例（用于判断审批流程是否结束） */
   workflowInstance?: WorkflowInstance
+
+  operatorTrail: ApprovalTrailItem[]
+  timeline: ApprovalTimelineItem[]
 }
 
-export function useApprovalDetail(approvalId: string, timeout = 5000) {
+export function useApprovalDetail(approvalId: string) {
   return useQuery({
     queryKey: ['approval-detail', approvalId],
     queryFn: async (): Promise<ApprovalDetail> => {
-      // 模拟 API 调用
-      await new Promise(resolve => setTimeout(resolve, 300))
+      const record = await getApprovalDetail(approvalId)
+      if (!record)
+        throw new Error('approval-not-found')
 
-      // 表单 Schema - HR 节点
-      const formSchema: FormSchema = {
-        fields: [
-          { key: 'leaveType', label: '请假类型', type: 'select', required: true, span: 12,
-            defaultValue: 'sick',  // 默认值：病假
-            options: [
-              { label: '事假', value: 'personal' },
-              { label: '病假', value: 'sick' },
-              { label: '年假', value: 'annual' },
-            ],
-          },
-          { key: 'days', label: '请假天数', type: 'number', required: true, span: 12,
-            defaultValue: 0,  // 默认值：0天
-          },
-          { key: 'reason', label: '请假事由', type: 'textarea', required: true, span: 24,
-            defaultValue: '',  // 默认值：空字符串
-          },
-          { key: 'manager_comment', label: '部门经理意见', type: 'textarea', span: 24,
-            defaultValue: '同意,请注意休息。',  // 默认值：从历史数据中获取
-          },
-          { key: 'hr_comment', label: 'HR审批意见', type: 'textarea', required: true, span: 24,
-            defaultValue: '',  // 默认值：空字符串（HR 需要填写）
-          },
-          { key: 'amount', label: '折算金额', type: 'number', readonly: true, span: 12,
-            defaultValue: 0,  // 默认值：0
-          },
-          { key: 'internal_notes', label: '内部备注', type: 'textarea', span: 24,
-            defaultValue: '',  // 默认值：空字符串
-          },
-        ],
-        labelWidth: '120px',
-      }
+      const formSchema = resolveFormSchema(record)
+      const nodePermissions = resolveNodePermissions(record, formSchema)
+      const workflowDefinition = resolveWorkflowDefinition(record)
+      const currentNode = resolveCurrentNode(record, workflowDefinition)
 
-      // 当前 HR 节点的权限映射表
-      const nodePermissions: PermissionsMap = {
-        leaveType: 'readonly',        // HR 不允许修改请假类型
-        days: 'readonly',             // 天数只读
-        manager_comment: 'readonly',  // 上一级意见只读
-        hr_comment: 'required',       // HR 意见必填
-        amount: 'readonly',           // 金额只读（后端计算）
-        internal_notes: 'hidden',     // 内部备注对 HR 隐藏（敏感字段）
-      }
-
-      // 当前正在处理的节点
-      const currentNode: WorkflowNode = {
-        id: 'approval-002',
-        type: 'approval',
-        name: 'HR 审批',
-        description: '人事部备案',
-        handler: { type: 'role', roleIds: ['hr'], mode: 'or' },
-        formSchemaId: 'leave-form',
-      }
-
-      // 工作流实例状态
       const workflowInstance: WorkflowInstance = {
-        id: 'wi-001',
-        workflowId: 'wf-001',
-        workflowName: '请假审批流程',
-        initiatorId: 'user-001',
-        initiatorName: '张三',
-        formData: {},
-        status: 'running',
-        currentNodeId: 'approval-002',
-        tasks: [
-          {
-            id: 'task-001',
-            instanceId: 'wi-001',
-            nodeId: 'approval-001',
-            nodeName: '部门经理审批',
-            handlerId: 'user-002',
-            handlerName: '李四',
-            status: 'approved',
-            comment: '同意请假',
-            handledAt: '2026-02-26 15:00:00',
-            createdAt: '2026-02-26 14:30:00',
-          },
-          {
-            id: 'task-002',
-            instanceId: 'wi-001',
-            nodeId: 'approval-002',
-            nodeName: 'HR 审批',
-            handlerId: 'user-003',
-            handlerName: '王五',
-            status: 'pending',
-            createdAt: '2026-02-26 16:00:00',
-          },
-        ],
-        createdAt: '2026-02-23 10:30:00',
+        id: `wi-${record.id}`,
+        workflowId: workflowDefinition?.id,
+        workflowName: workflowDefinition?.name,
+        initiatorName: record.applicant,
+        formData: record.formData || {},
+        status: mapRecordStatusToInstance(record.status),
+        currentNodeId: currentNode?.id || record.workflowInstance?.currentNodeId,
+        tasks: (record.workflowInstance?.tasks || []).map(task => ({
+          id: task.id,
+          handlerId: task.handlerId,
+          handlerName: task.handlerName,
+          status: task.status as WorkflowInstance['tasks'][number]['status'],
+          handledAt: task.handledAt,
+          comment: task.comment,
+        })),
+        createdAt: record.applyTime,
       }
 
-      // 返回 Mock 数据（包含 ADR-001 新增字段）
+      const history: ApprovalHistoryRecord[] = workflowInstance.tasks
+        .filter(task => task.status !== 'pending' && task.status !== 'processing')
+        .map(task => ({
+          id: task.id,
+          handlerId: task.handlerId,
+          handlerName: task.handlerName || '审批人',
+          status: normalizeHistoryStatus(task.status),
+          handledAt: task.handledAt || record.applyTime,
+          comment: task.comment,
+        }))
+
+      const operatorTrail = [...(record.operatorTrail || [])]
+      const timeline = operatorTrail.map(item => ({
+        id: item.id,
+        action: item.action,
+        status: item.status,
+        operatorName: item.operatorName || '系统',
+        operatedAt: item.operatedAt,
+        summary: buildTimelineSummary(item),
+        comment: item.comment,
+        attachments: item.attachments,
+      }))
+
+      const overdue = isPendingAndOverdue(record)
+
       return {
-        id: approvalId,
-        title: '请假申请',
-        type: 'leave',
-        applicant: '张三',
-        applyTime: '2026-02-26 14:30:00',
-        status: 'pending',
-        description: '因身体不适需要请假休息',
-        amount: 0,
-        formData: {
-          leaveType: 'sick',
-          days: 2.5,
-          reason: '重感冒发烧，去医院打点滴。',
-          manager_comment: '同意，请注意休息。',
-          hr_comment: '',  // HR 意见为空，需要审批人填写
-          amount: 0,
-          internal_notes: '',
-        },
-        formSchema,               // ✅ ADR-001：新增表单 Schema
-        nodePermissions,          // ✅ ADR-001：新增权限映射表
-        currentNode,              // ✅ ADR-001：新增当前节点
-        workflowInstance,         // ✅ ADR-001：新增工作流实例
-        workflowDefinition: {
-          id: 'wf-001',
-          name: '请假审批流程',
-          status: 'active',
-          nodes: [],
-          edges: [],
-        },
-        history: [
-          {
-            id: 'hist-001',
-            handlerId: 'user-002',
-            handlerName: '李四',
-            status: 'approved',
-            handledAt: '2026-02-26 15:00:00',
-            comment: '同意请假',
-          }
-        ]
+        id: record.id,
+        title: record.title,
+        type: resolveDetailType(record.type),
+        applicant: record.applicant,
+        applyTime: record.applyTime,
+        status: record.status,
+        description: record.description,
+        amount: record.amount,
+        formData: record.formData || {},
+        currentNodeName: record.currentNodeName,
+        formSchema,
+        nodePermissions,
+        currentNode,
+        workflowInstance,
+        workflowDefinition,
+        history,
+        deadlineAt: record.deadlineAt,
+        escalatedAt: record.escalatedAt,
+        lastRemindAt: record.lastRemindAt,
+        remindCount: record.remindCount || 0,
+        isOverdue: overdue,
+        slaStatus: record.escalatedAt ? 'escalated' : overdue ? 'overdue' : 'normal',
+        operatorTrail,
+        timeline,
       }
     },
     enabled: !!approvalId,
   })
+}
+
+function resolveDetailType(type: string): ApprovalDetail['type'] {
+  if (type === 'leave' || type === 'expense' || type === 'purchase')
+    return type
+  return 'other'
+}
+
+function resolveFormSchema(record: BaseApprovalRecord): FormSchema {
+  if (record.formSchema)
+    return record.formSchema
+
+  if (record.type === 'leave')
+    return mockLeaveSchema as FormSchema
+  if (record.type === 'expense')
+    return mockExpenseSchema as FormSchema
+  if (record.type === 'purchase')
+    return mockPurchaseSchema as FormSchema
+
+  return {
+    fields: [
+      { key: 'reason', label: '申请说明', type: 'textarea', required: true },
+    ],
+    labelWidth: '120px',
+  }
+}
+
+function resolveNodePermissions(record: BaseApprovalRecord, schema: FormSchema): PermissionsMap {
+  if (record.nodePermissions)
+    return record.nodePermissions
+
+  const defaults: PermissionsMap = {}
+  schema.fields.forEach((field) => {
+    defaults[field.key] = 'editable'
+  })
+  return defaults
+}
+
+function resolveWorkflowDefinition(record: BaseApprovalRecord): WorkflowDefinition | undefined {
+  if (record.type === 'leave')
+    return mockWorkflowDefinitions.find(item => item.id === 'wf-001')
+  if (record.type === 'expense')
+    return mockWorkflowDefinitions.find(item => item.id === 'wf-002')
+  return undefined
+}
+
+function resolveCurrentNode(
+  record: BaseApprovalRecord,
+  workflowDefinition?: WorkflowDefinition,
+): WorkflowNode | undefined {
+  if (!workflowDefinition)
+    return undefined
+
+  const currentNodeId = record.workflowInstance?.currentNodeId
+  if (currentNodeId) {
+    const byId = workflowDefinition.nodes.find(node => node.id === currentNodeId)
+    if (byId)
+      return byId
+  }
+
+  return workflowDefinition.nodes.find(node => node.type === 'approval')
+}
+
+function mapRecordStatusToInstance(status: ApprovalStatus): WorkflowInstance['status'] {
+  if (status === 'approved')
+    return 'approved'
+  if (status === 'rejected')
+    return 'rejected'
+  if (status === 'cancelled' || status === 'withdrawn')
+    return 'cancelled'
+  return 'running'
+}
+
+function isPendingAndOverdue(record: BaseApprovalRecord): boolean {
+  if (record.status !== 'pending')
+    return false
+  if (!record.deadlineAt)
+    return false
+  const deadline = new Date(record.deadlineAt.replace(' ', 'T'))
+  if (Number.isNaN(deadline.getTime()))
+    return false
+  return deadline.getTime() < Date.now()
+}
+
+function buildTimelineSummary(item: ApprovalTrailItem): string {
+  const actionLabels: Record<ApprovalTimelineItem['action'], string> = {
+    create: '发起审批',
+    approve: '审批通过',
+    reject: '审批驳回',
+    transfer: '审批转交',
+    addSign: '发起加签',
+    remind: '催办提醒',
+    withdraw: '发起人撤回',
+    cancel: '审批取消',
+  }
+
+  const base = actionLabels[item.action] || item.action
+  const target = item.targetUserName || item.targetUserId
+
+  if ((item.action === 'transfer' || item.action === 'addSign') && target)
+    return `${base} -> ${target}`
+
+  return base
+}
+
+function normalizeHistoryStatus(status: string): ApprovalStatus {
+  if (
+    status === 'approved'
+    || status === 'rejected'
+    || status === 'pending'
+    || status === 'cancelled'
+    || status === 'withdrawn'
+    || status === 'transferred'
+  ) {
+    return status
+  }
+  return 'rejected'
 }

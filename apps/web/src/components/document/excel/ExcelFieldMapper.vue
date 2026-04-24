@@ -251,7 +251,7 @@ if (props.autoMatch) {
   </div>
 </template>
 
-<style scoped lang="scss">
+<style scoped >
 .excel-field-mapper {
   width: 100%;
 }

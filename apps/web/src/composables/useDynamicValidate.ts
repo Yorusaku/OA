@@ -58,7 +58,7 @@ export function useDynamicValidate(
         () => formValues.value[depField],
         () => {
           // 条件变化时，可以在这里触发额外的逻辑
-          // 注意：VeeValidate 的规则更新需要通过 useForm 的 API
+          // 注意：Element Plus 表单的规则更新需要通过 el-form 的 validateField API
           // 这里主要是提供一个扩展点
           console.log(`字段 ${depField} 变化，可能影响字段 ${key} 的校验状态`)
         },

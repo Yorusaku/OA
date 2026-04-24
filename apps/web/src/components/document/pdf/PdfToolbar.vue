@@ -77,6 +77,11 @@ const canGoPrev = computed(() => props.currentPage > 1)
 const canGoNext = computed(() => props.currentPage < props.totalPages)
 const canZoomIn = computed(() => props.scale < (props.config?.maxScale || 3))
 const canZoomOut = computed(() => props.scale > (props.config?.minScale || 0.5))
+
+function handlePageChange(val: number | undefined) {
+  if (typeof val === 'number')
+    emit('goToPage', val)
+}
 </script>
 
 <template>
@@ -107,7 +112,7 @@ const canZoomOut = computed(() => props.scale > (props.config?.minScale || 0.5))
           :max="totalPages"
           size="small"
           controls-position="right"
-          @update:model-value="(val) => val && emit('goToPage', val)"
+          @update:model-value="handlePageChange"
         />
         <span class="page-total">/ {{ totalPages }}</span>
       </div>
@@ -173,7 +178,7 @@ const canZoomOut = computed(() => props.scale > (props.config?.minScale || 0.5))
   </div>
 </template>
 
-<style scoped lang="scss">
+<style scoped >
 .pdf-toolbar {
   display: flex;
   align-items: center;

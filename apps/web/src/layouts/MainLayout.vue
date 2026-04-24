@@ -2,31 +2,40 @@
 /**
  * @file MainLayout.vue
  * @description 主布局组件
- * 由侧边栏、顶部和内容区域组成
+ * 响应式布局：移动端使用 MobileLayout，桌面端使用传统布局
  * @component
  * @example
  * <router-view /> 会自动渲染到内容区域
  */
 
+import { useDevice } from '@/composables/useDevice'
 import Sidebar from './components/Sidebar.vue'
 import LayoutHeader from './components/LayoutHeader.vue'
+import MobileLayout from './MobileLayout.vue'
+
+const { isMobile } = useDevice()
 </script>
 
 <template>
-  <!-- 顶部 -->
-  <LayoutHeader />
-  <el-container class="h-screen overflow-hidden">
+  <!-- 移动端布局 -->
+  <MobileLayout v-if="isMobile" />
 
-    <el-container class="flex-1 overflow-hidden">
-      <!-- 侧边栏 -->
-      <Sidebar />
+  <!-- 桌面端布局 -->
+  <template v-else>
+    <!-- 顶部 -->
+    <LayoutHeader />
+    <el-container class="h-screen overflow-hidden">
+      <el-container class="flex-1 overflow-hidden">
+        <!-- 侧边栏 -->
+        <Sidebar />
 
-      <!-- 主内容区域 -->
-      <el-main class="bg-slate-50">
-        <router-view />
-      </el-main>
+        <!-- 主内容区域 -->
+        <el-main class="bg-slate-50">
+          <router-view />
+        </el-main>
+      </el-container>
     </el-container>
-  </el-container>
+  </template>
 </template>
 
 <style scoped>

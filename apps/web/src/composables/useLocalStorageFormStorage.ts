@@ -11,6 +11,7 @@ import { useLocalStorage } from '@vueuse/core'
 import { nanoid } from 'nanoid'
 import { ElMessage } from 'element-plus'
 import type { Ref } from 'vue'
+import type { FormSchema } from '@/types/form-schema'
 
 // ==================== 类型定义 ====================
 
@@ -20,7 +21,7 @@ import type { Ref } from 'vue'
 export interface FormDTO {
   id: string
   name: string
-  schema: Record<string, unknown>
+  schema: FormSchema
   createTime: number
   updateTime: number
 }
@@ -30,7 +31,7 @@ export interface FormDTO {
  */
 export interface CreateFormParams {
   name: string
-  schema: Record<string, unknown>
+  schema: FormSchema
 }
 
 /**

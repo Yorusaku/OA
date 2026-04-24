@@ -143,6 +143,11 @@ watch(currentPage, (page) => {
   emit('pageChange', page)
 })
 
+function handlePageChange(val: number | undefined) {
+  if (typeof val === 'number')
+    goToPage(val)
+}
+
 // 监听 source 变化
 watch(
   () => props.source,
@@ -212,7 +217,7 @@ defineExpose({
             :max="totalPages"
             size="small"
             controls-position="right"
-            @change="(val) => val && goToPage(val)"
+            @change="handlePageChange"
           />
           <span class="page-total">/ {{ totalPages }} 页</span>
         </div>
@@ -358,7 +363,7 @@ defineExpose({
   </div>
 </template>
 
-<style scoped lang="scss">
+<style scoped >
 .pdf-viewer {
   display: flex;
   flex-direction: column;

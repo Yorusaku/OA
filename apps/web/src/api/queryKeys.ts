@@ -1,45 +1,55 @@
-/**
+﻿/**
  * @file queryKeys.ts
  * @description Vue Query Key 统一管理
- * 用于定义所有 API 查询的 queryKey，确保缓存一致性
- * @see https://tanstack.com/query/latest/docs/react/guides/query-keys
  */
 
-/**
- * Query Key 对象
- * 按模块组织，便于管理和失效缓存
- */
 export const queryKeys = {
-  /** 审批相关 Query Keys */
   approval: {
-    /** 审批列表 */
     list: (params?: any) => ['approval', 'list', params],
-    /** 审批详情 */
     detail: (id: string) => ['approval', 'detail', id],
-    /** 审批统计 */
     stats: ['approval', 'stats'],
+    notifications: (limit?: number) => ['approval', 'notifications', limit],
   },
-  /** 部门相关 Query Keys */
   dept: {
-    /** 部门树 */
     tree: ['dept', 'tree'],
-    /** 部门列表 */
     list: ['dept', 'list'],
   },
-  /** 字典相关 Query Keys */
   dict: {
-    /** 按类型查询字典 */
     byType: (dictType: string) => ['dict', 'byType', dictType],
-    /** 所有字典 */
     all: ['dict', 'all'],
   },
-  /** 工作流相关 Query Keys */
   workflow: {
-    /** 流程列表 */
     list: (params?: any) => ['workflow', 'list', params],
-    /** 流程详情 */
     detail: (id: string) => ['workflow', 'detail', id],
-    /** 表单 Schema 列表 */
     formSchemas: ['workflow', 'formSchemas'],
+  },
+  message: {
+    list: (params?: any) => ['message', 'list', params],
+    unreadCount: ['message', 'unreadCount'],
+  },
+  loginLog: {
+    list: (params?: any) => ['loginLog', 'list', params],
+  },
+  operationLog: {
+    list: (params?: any) => ['operationLog', 'list', params],
+    detail: (id: string) => ['operationLog', 'detail', id],
+  },
+  cc: {
+    list: (params?: any) => ['cc', 'list', params],
+    unreadCount: ['cc', 'unreadCount'],
+  },
+  application: {
+    list: (params?: any) => ['application', 'list', params],
+    detail: (id: string) => ['application', 'detail', id],
+    stats: (id: string) => ['application', 'stats', id],
+    versions: (id: string) => ['application', 'versions', id],
+  },
+  template: {
+    list: (params?: any) => ['template', 'list', params],
+    detail: (id: string) => ['template', 'detail', id],
+    reviews: (templateId: string, page?: number, pageSize?: number) => ['template', 'reviews', templateId, page, pageSize],
+    myTemplates: (page?: number, pageSize?: number) => ['template', 'myTemplates', page, pageSize],
+    installRecords: (page?: number, pageSize?: number) => ['template', 'installRecords', page, pageSize],
+    popularTags: () => ['template', 'popularTags'],
   },
 }

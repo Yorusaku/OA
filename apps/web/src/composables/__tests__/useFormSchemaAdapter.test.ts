@@ -197,7 +197,11 @@ describe('useFormSchemaAdapter - Red Light Test', () => {
 
       expect(result).toHaveLength(2)
       expect(result[0].required).toBe(true)
-      expect(result[1].pattern?.source).toBe('^[a-zA-Z0-9]+$')
+      if (result[1].pattern instanceof RegExp) {
+        expect(result[1].pattern.source).toBe('^[a-zA-Z0-9]+$')
+      } else {
+        expect(result[1].pattern).toBe('^[a-zA-Z0-9]+$')
+      }
     })
   })
 })

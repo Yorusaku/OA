@@ -7,7 +7,7 @@ on:
     branches: [main, develop]
 
 jobs:
-  build:
+  verify-web:
     runs-on: ubuntu-latest
 
     steps:
@@ -28,14 +28,8 @@ jobs:
       - name: Install dependencies
         run: pnpm install
 
-      - name: Lint
-        run: cd apps/web && pnpm lint
+      - name: Install Playwright Chromium
+        run: pnpm --filter panorama-oa-web exec playwright install --with-deps chromium
 
-      - name: Type check
-        run: cd apps/web && pnpm typecheck
-
-      - name: Run tests
-        run: cd apps/web && pnpm test --run
-
-      - name: Build
-        run: cd apps/web && pnpm build
+      - name: Verify Matrix (web)
+        run: pnpm --filter panorama-oa-web verify:matrix

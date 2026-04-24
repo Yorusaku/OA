@@ -22,7 +22,9 @@ import { queryKeys } from '@/api/queryKeys'
  * @returns useQuery 返回值（data、isLoading、error 等）
  * @usage const { data, isLoading } = useApprovalList({ page: 1, pageSize: 10 })
  */
-export function useApprovalList(params: MaybeRef<PageParams & { status?: string }>) {
+export function useApprovalList(
+  params: MaybeRef<PageParams & { status?: string, keyword?: string, type?: string, dateRange?: [Date, Date] | null }>,
+) {
   return useQuery({
     queryKey: computed(() => queryKeys.approval.list(unref(params))),
     queryFn: () => getApprovalList(unref(params)),

@@ -16,7 +16,7 @@
 
 ### 1.2 现有能力
 - ✅ `DynamicForm.vue` 组件已支持 `permissions` 属性（`hidden` / `readonly` / `editable` / `required`）
-- ✅ 表单校验引擎（VeeValidate + Zod）支持动态必填规则注入
+- ✅ 表单校验引擎（Element Plus async-validator）支持动态必填规则注入
 - ✅ `useApprovalDetail.ts` 已有基础数据结构（Mock 阶段）
 
 ### 1.3 未完成的集成点

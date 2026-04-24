@@ -1,6 +1,7 @@
-# 阶段 4 Prompt：动态表单引擎（JSON Schema + VeeValidate）
+# 阶段 4 Prompt：动态表单引擎（JSON Schema + Element Plus 表单验证）📜 **历史文档**
 
-> 用途：交给 Agent 的完整指令，让它只实现「阶段 4」——基于 JSON Schema + VeeValidate 搭建动态表单引擎和联动校验 `useDynamicValidate`。
+> 用途：历史文档，记录基于 JSON Schema + Element Plus 表单验证的动态表单引擎实现。
+> **注意**：此文档记录了初始实现，当前项目使用 Element Plus 内置的 async-validator 进行表单校验。
 
 ```text
 你现在是编码 Agent，请严格按照下面项目说明和约束开发代码。

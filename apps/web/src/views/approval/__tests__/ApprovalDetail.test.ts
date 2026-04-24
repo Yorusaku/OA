@@ -17,7 +17,6 @@ import ApprovalDetail from '../ApprovalDetail.vue'
 import DynamicForm from '@/components/dynamic-form/DynamicForm.vue'
 import { FormSchema, type PermissionsMap } from '@/types/form-schema'
 import ElementPlus from 'element-plus'
-import type { ConfigProviderProps } from 'element-plus'
 
 // Mock ElementPlus 组件
 vi.mock('element-plus', async (importOriginal) => {
@@ -150,6 +149,13 @@ vi.mock('@/composables/useApprovalDetail', () => ({
     error: ref(null),
     refetch: vi.fn()
   }))
+}))
+
+vi.mock('@/views/approval/composables/useApprovalSubmit', () => ({
+  useApprovalSubmit: vi.fn(() => ({
+    isLoading: ref(false),
+    submitApproval: vi.fn().mockResolvedValue(undefined),
+  })),
 }))
 
 describe('ApprovalDetail - 真实绿灯阶段测试', () => {

@@ -14,6 +14,10 @@ interface AppState {
   sidebarCollapsed: boolean
   /** 主题模式：light 亮色 / dark 暗色 */
   theme: 'light' | 'dark'
+  /** 移动端抽屉菜单打开状态 */
+  mobileMenuOpen: boolean
+  /** 移动端筛选抽屉打开状态 */
+  mobileFilterOpen: boolean
 }
 
 /**
@@ -25,6 +29,8 @@ export const useAppStore = defineStore('app', {
   state: (): AppState => ({
     sidebarCollapsed: false, // 侧边栏默认展开
     theme: 'light', // 默认亮色主题
+    mobileMenuOpen: false, // 移动端菜单默认关闭
+    mobileFilterOpen: false, // 移动端筛选默认关闭
   }),
   actions: {
     /**
@@ -46,6 +52,30 @@ export const useAppStore = defineStore('app', {
      */
     setTheme(theme: AppState['theme']) {
       this.theme = theme
+    },
+    /**
+     * 切换移动端菜单抽屉状态
+     */
+    toggleMobileMenu() {
+      this.mobileMenuOpen = !this.mobileMenuOpen
+    },
+    /**
+     * 关闭移动端菜单抽屉
+     */
+    closeMobileMenu() {
+      this.mobileMenuOpen = false
+    },
+    /**
+     * 切换移动端筛选抽屉状态
+     */
+    toggleMobileFilter() {
+      this.mobileFilterOpen = !this.mobileFilterOpen
+    },
+    /**
+     * 关闭移动端筛选抽屉
+     */
+    closeMobileFilter() {
+      this.mobileFilterOpen = false
     },
   },
 })

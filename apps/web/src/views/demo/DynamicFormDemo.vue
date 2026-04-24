@@ -233,7 +233,7 @@ function handleInvalid(errors: Record<string, string>) {
         <div class="card-header">
           <h2>📋 动态表单引擎 Demo - 请假申请单</h2>
           <p class="description">
-            演示基于 JSON Schema + VeeValidate 的动态表单渲染与联动校验
+            演示基于 JSON Schema + Element Plus 表单验证的动态表单渲染与联动校验
           </p>
         </div>
       </template>

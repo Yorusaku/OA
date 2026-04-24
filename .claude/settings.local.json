@@ -1,0 +1,21 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(grep -E \"\\\\.\\(ts|tsx\\)$\")",
+      "Bash(xargs grep *)",
+      "Bash(xargs wc *)",
+      "Bash(npm run *)",
+      "Bash(pnpm install *)",
+      "Bash(grep -E \"\\\\.\\(ts|js\\)$\")",
+      "Bash(pnpm dev *)",
+      "Bash(npx vue-tsc *)",
+      "Bash(C:/Users/starB1ue/.claude/skills/brainstorming/scripts/start-server.sh --project-dir \"e:/frontend/allstack/OA\")",
+      "Bash(xargs cat *)",
+      "Bash(xargs ls *)",
+      "Bash(rm \"C:\\\\Users\\\\starB1ue\\\\.claude\\\\plans\\\\plan-gemeni-turborepo-scalable-parrot.md\")",
+      "Bash(git add *)",
+      "Bash(pnpm add *)",
+      "Bash(pnpm config *)"
+    ]
+  }
+}

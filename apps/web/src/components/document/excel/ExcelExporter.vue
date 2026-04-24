@@ -250,7 +250,7 @@ function handleColumnVisibilityChange(col: ExportColumnConfig, visible: boolean)
   </div>
 </template>
 
-<style scoped lang="scss">
+<style scoped >
 .excel-exporter {
   width: 100%;
 }

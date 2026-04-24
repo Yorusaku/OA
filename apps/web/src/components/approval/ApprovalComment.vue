@@ -109,7 +109,7 @@ function handleSubmit() {
   </div>
 </template>
 
-<style scoped lang="scss">
+<style scoped >
 .approval-comment {
   padding: 20px;
   background: #fff;

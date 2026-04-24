@@ -14,7 +14,7 @@
 import { ref, computed, watch, onUnmounted } from 'vue'
 import { debounce } from 'lodash-es'
 import type { Ref, ComputedRef } from 'vue'
-import type { FormFieldSchema, FormSchema, PermissionsMap, NodePermissionType } from '@/types/form-schema'
+import type { FormFieldSchema, FormSchema, PermissionsMap, NodePermissionType, FieldType } from '@/types/form-schema'
 
 // ==================== 类型定义 ====================
 
@@ -35,7 +35,7 @@ export interface UseNodePermissionsProps {
  */
 export interface UseNodePermissionsReturn {
   /** 字段列表（从 Schema 提取） */
-  fields: ComputedRef<FormFieldSchema[]>
+  fields: ComputedRef<Array<{ key: string, label: string, type: FieldType }>>
 
   /** 权限配置（响应式 Map） */
   permissions: Ref<PermissionsMap>
@@ -60,7 +60,7 @@ export interface UseNodePermissionsReturn {
  * @param schema - 表单 Schema
  * @returns 字段数组（仅保留 key, label, type）
  */
-export function extractFieldsFromSchema(schema: FormSchema): Array<{ key: string; label: string; type: string }> {
+export function extractFieldsFromSchema(schema: FormSchema): Array<{ key: string, label: string, type: FieldType }> {
   // 卫语句：空 Schema 处理
   if (!schema?.fields?.length) {
     return []

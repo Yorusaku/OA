@@ -106,10 +106,24 @@ describe('helpers', () => {
 
   describe('sleep', () => {
     it('should return a promise that resolves after given ms', async () => {
-      const start = Date.now()
-      await sleep(100)
-      const end = Date.now()
-      expect(end - start).toBeGreaterThanOrEqual(100)
+      vi.useFakeTimers()
+      try {
+        const pending = sleep(100)
+        await vi.advanceTimersByTimeAsync(99)
+
+        let resolved = false
+        void pending.then(() => {
+          resolved = true
+        })
+        await Promise.resolve()
+        expect(resolved).toBe(false)
+
+        await vi.advanceTimersByTimeAsync(1)
+        await expect(pending).resolves.toBeUndefined()
+      }
+      finally {
+        vi.useRealTimers()
+      }
     })
   })
 })

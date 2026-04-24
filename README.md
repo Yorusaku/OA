@@ -11,7 +11,7 @@
 
 ### 核心特性
 
-1. **动态表单引擎** - 基于 JSON Schema + VeeValidate
+1. **动态表单引擎** - 基于 JSON Schema + Element Plus 表单验证
    - 支持 12+ 种表单字段类型
    - 联动校验（如：选择病假→医院证明必填）
    - 数据驱动渲染，可配置化生成表单
@@ -50,7 +50,7 @@
 | **UI** | Element Plus 2.9 + Tailwind CSS |
 | **状态** | Pinia (客户端) + Vue Query (服务端) |
 | **路由** | Vue Router 4 |
-| **表单** | VeeValidate 4 + Zod |
+| **表单** | Element Plus async-validator |
 | **流程** | LogicFlow |
 | **文档** | xlsx (SheetJS) + pdf.js + comlink |
 | **工具** | VueUse |

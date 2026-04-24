@@ -1,17 +1,62 @@
 /**
- * @oa/utils - 共享工具函数库
- * 
- * 纯函数集合，无业务逻辑依赖
- * 可在多个项目/包之间复用
+ * @oa/utils
+ * Shared pure utility functions and constants.
  */
 
-// ==================== 日期时间格式化 ====================
+// ==================== generic helpers ====================
 
-/**
- * 格式化日期
- * @param date 日期对象/字符串/时间戳
- * @param format 格式模板，默认 'YYYY-MM-DD'
- */
+export function debounce<T extends (...args: any[]) => any>(
+  fn: T,
+  delay: number,
+): (...args: Parameters<T>) => void {
+  let timer: ReturnType<typeof setTimeout> | null = null
+  return function (this: any, ...args: Parameters<T>) {
+    if (timer)
+      clearTimeout(timer)
+    timer = setTimeout(() => {
+      fn.apply(this, args)
+    }, delay)
+  }
+}
+
+export function throttle<T extends (...args: any[]) => any>(
+  fn: T,
+  delay: number,
+): (...args: Parameters<T>) => void {
+  let lastTime = 0
+  return function (this: any, ...args: Parameters<T>) {
+    const now = Date.now()
+    if (now - lastTime >= delay) {
+      lastTime = now
+      fn.apply(this, args)
+    }
+  }
+}
+
+export function deepClone<T>(obj: T): T {
+  if (obj === null || typeof obj !== 'object')
+    return obj
+  if (obj instanceof Date)
+    return new Date(obj) as T
+  if (Array.isArray(obj))
+    return obj.map(item => deepClone(item)) as T
+  const cloned: Record<string, any> = {}
+  Object.keys(obj as Record<string, any>).forEach((key) => {
+    cloned[key] = deepClone((obj as Record<string, any>)[key])
+  })
+  return cloned as T
+}
+
+export function generateId(): string {
+  return `${Date.now()}-${Math.random().toString(36).slice(2, 11)}`
+}
+
+export function sleep(ms: number): Promise<void> {
+  return new Promise(resolve => setTimeout(resolve, ms))
+}
+
+// ==================== formatters ====================
+
 export function formatDate(date: Date | string | number, format = 'YYYY-MM-DD'): string {
   const d = new Date(date)
   if (Number.isNaN(d.getTime()))
@@ -33,25 +78,14 @@ export function formatDate(date: Date | string | number, format = 'YYYY-MM-DD'):
     .replace('ss', seconds)
 }
 
-/**
- * 格式化日期时间
- */
 export function formatDateTime(date: Date | string | number): string {
   return formatDate(date, 'YYYY-MM-DD HH:mm:ss')
 }
 
-/**
- * 格式化金额
- * @param amount 金额
- * @param decimals 小数位数，默认 2
- */
 export function formatMoney(amount: number, decimals = 2): string {
   return amount.toFixed(decimals).replace(/\B(?=(\d{3})+(?!\d))/g, ',')
 }
 
-/**
- * 格式化文件大小
- */
 export function formatFileSize(bytes: number): string {
   if (bytes === 0)
     return '0 B'
@@ -61,62 +95,38 @@ export function formatFileSize(bytes: number): string {
   return `${Number.parseFloat((bytes / k ** i).toFixed(2))} ${sizes[i]}`
 }
 
-/**
- * 截断文本
- */
 export function truncateText(text: string, maxLength = 50): string {
   if (text.length <= maxLength)
     return text
   return `${text.slice(0, maxLength)}...`
 }
 
-/**
- * 首字母大写
- */
 export function capitalizeFirstLetter(str: string): string {
   return str.charAt(0).toUpperCase() + str.slice(1)
 }
 
-/**
- * 驼峰转短横线
- */
 export function camelToKebab(str: string): string {
   return str.replace(/([a-z])([A-Z])/g, '$1-$2').toLowerCase()
 }
 
-/**
- * 短横线转驼峰
- */
 export function kebabToCamel(str: string): string {
   return str.replace(/-([a-z])/g, (_, char) => char.toUpperCase())
 }
 
-// ==================== 数据验证 ====================
+// ==================== validators ====================
 
-/**
- * 是否为手机号
- */
 export function isMobilePhone(phone: string): boolean {
   return /^1[3-9]\d{9}$/.test(phone)
 }
 
-/**
- * 是否为邮箱
- */
 export function isEmail(email: string): boolean {
   return /^[^\s@]+@[^\s@][^\s.@]*\.[^\s@]+$/.test(email)
 }
 
-/**
- * 是否为身份证号
- */
 export function isIdCard(idCard: string): boolean {
   return /(^\d{15}$)|(^\d{18}$)|(^\d{17}([\dX])$)/i.test(idCard)
 }
 
-/**
- * 是否为 URL
- */
 export function isUrl(url: string): boolean {
   try {
     new URL(url)
@@ -128,30 +138,21 @@ export function isUrl(url: string): boolean {
 }
 
 /**
- * 是否为数字
+ * Strict number check for wire contracts.
+ * Only finite `number` is valid.
  */
 export function isNumber(value: any): boolean {
-  return !Number.isNaN(Number(value))
+  return typeof value === 'number' && Number.isFinite(value)
 }
 
-/**
- * 是否为整数
- */
 export function isInteger(value: any): boolean {
-  return Number.isInteger(Number(value))
+  return Number.isInteger(value)
 }
 
-/**
- * 是否为正数
- */
 export function isPositiveNumber(value: any): boolean {
-  const num = Number(value)
-  return !Number.isNaN(num) && num > 0
+  return typeof value === 'number' && Number.isFinite(value) && value > 0
 }
 
-/**
- * 是否非空
- */
 export function isNotEmpty(value: any): boolean {
   if (value === null || value === undefined)
     return false
@@ -162,9 +163,19 @@ export function isNotEmpty(value: any): boolean {
   return true
 }
 
-// ==================== 条件判断引擎 ====================
+// ==================== condition engine ====================
 
-export type ConditionOperator = 'eq' | 'ne' | 'gt' | 'gte' | 'lt' | 'lte' | 'in' | 'includes' | 'exists'
+export type ConditionOperator
+  = | 'eq'
+    | 'ne'
+    | 'gt'
+    | 'gte'
+    | 'lt'
+    | 'lte'
+    | 'in'
+    | 'contains'
+    | 'includes'
+    | 'exists'
 
 export interface Condition {
   field: string
@@ -172,13 +183,7 @@ export interface Condition {
   value?: any
 }
 
-/**
- * 检查单个条件是否满足
- */
-export function checkCondition(
-  condition: Condition,
-  formValues: Record<string, any>,
-): boolean {
+export function checkCondition(condition: Condition, formValues: Record<string, any>): boolean {
   const { field, operator = 'eq', value } = condition
   const fieldValue = formValues[field]
 
@@ -197,8 +202,13 @@ export function checkCondition(
       return Number(fieldValue) <= Number(value)
     case 'in':
       return Array.isArray(value) ? value.includes(fieldValue) : false
+    case 'contains':
     case 'includes':
-      return Array.isArray(fieldValue) ? fieldValue.includes(value) : String(fieldValue)?.includes(value)
+      if (Array.isArray(fieldValue))
+        return fieldValue.includes(value)
+      if (fieldValue == null)
+        return false
+      return String(fieldValue).includes(String(value))
     case 'exists':
       return value ? fieldValue != null && fieldValue !== '' : fieldValue == null || fieldValue === ''
     default:
@@ -206,9 +216,6 @@ export function checkCondition(
   }
 }
 
-/**
- * 检查条件数组是否有满足的
- */
 export function checkConditions(
   conditions: Condition | Condition[] | undefined,
   formValues: Record<string, any>,
@@ -219,25 +226,14 @@ export function checkConditions(
   return conditionList.some(cond => checkCondition(cond, formValues))
 }
 
-/**
- * 获取条件中依赖的字段列表
- */
 export function getConditionFields(conditions: Condition | Condition[] | undefined): string[] {
   if (!conditions)
     return []
   const conditionList = Array.isArray(conditions) ? conditions : [conditions]
-  const fields: string[] = []
-
-  conditionList.forEach((cond) => {
-    if (cond?.field) {
-      fields.push(cond.field)
-    }
-  })
-
-  return fields
+  return conditionList.map(cond => cond.field).filter(Boolean)
 }
 
-// ==================== 常量定义 ====================
+// ==================== constants ====================
 
 export const API_PREFIX = '/api'
 

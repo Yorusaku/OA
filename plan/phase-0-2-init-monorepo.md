@@ -19,7 +19,7 @@
   - @tanstack/vue-query：负责所有服务端状态，禁止再把接口数据塞进 Pinia。
 - 路由：Vue Router 4，支持后端返回菜单/权限后动态挂载路由。
 - UI：Tailwind CSS + Element Plus（按需引入），后续会用 Tailwind Design Tokens 覆写 Element Plus 主题。
-- 其他：VueUse、VeeValidate 等按计划后续接入，本轮只需为后续留好目录结构。
+- 其他：VueUse 按计划后续接入，Element Plus 表单验证已内置使用，本轮只需为后续留好目录结构。
 - 流程引擎：后续基于 LogicFlow 实现（见 phase-14-migrate-to-logicflow.md）。
 
 【三、仓库结构约束】

@@ -1,14 +1,22 @@
 <script setup lang="ts">
-import { ref, onMounted, h } from 'vue'
+import type { FormSchema } from '@/types/form-schema'
+import type { DesignerConfig } from '@/composables/useFormSchemaAdapter'
+import { h, onMounted, ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import { designerToFormSchema } from '@/composables/useFormSchemaAdapter'
-import type { FormSchema, DesignerConfig } from '@/composables/useFormSchemaAdapter'
 
-// ==================== 状态 ====================
-// 使用 defineAsyncComponent 懒加载 Designer
-const FormDesigner = ref<Record<string, unknown> | null>(null)
+interface DesignerInstance {
+  getValue?: () => DesignerConfig
+  reset?: () => void
+}
+
+const emit = defineEmits<{
+  (e: 'save', schema: FormSchema): void
+}>()
 
 const isLoading = ref(true)
+const designerComponent = ref<any>(null)
+const designerRef = ref<DesignerInstance | null>(null)
 const designerConfig = ref<DesignerConfig>({
   rule: [],
   option: {
@@ -18,165 +26,70 @@ const designerConfig = ref<DesignerConfig>({
   },
 })
 
-// ==================== 生命周期 ====================
 onMounted(async () => {
   try {
-    // 动态导入 @form-create/designer
     const mod = await import('@form-create/designer/dist/designer.cjs.js')
-    FormDesigner.value = mod.default || mod
+    designerComponent.value = mod.default || mod
+  }
+  catch (error) {
+    console.error(error)
+    ElMessage.error('表单设计器加载失败')
+  }
+  finally {
     isLoading.value = false
-  } catch (err) {
-    console.error('Failed to load FormDesigner:', err)
-    isLoading.value = false
-    ElMessage.error('表单设计器加载失败，请刷新重试')
   }
 })
 
-// ==================== 方法 ====================
-/**
- * 保存表单配置
- */
 const handleSave = (): void => {
-  if (!FormDesigner.value) {
-    ElMessage.warning('设计器尚未加载完成，请稍候再试')
+  const config = designerRef.value?.getValue?.()
+  if (!config || !Array.isArray(config.rule)) {
+    ElMessage.warning('暂无可保存的表单配置')
     return
   }
-
-  try {
-    // 从 designer 实例中提取配置
-    const config = FormDesigner.value.getValue?.() as DesignerConfig | undefined
-
-    if (!config || !Array.isArray(config.rule)) {
-      ElMessage.warning('暂无表单配置，请先拖拽组件')
-      return
-    }
-
-    // 使用 Adapter 转换为系统标准格式
-    const schema = designerToFormSchema(config)
-
-    // 输出到控制台（后续会挂载到 workflow）
-    console.log('Form Schema:', JSON.stringify(schema, null, 2))
-
-    // 触发 save 事件
-    emit('save', schema)
-
-    // 成功提示
-    ElMessage.success({
-      message: '表单配置保存成功',
-      duration: 2000,
-    })
-  } catch (err) {
-    console.error('保存失败:', err)
-    ElMessage.error('保存失败，请检查配置')
-  }
+  const schema = designerToFormSchema(config)
+  emit('save', schema)
+  ElMessage.success('保存成功')
 }
 
-/**
- * 清空画布
- */
 const handleClear = (): void => {
-  if (!FormDesigner.value) return
-
-  FormDesigner.value.reset?.()
+  designerRef.value?.reset?.()
   ElMessage.success('画布已清空')
 }
 
-/**
- * 预览表单
- */
 const handlePreview = (): void => {
-  if (!FormDesigner.value) {
-    ElMessage.warning('设计器尚未加载完成')
+  const config = designerRef.value?.getValue?.()
+  if (!config) {
+    ElMessage.warning('暂无可预览的表单配置')
     return
   }
-
-  try {
-    const config = FormDesigner.value.getValue?.() as DesignerConfig | undefined
-    if (!config) {
-      ElMessage.warning('暂无表单配置')
-      return
-    }
-
-    const schema = designerToFormSchema(config)
-
-    // 弹出预览窗口（模拟）
-    const previewContent = JSON.stringify(schema, null, 2)
-    window.open('', '_blank')?.document.write(`<pre>${previewContent}</pre>`)
-
-    ElMessage.success('表单预览已打开')
-  } catch (err) {
-    ElMessage.error('预览失败')
+  const schema = designerToFormSchema(config)
+  const win = window.open('', '_blank')
+  if (win) {
+    win.document.write(`<pre>${JSON.stringify(schema, null, 2)}</pre>`)
   }
 }
-
-// ==================== 事件 ====================
-const emit = defineEmits<{
-  (e: 'save', schema: FormSchema): void
-}>()
 </script>
 
 <template>
   <div class="form-designer">
-    <!-- 顶部操作栏 -->
     <div class="form-designer__header">
-      <div class="form-designer__title">
-        <i class="el-icon el-icon-edit"></i>
-        <span>表单设计器</span>
-      </div>
+      <div class="form-designer__title">表单设计器</div>
       <div class="form-designer__actions">
-        <el-tooltip content="预览表单" placement="bottom">
-          <el-button
-            type="info"
-            size="small"
-            :icon="() => h('eye')"
-            @click="handlePreview"
-          />
-        </el-tooltip>
-        
-        <el-tooltip content="清空画布" placement="bottom">
-          <el-button
-            type="warning"
-            size="small"
-            :icon="() => h('delete')"
-            @click="handleClear"
-          />
-        </el-tooltip>
-        
-        <el-tooltip content="保存表单" placement="bottom">
-          <el-button
-            type="primary"
-            size="small"
-            :icon="() => h('check')"
-            @click="handleSave"
-          />
-        </el-tooltip>
+        <el-button type="info" size="small" :icon="() => h('span', '预')" @click="handlePreview" />
+        <el-button type="warning" size="small" :icon="() => h('span', '清')" @click="handleClear" />
+        <el-button type="primary" size="small" :icon="() => h('span', '存')" @click="handleSave" />
       </div>
     </div>
-    
-    <!-- 主内容区（加载中状态） -->
+
     <div v-loading="isLoading" class="form-designer__content">
-      <template v-if="isLoading">
-        <div class="form-designer__loading">
-          <el-skeleton :rows="8" />
-        </div>
-      </template>
-      
-      <template v-else-if="FormDesigner">
-        <!-- Designer 组件 -->
-        <FcDesigner
-          ref="designerRef"
-          :rule="designerConfig.rule"
-          :option="designerConfig.option"
-          class="fc-designer"
-        />
-      </template>
-      
-      <template v-else>
-        <!-- 加载失败 -->
-        <div class="form-designer__error">
-          <el-empty description="设计器加载失败，请刷新重试" />
-        </div>
-      </template>
+      <component
+        :is="designerComponent || 'div'"
+        v-if="designerComponent"
+        ref="designerRef"
+        :rule="designerConfig.rule"
+        :option="designerConfig.option"
+      />
+      <el-empty v-else-if="!isLoading" description="设计器加载失败" />
     </div>
   </div>
 </template>
@@ -184,39 +97,21 @@ const emit = defineEmits<{
 <style scoped lang="postcss">
 .form-designer {
   @apply flex flex-col h-full bg-white rounded-lg shadow-sm;
-
-  &__header {
-    @apply flex items-center justify-between px-4 py-3 border-b border-gray-200;
-
-    &__title {
-      @apply flex items-center text-lg font-semibold text-gray-800;
-
-      .el-icon {
-        @apply mr-2 text-gray-600;
-      }
-    }
-
-    &__actions {
-      @apply flex items-center gap-2;
-    }
-  }
-
-  &__content {
-    @apply flex-1 overflow-hidden relative p-4;
-  }
-
-  &__loading,
-  &__error {
-    @apply h-full w-full flex items-center justify-center;
-  }
 }
 
-/* 全局样式覆盖（非 scoped） */
-.fc-designer {
-  height: 100% !important;
-  
-  :deep(.fc-d-body) {
-    height: 100% !important;
-  }
+.form-designer__header {
+  @apply flex items-center justify-between px-4 py-3 border-b border-gray-200;
+}
+
+.form-designer__title {
+  @apply text-lg font-semibold text-gray-800;
+}
+
+.form-designer__actions {
+  @apply flex items-center gap-2;
+}
+
+.form-designer__content {
+  @apply flex-1 overflow-hidden relative p-4;
 }
 </style>

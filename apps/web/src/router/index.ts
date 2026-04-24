@@ -2,6 +2,11 @@
  * @file router/index.ts
  * @description 路由配置
  * 定义应用的所有路由规则和导航守卫
+ *
+ * 性能优化：
+ * - 路由懒加载：所有非关键路由使用动态 import
+ * - 代码分割：使用 webpackChunkName 注释为每个模块命名
+ * - 预加载策略：高优先级路由使用 webpackPrefetch
  */
 
 import type { RouteRecordRaw } from 'vue-router'
@@ -12,26 +17,53 @@ import { useUserStore } from '@/stores/user'
 
 // 认证模块（静态导入，确保登录页加载稳定）
 import Login from '@/views/auth/Login.vue'
-// 布局
-const MainLayout = () => import('@/layouts/MainLayout.vue')
-// 工作台
-const Dashboard = () => import('@/views/dashboard/Workbench.vue')
+
+// 布局（高优先级，使用 prefetch）
+const MainLayout = () => import(/* webpackChunkName: "layout", webpackPrefetch: true */ '@/layouts/MainLayout.vue')
+
+// 工作台（高优先级，使用 prefetch）
+const Dashboard = () => import(/* webpackChunkName: "dashboard", webpackPrefetch: true */ '@/views/dashboard/Workbench.vue')
+// 工作台（高优先级，使用 prefetch）
+const Dashboard = () => import(/* webpackChunkName: "dashboard", webpackPrefetch: true */ '@/views/dashboard/Workbench.vue')
+
 // 动态表单联动演示
-const DynamicFormLinkageDemo = () => import('@/views/demo/DynamicFormLinkageDemo.vue')
-// 审批模块
-const ApprovalLaunch = () => import('@/views/approval/ApprovalLaunch.vue')
-const ApprovalMine = () => import('@/views/approval/ApprovalMine.vue')
-const ApprovalTodo = () => import('@/views/approval/ApprovalTodo.vue')
+const DynamicFormLinkageDemo = () => import(/* webpackChunkName: "demo" */ '@/views/demo/DynamicFormLinkageDemo.vue')
+
+// 审批模块（高频使用，使用 prefetch）
+const ApprovalLaunch = () => import(/* webpackChunkName: "approval-launch", webpackPrefetch: true */ '@/views/approval/ApprovalLaunch.vue')
+const ApprovalMine = () => import(/* webpackChunkName: "approval-mine" */ '@/views/approval/ApprovalMine.vue')
+const ApprovalTodo = () => import(/* webpackChunkName: "approval-todo", webpackPrefetch: true */ '@/views/approval/ApprovalTodo.vue')
+const ApprovalCC = () => import(/* webpackChunkName: "approval-cc" */ '@/views/approval/ApprovalCC.vue')
+
 // 组织架构
-const OrgTree = () => import('@/views/org/OrgTree.vue')
+const OrgTree = () => import(/* webpackChunkName: "org" */ '@/views/org/OrgTree.vue')
+
 // 通讯录
-const ContactsList = () => import('@/views/contacts/ContactsList.vue')
-// 系统管理
-const UserList = () => import('@/views/system/UserList.vue')
-const RoleList = () => import('@/views/system/RoleList.vue')
+const ContactsList = () => import(/* webpackChunkName: "contacts" */ '@/views/contacts/ContactsList.vue')
+
+// 系统管理（低频使用，按需加载）
+const UserList = () => import(/* webpackChunkName: "system-user" */ '@/views/system/UserList.vue')
+const RoleList = () => import(/* webpackChunkName: "system-role" */ '@/views/system/RoleList.vue')
+const LoginLogs = () => import(/* webpackChunkName: "system-logs" */ '@/views/system/LoginLogs.vue')
+const OperationLogs = () => import(/* webpackChunkName: "system-logs" */ '@/views/system/OperationLogs.vue')
+
 // 流程管理
-const WorkflowList = () => import('@/views/workflow/WorkflowList.vue')
-const WorkflowEditor = () => import('@/views/workflow/WorkflowEditor.vue')
+const WorkflowList = () => import(/* webpackChunkName: "workflow-list" */ '@/views/workflow/WorkflowList.vue')
+const WorkflowEditor = () => import(/* webpackChunkName: "workflow-editor" */ '@/views/workflow/WorkflowEditor.vue')
+
+// 消息中心
+const MessageList = () => import(/* webpackChunkName: "message" */ '@/views/message/MessageList.vue')
+
+// 应用中心
+const ApplicationList = () => import(/* webpackChunkName: "application-list" */ '@/views/application/ApplicationList.vue')
+const ApplicationCreate = () => import(/* webpackChunkName: "application-edit" */ '@/views/application/ApplicationCreate.vue')
+const ApplicationEdit = () => import(/* webpackChunkName: "application-edit" */ '@/views/application/ApplicationEdit.vue')
+const ApplicationDetail = () => import(/* webpackChunkName: "application-detail" */ '@/views/application/ApplicationDetail.vue')
+
+// 模板市场
+const TemplateMarket = () => import(/* webpackChunkName: "template-market" */ '@/views/template/TemplateMarket.vue')
+const TemplateDetail = () => import(/* webpackChunkName: "template-detail" */ '@/views/template/TemplateDetail.vue')
+const MyTemplates = () => import(/* webpackChunkName: "template-my" */ '@/views/template/MyTemplates.vue')
 
 /**
  * 常量路由
@@ -103,9 +135,19 @@ export const constantRoutes: RouteRecordRaw[] = [
             },
           },
           {
+            path: 'cc',
+            name: 'ApprovalCC',
+            component: ApprovalCC,
+            meta: {
+              title: '抄送我的',
+              requiresAuth: true,
+              permission: 'approval:cc',
+            },
+          },
+          {
             path: 'detail/:id',
             name: 'ApprovalDetail',
-            component: () => import('@/views/approval/ApprovalDetail.vue'),
+            component: () => import(/* webpackChunkName: "approval-detail" */ '@/views/approval/ApprovalDetail.vue'),
             meta: {
               title: '审批详情',
               requiresAuth: true,
@@ -152,6 +194,27 @@ export const constantRoutes: RouteRecordRaw[] = [
             component: ContactsList,
             meta: {
               title: '通讯录列表',
+              requiresAuth: true,
+            },
+          },
+        ],
+      },
+      {
+        path: 'message',
+        name: 'MessageCenter',
+        meta: {
+          title: '消息中心',
+          icon: 'bell',
+          requiresAuth: true,
+          permission: 'message:view',
+        },
+        children: [
+          {
+            path: 'list',
+            name: 'MessageList',
+            component: MessageList,
+            meta: {
+              title: '消息列表',
               requiresAuth: true,
             },
           },
@@ -208,6 +271,26 @@ export const constantRoutes: RouteRecordRaw[] = [
               permission: 'system:role:view',
             },
           },
+          {
+            path: 'login-logs',
+            name: 'LoginLogs',
+            component: LoginLogs,
+            meta: {
+              title: '登录日志',
+              requiresAuth: true,
+              permission: 'system:login-log:view',
+            },
+          },
+          {
+            path: 'operation-logs',
+            name: 'OperationLogs',
+            component: OperationLogs,
+            meta: {
+              title: '操作日志',
+              requiresAuth: true,
+              permission: 'system:operation-log:view',
+            },
+          },
         ],
       },
       {
@@ -241,12 +324,110 @@ export const constantRoutes: RouteRecordRaw[] = [
           },
         ],
       },
+      {
+        path: 'application',
+        name: 'ApplicationCenter',
+        meta: {
+          title: '应用中心',
+          icon: 'grid',
+          requiresAuth: true,
+          permission: 'application:view',
+        },
+        children: [
+          {
+            path: 'list',
+            name: 'ApplicationList',
+            component: ApplicationList,
+            meta: {
+              title: '应用列表',
+              requiresAuth: true,
+              permission: 'application:list',
+            },
+          },
+          {
+            path: 'create',
+            name: 'ApplicationCreate',
+            component: ApplicationCreate,
+            meta: {
+              title: '创建应用',
+              requiresAuth: true,
+              permission: 'application:create',
+              hidden: true,
+            },
+          },
+          {
+            path: 'edit/:id',
+            name: 'ApplicationEdit',
+            component: ApplicationEdit,
+            meta: {
+              title: '编辑应用',
+              requiresAuth: true,
+              permission: 'application:edit',
+              hidden: true,
+            },
+          },
+          {
+            path: 'detail/:id',
+            name: 'ApplicationDetail',
+            component: ApplicationDetail,
+            meta: {
+              title: '应用详情',
+              requiresAuth: true,
+              permission: 'application:detail',
+              hidden: true,
+            },
+          },
+        ],
+      },
+      {
+        path: 'template',
+        name: 'TemplateMarket',
+        meta: {
+          title: '模板市场',
+          icon: 'shop',
+          requiresAuth: true,
+          permission: 'template:view',
+        },
+        children: [
+          {
+            path: 'market',
+            name: 'TemplateMarketList',
+            component: TemplateMarket,
+            meta: {
+              title: '模板广场',
+              requiresAuth: true,
+              permission: 'template:market',
+            },
+          },
+          {
+            path: 'my',
+            name: 'MyTemplates',
+            component: MyTemplates,
+            meta: {
+              title: '我的模板',
+              requiresAuth: true,
+              permission: 'template:my',
+            },
+          },
+          {
+            path: 'detail/:id',
+            name: 'TemplateDetail',
+            component: TemplateDetail,
+            meta: {
+              title: '模板详情',
+              requiresAuth: true,
+              permission: 'template:detail',
+              hidden: true,
+            },
+          },
+        ],
+      },
     ],
   },
   {
     path: '/:pathMatch(.*)*',
     name: 'NotFound',
-    component: () => import('@/views/error/NotFound.vue'),
+    component: () => import(/* webpackChunkName: "error" */ '@/views/error/NotFound.vue'),
     meta: {
       public: true, // 公开路由
       title: '404',
@@ -287,5 +468,45 @@ router.beforeEach((to, _from) => {
     }
   }
 
+  // 已登录后，校验路由权限（含父级与子级 meta.permission）
+  const requiredPermissions = to.matched
+    .map(record => record.meta?.permission)
+    .filter((code): code is string => typeof code === 'string' && code.length > 0)
+
+  const hasRoutePermission = requiredPermissions.every(code => userStore.hasPermission(code))
+  if (!hasRoutePermission) {
+    const fallbackPath = getFirstAccessiblePath(userStore.menus, userStore.hasPermission)
+    if (to.path !== fallbackPath)
+      return { path: fallbackPath }
+    return false
+  }
+
   return true
 })
+
+function getFirstAccessiblePath(
+  menus: MenuNode[],
+  hasPermission: (code: string) => boolean,
+): string {
+  for (const menu of menus) {
+    const selfAllowed = !menu.permission || hasPermission(menu.permission)
+    if (!selfAllowed)
+      continue
+
+    if (menu.children?.length) {
+      const childPath = getFirstAccessiblePath(menu.children, hasPermission)
+      if (childPath)
+        return childPath
+    }
+
+    if (menu.path)
+      return menu.path
+  }
+  return '/'
+}
+
+interface MenuNode {
+  path: string
+  permission?: string
+  children?: MenuNode[]
+}

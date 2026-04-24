@@ -7,6 +7,7 @@
 import { ref, computed, watch, nextTick } from 'vue'
 import formCreate from '@form-create/element-ui'
 import type { FormSchema } from '@/types/form-schema'
+import { useDevice } from '@/composables/useDevice'
 import { useSchemaAdapter } from './composables/useSchemaAdapter'
 import { usePermissionMutator, type PermissionsMap } from './composables/usePermissionMutator'
 import { useLinkageValidator } from './composables/useLinkageValidator'
@@ -40,6 +41,9 @@ const emit = defineEmits<{
   (e: 'submit', values: Record<string, any>): void
   (e: 'reset'): void
 }>()
+
+// ==================== Device Detection ====================
+const { isMobile } = useDevice()
 
 // ==================== State ====================
 const fApi = ref<any>(null)
@@ -75,7 +79,8 @@ const formOptions = computed(() => ({
     : false,
   resetBtn: props.showCancel ? { show: true } : false,
   form: {
-    labelWidth: props.schema?.labelWidth || '100px',
+    labelWidth: isMobile.value ? 'auto' : (props.schema?.labelWidth || '120px'),
+    labelPosition: isMobile.value ? 'top' : 'right',
     disabled: props.disabled || props.readonly,
     readonly: props.readonly,
     size: props.disabled || props.readonly ? 'default' : undefined as any,

@@ -4,8 +4,10 @@
  * 封装流程定义的增删改查操作
  */
 
-import type { WorkflowDefinition } from '@/types/workflow'
+import type { MaybeRef } from 'vue'
+import type { Workflow, WorkflowDefinition } from '@/types/workflow'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/vue-query'
+import { computed, unref } from 'vue'
 import { queryKeys } from '@/api/queryKeys'
 import {
   createWorkflowDefinition,
@@ -22,13 +24,49 @@ import {
  * @returns useQuery 返回值
  * @usage const { data: workflows } = useWorkflowList({ page: 1, pageSize: 10 })
  */
-export function useWorkflowList(params = { page: 1, pageSize: 10 }) {
+export function useWorkflowList(
+  params: MaybeRef<{ page: number, pageSize: number, keyword?: string, status?: string }> = { page: 1, pageSize: 10 },
+) {
   return useQuery({
-    queryKey: queryKeys.workflow.list(params),
-    queryFn: () => getWorkflowDefinitions(params),
+    queryKey: computed(() => queryKeys.workflow.list(unref(params))),
+    queryFn: () => getWorkflowDefinitions(unref(params)),
     staleTime: 1000 * 60 * 5, // 5 分钟缓存
     retry: 1, // 失败重试 1 次
   })
+}
+
+/**
+ * 发起审批页使用的流程列表（统一从 workflow 数据入口获取）
+ */
+export function useWorkflowLaunchList() {
+  return useQuery({
+    queryKey: queryKeys.workflow.list({ page: 1, pageSize: 1000, status: 'active' }),
+    queryFn: async (): Promise<Workflow[]> => {
+      const response = await getWorkflowDefinitions({
+        page: 1,
+        pageSize: 1000,
+        status: 'active',
+      })
+
+      return response.list.map(item => ({
+        id: item.id,
+        name: item.name,
+        description: item.description,
+        isDefault: item.id === response.list[0]?.id,
+        schemaId: normalizeSchemaId(item.formSchemaId),
+      }))
+    },
+    staleTime: 1000 * 60 * 5,
+    refetchOnWindowFocus: false,
+  })
+}
+
+function normalizeSchemaId(formSchemaId?: string): string {
+  if (!formSchemaId)
+    return 'leave-form'
+  if (formSchemaId.endsWith('-form'))
+    return formSchemaId
+  return `${formSchemaId}-form`
 }
 
 /**

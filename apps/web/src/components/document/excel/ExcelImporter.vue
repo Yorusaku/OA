@@ -296,7 +296,7 @@ watch(validationResult, (newResult) => {
   </div>
 </template>
 
-<style scoped lang="scss">
+<style scoped >
 .excel-importer {
   width: 100%;
 }

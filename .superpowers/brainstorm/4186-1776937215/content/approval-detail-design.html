@@ -1,0 +1,206 @@
+<h2>移动端审批流程交互设计</h2>
+<p class="subtitle">审批是 OA 系统的核心功能，需要优化移动端的操作体验</p>
+
+<div class="section">
+  <h3>关键场景</h3>
+  <p>移动端审批主要有 3 个核心场景：</p>
+  <ol>
+    <li><strong>查看待办列表</strong> - 快速浏览需要处理的审批</li>
+    <li><strong>审批详情</strong> - 查看申请内容和流程信息</li>
+    <li><strong>审批操作</strong> - 通过/驳回/转交等操作</li>
+  </ol>
+</div>
+
+<h3 style="margin-top: 32px;">审批详情页面设计</h3>
+
+<div class="options">
+  <div class="option" data-choice="card-style" onclick="toggleSelect(this)">
+    <div class="letter">A</div>
+    <div class="content">
+      <h3>卡片式布局</h3>
+      <div class="mockup" style="margin: 16px 0; max-width: 360px;">
+        <div class="mockup-body" style="padding: 0; background: #f5f5f5;">
+          <!-- 顶部栏 -->
+          <div style="background: white; padding: 12px 16px; border-bottom: 1px solid #e5e5e5; display: flex; align-items: center; gap: 12px;">
+            <div style="width: 24px; height: 24px; background: #409eff; border-radius: 4px;"></div>
+            <div style="font-weight: 600; font-size: 16px; flex: 1;">请假申请</div>
+            <div style="width: 24px; height: 24px; background: #ddd; border-radius: 4px;"></div>
+          </div>
+
+          <!-- 内容区 - 卡片式 -->
+          <div style="padding: 12px; overflow-y: auto; max-height: 400px;">
+            <!-- 申请人信息卡片 -->
+            <div style="background: white; padding: 16px; border-radius: 8px; margin-bottom: 12px;">
+              <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px;">
+                <div style="width: 48px; height: 48px; background: #409eff; border-radius: 50%;"></div>
+                <div>
+                  <div style="font-weight: 600; margin-bottom: 4px;">张三</div>
+                  <div style="font-size: 12px; color: #999;">技术部 · 前端工程师</div>
+                </div>
+              </div>
+              <div style="font-size: 12px; color: #999;">2024-04-23 10:30 提交</div>
+            </div>
+
+            <!-- 表单内容卡片 -->
+            <div style="background: white; padding: 16px; border-radius: 8px; margin-bottom: 12px;">
+              <div style="font-weight: 600; margin-bottom: 12px; color: #409eff;">📋 申请内容</div>
+              <div style="margin-bottom: 12px;">
+                <div style="font-size: 12px; color: #999; margin-bottom: 4px;">请假类型</div>
+                <div style="font-size: 14px;">事假</div>
+              </div>
+              <div style="margin-bottom: 12px;">
+                <div style="font-size: 12px; color: #999; margin-bottom: 4px;">请假时间</div>
+                <div style="font-size: 14px;">2024-04-25 至 2024-04-26 (2天)</div>
+              </div>
+              <div>
+                <div style="font-size: 12px; color: #999; margin-bottom: 4px;">请假事由</div>
+                <div style="font-size: 14px; line-height: 1.6;">家中有事需要处理，特此申请请假两天。</div>
+              </div>
+            </div>
+
+            <!-- 流程进度卡片 -->
+            <div style="background: white; padding: 16px; border-radius: 8px; margin-bottom: 12px;">
+              <div style="font-weight: 600; margin-bottom: 12px; color: #409eff;">🔄 审批流程</div>
+              <div style="position: relative; padding-left: 24px;">
+                <div style="position: absolute; left: 7px; top: 8px; bottom: 8px; width: 2px; background: #e5e5e5;"></div>
+
+                <div style="position: relative; margin-bottom: 16px;">
+                  <div style="position: absolute; left: -24px; width: 16px; height: 16px; background: #67c23a; border-radius: 50%; border: 2px solid white;"></div>
+                  <div style="font-size: 14px; font-weight: 600; margin-bottom: 4px;">发起申请</div>
+                  <div style="font-size: 12px; color: #999;">张三 · 2024-04-23 10:30</div>
+                </div>
+
+                <div style="position: relative; margin-bottom: 16px;">
+                  <div style="position: absolute; left: -24px; width: 16px; height: 16px; background: #409eff; border-radius: 50%; border: 2px solid white;"></div>
+                  <div style="font-size: 14px; font-weight: 600; margin-bottom: 4px;">部门主管审批</div>
+                  <div style="font-size: 12px; color: #999;">李四 · 待处理</div>
+                </div>
+
+                <div style="position: relative;">
+                  <div style="position: absolute; left: -24px; width: 16px; height: 16px; background: #ddd; border-radius: 50%; border: 2px solid white;"></div>
+                  <div style="font-size: 14px; color: #999; margin-bottom: 4px;">HR 审批</div>
+                  <div style="font-size: 12px; color: #999;">待上一步完成</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 底部操作栏 -->
+          <div style="background: white; border-top: 1px solid #e5e5e5; padding: 12px 16px; display: flex; gap: 12px;">
+            <button style="flex: 1; padding: 12px; background: white; border: 1px solid #dcdfe6; border-radius: 4px; font-size: 14px;">转交</button>
+            <button style="flex: 1; padding: 12px; background: white; border: 1px solid #f56c6c; color: #f56c6c; border-radius: 4px; font-size: 14px;">驳回</button>
+            <button style="flex: 1; padding: 12px; background: #67c23a; color: white; border: none; border-radius: 4px; font-size: 14px; font-weight: 600;">通过</button>
+          </div>
+        </div>
+      </div>
+      <div class="pros-cons" style="margin-top: 16px;">
+        <div class="pros">
+          <h4>优点</h4>
+          <ul>
+            <li>信息分组清晰，易于浏览</li>
+            <li>卡片间距适中，视觉舒适</li>
+            <li>流程进度时间轴直观</li>
+            <li>底部固定操作栏，拇指易触达</li>
+          </ul>
+        </div>
+        <div class="cons">
+          <h4>缺点</h4>
+          <ul>
+            <li>需要滚动查看完整内容</li>
+            <li>卡片较多时页面较长</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="option" data-choice="tab-style" onclick="toggleSelect(this)">
+    <div class="letter">B</div>
+    <div class="content">
+      <h3>标签页布局</h3>
+      <div class="mockup" style="margin: 16px 0; max-width: 360px;">
+        <div class="mockup-body" style="padding: 0; background: #f5f5f5;">
+          <!-- 顶部栏 -->
+          <div style="background: white; padding: 12px 16px; border-bottom: 1px solid #e5e5e5; display: flex; align-items: center; gap: 12px;">
+            <div style="width: 24px; height: 24px; background: #409eff; border-radius: 4px;"></div>
+            <div style="font-weight: 600; font-size: 16px; flex: 1;">请假申请</div>
+            <div style="width: 24px; height: 24px; background: #ddd; border-radius: 4px;"></div>
+          </div>
+
+          <!-- 申请人信息 -->
+          <div style="background: white; padding: 12px 16px; border-bottom: 1px solid #e5e5e5;">
+            <div style="display: flex; align-items: center; gap: 12px;">
+              <div style="width: 40px; height: 40px; background: #409eff; border-radius: 50%;"></div>
+              <div>
+                <div style="font-weight: 600; font-size: 14px; margin-bottom: 2px;">张三</div>
+                <div style="font-size: 12px; color: #999;">技术部 · 2024-04-23 10:30</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 标签页 -->
+          <div style="background: white; border-bottom: 1px solid #e5e5e5; display: flex;">
+            <div style="flex: 1; text-align: center; padding: 12px; border-bottom: 2px solid #409eff; color: #409eff; font-weight: 600; font-size: 14px;">申请内容</div>
+            <div style="flex: 1; text-align: center; padding: 12px; color: #999; font-size: 14px;">审批流程</div>
+            <div style="flex: 1; text-align: center; padding: 12px; color: #999; font-size: 14px;">附件</div>
+          </div>
+
+          <!-- 内容区 -->
+          <div style="padding: 16px; background: white; min-height: 280px;">
+            <div style="margin-bottom: 16px;">
+              <div style="font-size: 12px; color: #999; margin-bottom: 6px;">请假类型</div>
+              <div style="font-size: 14px; padding: 8px 12px; background: #f5f5f5; border-radius: 4px;">事假</div>
+            </div>
+            <div style="margin-bottom: 16px;">
+              <div style="font-size: 12px; color: #999; margin-bottom: 6px;">请假时间</div>
+              <div style="font-size: 14px; padding: 8px 12px; background: #f5f5f5; border-radius: 4px;">2024-04-25 至 2024-04-26 (2天)</div>
+            </div>
+            <div>
+              <div style="font-size: 12px; color: #999; margin-bottom: 6px;">请假事由</div>
+              <div style="font-size: 14px; padding: 8px 12px; background: #f5f5f5; border-radius: 4px; line-height: 1.6;">家中有事需要处理，特此申请请假两天。</div>
+            </div>
+          </div>
+
+          <!-- 底部操作栏 -->
+          <div style="background: white; border-top: 1px solid #e5e5e5; padding: 12px 16px; display: flex; gap: 12px;">
+            <button style="flex: 1; padding: 12px; background: white; border: 1px solid #dcdfe6; border-radius: 4px; font-size: 14px;">转交</button>
+            <button style="flex: 1; padding: 12px; background: white; border: 1px solid #f56c6c; color: #f56c6c; border-radius: 4px; font-size: 14px;">驳回</button>
+            <button style="flex: 1; padding: 12px; background: #67c23a; color: white; border: none; border-radius: 4px; font-size: 14px; font-weight: 600;">通过</button>
+          </div>
+        </div>
+      </div>
+      <div class="pros-cons" style="margin-top: 16px;">
+        <div class="pros">
+          <h4>优点</h4>
+          <ul>
+            <li>内容分类明确，切换方便</li>
+            <li>减少页面滚动</li>
+            <li>适合内容较多的场景</li>
+            <li>可以快速查看流程和附件</li>
+          </ul>
+        </div>
+        <div class="cons">
+          <h4>缺点</h4>
+          <ul>
+            <li>需要切换标签才能看到完整信息</li>
+            <li>不如卡片式一目了然</li>
+            <li>标签页占用垂直空间</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="section" style="margin-top: 32px; padding: 16px; background: #f0f5ff; border-radius: 8px; border-left: 4px solid #409eff;">
+  <h4 style="margin-top: 0;">💡 推荐方案</h4>
+  <p>
+    <strong>卡片式布局（方案 A）</strong>更适合移动端审批场景：
+  </p>
+  <ul style="margin: 8px 0 0 20px;">
+    <li>审批时需要综合查看所有信息，卡片式一次性展示更高效</li>
+    <li>流程进度时间轴可以直观看到当前状态</li>
+    <li>底部固定操作栏符合移动端操作习惯</li>
+    <li>与钉钉、企业微信的审批页面交互一致</li>
+  </ul>
+</div>

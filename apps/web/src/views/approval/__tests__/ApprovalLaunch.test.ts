@@ -5,6 +5,7 @@
 
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { mount } from '@vue/test-utils'
+import { createPinia } from 'pinia'
 
 const mockWorkflowList = [
   {
@@ -99,6 +100,7 @@ describe('ApprovalLaunch.vue', () => {
     // Mount component
     wrapper = mount(await import('@/views/approval/ApprovalLaunch.vue').then(m => m.default), {
       global: {
+        plugins: [createPinia()],
         mocks: {
           $router: {
             push: vi.fn(),
@@ -117,6 +119,7 @@ describe('ApprovalLaunch.vue', () => {
     // Mount component
     wrapper = mount(await import('@/views/approval/ApprovalLaunch.vue').then(m => m.default), {
       global: {
+        plugins: [createPinia()],
         mocks: {
           $router: {
             push: vi.fn(),

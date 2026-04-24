@@ -61,14 +61,16 @@ describe('validators', () => {
   describe('isNumber', () => {
     it('should return true for numbers', () => {
       expect(isNumber(123)).toBe(true)
-      expect(isNumber('456')).toBe(true)
       expect(isNumber(0)).toBe(true)
     })
 
     it('should return false for non-numbers', () => {
+      expect(isNumber('456')).toBe(false)
       expect(isNumber('abc')).toBe(false)
       expect(isNumber(null)).toBe(false)
       expect(isNumber(undefined)).toBe(false)
+      expect(isNumber(Number.NaN)).toBe(false)
+      expect(isNumber(Number.POSITIVE_INFINITY)).toBe(false)
     })
   })
 })

@@ -3,11 +3,10 @@
  * 接收基础 Rule[] 和 permissions 对象，输出应用了权限后的最终 Rule[]
  */
 import { cloneDeep } from 'lodash-es'
-import type { FormFieldSchema } from '@/types/form-schema'
+import type { PermissionsMap } from '@/types/form-schema'
 
 // ==================== 类型定义 ====================
-export type PermissionType = 'hidden' | 'readonly' | 'editable' | 'required'
-export type PermissionsMap = Record<string, PermissionType>
+export type { PermissionsMap } from '@/types/form-schema'
 
 // ==================== 核心函数 ====================
 /**

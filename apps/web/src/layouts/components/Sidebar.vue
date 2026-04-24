@@ -19,9 +19,9 @@ const route = useRoute()
 /**
  * 可见菜单列表（根据权限过滤）
  */
-const visibleMenus = computed(() =>
-  userStore.menus.filter(menu => !menu.permission || userStore.hasPermission(menu.permission)),
-)
+const visibleMenus = computed(() => {
+  return filterMenusByPermission(userStore.menus)
+})
 
 /**
  * 当前激活菜单项（根据路由路径）
@@ -57,6 +57,29 @@ function getMenuIcon(title: string) {
     '流程管理': Connection,
   }
   return iconMap[title] || HomeFilled
+}
+
+function filterMenusByPermission(menus: MenuItem[]): MenuItem[] {
+  return menus.reduce<MenuItem[]>((result, menu) => {
+    const selfAllowed = !menu.permission || userStore.hasPermission(menu.permission)
+    if (!selfAllowed)
+      return result
+
+    if (menu.children?.length) {
+      const children = filterMenusByPermission(menu.children)
+      if (children.length === 0)
+        return result
+
+      result.push({
+        ...menu,
+        children,
+      })
+      return result
+    }
+
+    result.push(menu)
+    return result
+  }, [])
 }
 </script>
 

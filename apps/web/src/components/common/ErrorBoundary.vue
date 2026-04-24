@@ -98,7 +98,7 @@ defineExpose({
   <slot v-else />
 </template>
 
-<style scoped lang="scss">
+<style scoped >
 .error-boundary {
   display: flex;
   align-items: center;

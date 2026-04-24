@@ -1,70 +1,33 @@
 <script setup lang="ts">
-/**
- * WorkflowCanvas - 工作流画布组件
- * 基于 LogicFlow 2.x 实现流程编排画布
- * 核心原则：LogicFlow 实例不被 Vue 深度代理，使用普通变量存储
- */
-import LogicFlow, { RectNode, RectNodeModel } from '@logicflow/core'
-import { DndPanel, SelectionSelect, Menu, Control, MiniMap } from '@logicflow/extension'
 import type { WorkflowDefinition, WorkflowEdge, WorkflowNode, WorkflowNodeType } from '@/types/workflow'
-import { shallowRef, onMounted, onBeforeUnmount, watch } from 'vue'
+import LogicFlow from '@logicflow/core'
+import { Control, DndPanel, Menu, MiniMap, SelectionSelect } from '@logicflow/extension'
+import { onBeforeUnmount, onMounted, shallowRef, watch } from 'vue'
 
-// 引入 LogicFlow 样式（必须！否则画布会空白）
 import '@logicflow/core/dist/index.css'
-import '@logicflow/extension/lib/style/index.css' // 🚀 修复插件样式错乱
+import '@logicflow/extension/lib/style/index.css'
 
-/**
- * 自定义工作流节点 Model
- * 重写 getNodeStyle 实现样式自动响应业务数据
- */
-class CustomWorkflowNodeModel extends RectNodeModel {
-  getNodeStyle() {
-    const style = super.getNodeStyle()
-    const properties = this.properties as any
-
-    // 默认基础样式
-    style.radius = 6
-    style.strokeWidth = 2
-
-    // 1. 根据业务类型设置颜色
-    const type = properties?.type || 'approval'
-    const styleMap: Record<string, any> = {
-      start: { fill: '#ebf4ff', stroke: '#667eea' },
-      approval: { fill: '#ecf5ff', stroke: '#409eff' },
-      cc: { fill: '#f0f9eb', stroke: '#67c23a' },
-      condition: { fill: '#fdf6ec', stroke: '#e6a23c' },
-      end: { fill: '#f4f4f5', stroke: '#909399' }
-    }
-
-    const typeStyle = styleMap[type] || styleMap.approval
-    style.fill = typeStyle.fill
-    style.stroke = typeStyle.stroke
-
-    // 2. 响应禁用状态
-    if (properties?.enabled === false) {
-      style.fill = '#f5f7fa'
-      style.stroke = '#c0c4cc'
-      style.strokeDasharray = '5 5'
-    }
-
-    return style
-  }
+type GraphNode = {
+  id: string
+  type: string
+  x: number
+  y: number
+  text?: any
+  properties?: Record<string, any>
 }
 
-/**
- * 自定义工作流节点 View
- */
-class CustomWorkflowNode extends RectNode {}
+type GraphEdge = {
+  id?: string
+  sourceNodeId: string
+  targetNodeId: string
+  text?: any
+  properties?: Record<string, any>
+}
 
-// ==================== Props & Emits ====================
 const props = withDefaults(defineProps<{
-  /** 工作流定义 */
   definition?: WorkflowDefinition
-  /** 是否只读 */
   readonly?: boolean
-  /** 是否显示小地图 */
   showMinimap?: boolean
-  /** 是否显示背景网格 */
   showGrid?: boolean
 }>(), {
   definition: () => ({
@@ -87,21 +50,161 @@ const emits = defineEmits<{
   nodeDrop: [nodeType: WorkflowNodeType, x: number, y: number]
 }>()
 
-// ==================== LogicFlow 实例 ====================
 const containerRef = shallowRef<HTMLDivElement>()
 const lf = shallowRef<LogicFlow | null>(null)
 
-// ==================== 初始化 LogicFlow ====================
+function normalizeNodeType(type: any): WorkflowNodeType {
+  if (type === 'start' || type === 'approval' || type === 'cc' || type === 'condition' || type === 'end')
+    return type
+  return 'approval'
+}
+
+function getTextValue(text: any): string {
+  if (typeof text === 'string')
+    return text
+  if (text && typeof text.value === 'string')
+    return text.value
+  return ''
+}
+
+function toGraphData(definition: WorkflowDefinition) {
+  const nodes: GraphNode[] = definition.nodes.map(node => ({
+    id: node.id,
+    type: 'rect',
+    x: node.position?.x ?? 100,
+    y: node.position?.y ?? 100,
+    text: node.name,
+    properties: {
+      ...node,
+      type: node.type,
+    },
+  }))
+
+  const edges: GraphEdge[] = definition.edges.map(edge => ({
+    id: edge.id,
+    sourceNodeId: edge.source,
+    targetNodeId: edge.target,
+    text: edge.label ?? '',
+    properties: {
+      conditionId: edge.conditionId,
+      style: edge.style,
+    },
+  }))
+
+  return { nodes, edges }
+}
+
+function toWorkflowDefinition(graphData: any): WorkflowDefinition {
+  const nodes: WorkflowNode[] = (graphData?.nodes ?? []).map((node: any) => {
+    const properties = (node.properties ?? {}) as Partial<WorkflowNode> & { type?: WorkflowNodeType }
+    return {
+      id: node.id,
+      type: normalizeNodeType(properties.type),
+      name: properties.name ?? (getTextValue(node.text) || '节点'),
+      description: properties.description,
+      handler: properties.handler,
+      formSchemaId: properties.formSchemaId,
+      conditions: properties.conditions,
+      position: { x: Number(node.x) || 0, y: Number(node.y) || 0 },
+      className: properties.className,
+      enabled: properties.enabled ?? true,
+      timeout: properties.timeout,
+      autoPassOnTimeout: properties.autoPassOnTimeout,
+      formPermissions: properties.formPermissions,
+    }
+  })
+
+  const edges: WorkflowEdge[] = (graphData?.edges ?? []).map((edge: any, index: number) => ({
+    id: edge.id || `edge-${index}`,
+    source: edge.sourceNodeId,
+    target: edge.targetNodeId,
+    label: getTextValue(edge.text) || undefined,
+    conditionId: edge.properties?.conditionId,
+    style: edge.properties?.style,
+  }))
+
+  return {
+    id: props.definition.id,
+    name: props.definition.name,
+    description: props.definition.description,
+    status: props.definition.status,
+    nodes,
+    edges,
+    formSchemaId: props.definition.formSchemaId,
+    createdBy: props.definition.createdBy,
+    createdAt: props.definition.createdAt,
+    updatedBy: props.definition.updatedBy,
+    updatedAt: props.definition.updatedAt,
+    version: props.definition.version,
+  }
+}
+
+function emitGraphChange() {
+  const graphData = (lf.value as any)?.getGraphData?.()
+  const definition = toWorkflowDefinition(graphData)
+  emits('nodeChange', definition.nodes)
+  emits('edgeChange', definition.edges)
+}
+
+function renderDefinition(definition: WorkflowDefinition) {
+  if (!lf.value)
+    return
+  ;(lf.value as any).render(toGraphData(definition))
+}
+
+function addNode(node: WorkflowNode) {
+  if (!lf.value)
+    return
+  ;(lf.value as any).addNode({
+    id: node.id,
+    type: 'rect',
+    x: node.position?.x ?? 100,
+    y: node.position?.y ?? 100,
+    text: node.name,
+    properties: {
+      ...node,
+      type: node.type,
+    },
+  })
+  emitGraphChange()
+}
+
+function startDrag(nodeConfig: Record<string, any>) {
+  const dnd = (lf.value as any)?.dnd
+  dnd?.startDrag?.(nodeConfig)
+}
+
+function getDefinition(): WorkflowDefinition {
+  const graphData = (lf.value as any)?.getGraphData?.() ?? { nodes: [], edges: [] }
+  return toWorkflowDefinition(graphData)
+}
+
+function deleteNode(nodeId: string) {
+  ;(lf.value as any)?.deleteNode?.(nodeId)
+  emitGraphChange()
+}
+
+function updateNode(node: WorkflowNode) {
+  if (!lf.value)
+    return
+  ;(lf.value as any).updateText?.(node.id, node.name)
+  ;(lf.value as any).setProperties?.(node.id, {
+    ...node,
+    type: node.type,
+  })
+  if (node.position) {
+    ;(lf.value as any).moveNode?.(node.id, node.position.x, node.position.y)
+  }
+  emitGraphChange()
+}
+
 onMounted(() => {
-  if (!containerRef.value) return
+  if (!containerRef.value)
+    return
 
   lf.value = new LogicFlow({
     container: containerRef.value,
-    grid: {
-      size: 20,
-      type: 'dot',
-      color: '#e6a23c',
-    },
+    grid: props.showGrid ? { size: 20, type: 'dot' } : false,
     stopScrollCanvas: true,
     stopRenderNodeShape: false,
     edgeTextDraggable: true,
@@ -110,119 +213,93 @@ onMounted(() => {
     },
   })
 
-  // 注册自定义节点
-  lf.value.registerNodeShape('rect', 'custom-workflow-node', {
-    model: CustomWorkflowNodeModel,
-    view: CustomWorkflowNode,
-  })
-
-  // 启用插件
-  lf.value.use(DndPanel)
-  lf.value.use(SelectionSelect)
-  lf.value.use(Menu)
-  lf.value.use(Control)
+  ;(lf.value as any).use(DndPanel)
+  ;(lf.value as any).use(SelectionSelect)
+  ;(lf.value as any).use(Menu)
+  ;(lf.value as any).use(Control)
   if (props.showMinimap) {
-    lf.value.use(MiniMap)
+    ;(lf.value as any).use(MiniMap)
   }
 
-  // 监听事件
-  lf.value.on('node:mouseup', ({ data }) => {
-    emits('nodeChange', lf.value?.getNodes() || [])
+  ;(lf.value as any).on('node:mouseup', () => {
+    emitGraphChange()
   })
 
-  lf.value.on('edge:update', ({ data }) => {
-    emits('edgeChange', lf.value?.getEdges() || [])
+  ;(lf.value as any).on('edge:add', () => {
+    emitGraphChange()
   })
 
-  lf.value.on('node:click', ({ nodeId }) => {
-    emits('nodeSelect', nodeId)
+  ;(lf.value as any).on('edge:delete', () => {
+    emitGraphChange()
   })
 
-  lf.value.on('graph:click', () => {
+  ;(lf.value as any).on('node:click', ({ data }: any) => {
+    emits('nodeSelect', data?.id ?? '')
+  })
+
+  ;(lf.value as any).on('graph:click', () => {
     emits('nodeSelect', '')
   })
 
-  lf.value.on('node:delete', ({ nodeId }) => {
-    emits('nodeDelete', nodeId)
+  ;(lf.value as any).on('node:delete', ({ data }: any) => {
+    emits('nodeDelete', data?.id ?? '')
+    emitGraphChange()
   })
 
-  // 加载数据
-  lf.value.render(props.definition)
+  ;(lf.value as any).on('node:dnd-add', ({ data }: any) => {
+    const nodeType = normalizeNodeType(data?.properties?.type)
+    emits('nodeDrop', nodeType, Number(data?.x) || 0, Number(data?.y) || 0)
+    emitGraphChange()
+  })
+
+  renderDefinition(props.definition)
 })
 
-// ==================== 销毁 LogicFlow ====================
-onBeforeUnmount(() => {
-  lf.value?.destroy()
-})
-
-// ==================== 监听 props 变化 ====================
 watch(
   () => props.definition,
   (newDefinition) => {
-    if (!lf.value) return
-    lf.value.render(newDefinition)
+    renderDefinition(newDefinition)
   },
+  { deep: true },
 )
 
 watch(
   () => props.readonly,
   (readonly) => {
-    if (!lf.value) return
-    // LogicFlow 没有直接的只读模式，需要禁用交互
-    lf.value.updateConfiguration({
+    ;(lf.value as any)?.updateEditConfig?.({
+      isSilentMode: readonly,
       stopMoveGraph: readonly,
-      allowRotation: false,
+      stopMoveNode: readonly,
+      stopZoomGraph: false,
+      adjustEdge: !readonly,
+      adjustNodePosition: !readonly,
+      hideAnchors: readonly,
+      allowRotate: false,
+      allowResize: false,
     })
   },
+  { immediate: true },
 )
+
+onBeforeUnmount(() => {
+  ;(lf.value as any)?.destroy?.()
+})
+
+defineExpose({
+  addNode,
+  startDrag,
+  getDefinition,
+  deleteNode,
+  updateNode,
+})
 </script>
 
 <template>
-  <div ref="containerRef" class="workflow-canvas" style="width: 100%; height: 800px; background: #fafafa;"></div>
+  <div ref="containerRef" class="workflow-canvas" style="width: 100%; height: 800px; background: #fafafa;" />
 </template>
 
 <style scoped>
 :deep(.lf-container) {
   background: transparent;
-}
-
-:deep(.lf-node) {
-  cursor: pointer;
-  transition: filter 0.3s ease;
-}
-
-:deep(.lf-node:hover) {
-  filter: brightness(0.95);
-}
-
-:deep(.lf-edge) {
-  cursor: pointer;
-}
-
-:deep(.lf-edge-text) {
-  font-size: 12px;
-  fill: #606266;
-}
-
-:deep(.lf-control) {
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-  border-radius: 6px;
-  background: #ffffff;
-  padding: 4px;
-}
-
-:deep(.lf-mini-map) {
-  position: absolute;
-  bottom: 20px;
-  right: 20px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-  border-radius: 6px;
-  overflow: hidden;
-  border: 1px solid #ebeef5;
-}
-
-:deep(.lf-dnd) {
-  position: absolute;
-  z-index: 1000;
 }
 </style>

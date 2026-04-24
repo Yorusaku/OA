@@ -1,58 +1,145 @@
-/**
- * useApprovalSubmit - 审批提交逻辑
- * 支持审批通过、驳回等操作
+﻿/**
+ * Approval submit composable.
+ * - create: 发起审批（写入 mock 数据）
+ * - process: 审批处理（支持 approve/reject/transfer/addSign/remind/withdraw/cancel）
  */
 
-import { ref } from 'vue'
-import { ElMessage } from 'element-plus'
 import type { Ref } from 'vue'
+import type { ApprovalRecord } from '@/api/types'
+import { useQueryClient } from '@tanstack/vue-query'
+import { ElMessage } from 'element-plus'
+import { ref } from 'vue'
+import { processApproval, submitApproval as createApproval } from '@/api/approval'
+import { queryKeys } from '@/api/queryKeys'
 
-/**
- * 提交请求参数类型
- */
-export interface SubmitPayload {
-  /** 审批状态：approved 或 rejected */
-  status: 'approved' | 'rejected'
-  /** 提交的表单数据（评论、备注等） */
-  comment: Record<string, any>
-}
+const MOCK_LATENCY_MS = 600
+const SUBMIT_TIMEOUT_MS = 10_000
+type ProcessOperation = 'approve' | 'reject' | 'transfer' | 'addSign' | 'remind' | 'withdraw' | 'cancel'
 
-/**
- * 提交响应结果类型
- */
-export interface SubmitResult {
-  /** 是否成功 */
-  success: boolean
-  /** 错误消息（失败时） */
-  errorMessage?: string
-}
+export type SubmitPayload
+  = | {
+    action: 'create'
+    data: Omit<ApprovalRecord, 'id' | 'status' | 'applyTime'>
+  }
+    | {
+      action: 'process'
+      id: string
+      operation: ProcessOperation
+      comment?: unknown
+      commentText?: string
+      attachments?: string[]
+      targetUserId?: string
+      targetUserName?: string
+      operatorId?: string
+      operatorName?: string
+    }
 
-/**
- * useApprovalSubmit 返回值类型
- */
 export interface UseApprovalSubmitReturn {
-  /** 加载状态 */
   isLoading: Ref<boolean>
-  /** 提交审批方法 */
-  submitApproval: (approvalId: string, payload: SubmitPayload) => Promise<void>
+  submitApproval: (payload: SubmitPayload) => Promise<ApprovalRecord | void>
+}
+
+function delay(ms: number): Promise<void> {
+  return new Promise(resolve => setTimeout(resolve, ms))
+}
+
+function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error('submit-timeout')), ms)
+    promise
+      .then((value) => {
+        clearTimeout(timer)
+        resolve(value)
+      })
+      .catch((error) => {
+        clearTimeout(timer)
+        reject(error)
+      })
+  })
+}
+
+function getOperationSuccessMessage(operation: ProcessOperation): string {
+  switch (operation) {
+    case 'approve':
+      return '审批通过成功'
+    case 'reject':
+      return '审批驳回成功'
+    case 'transfer':
+      return '审批转交成功'
+    case 'addSign':
+      return '加签成功'
+    case 'remind':
+      return '催办提醒已发送'
+    case 'withdraw':
+      return '审批撤回成功'
+    case 'cancel':
+      return '审批取消成功'
+    default:
+      return '操作成功'
+  }
 }
 
 export const useApprovalSubmit = (): UseApprovalSubmitReturn => {
+  const queryClient = useQueryClient()
   const isLoading = ref(false)
 
-  const submitApproval = async (
-    approvalId: string,
-    payload: SubmitPayload
-  ): Promise<void> => {
+  const submitApproval = async (payload: SubmitPayload): Promise<ApprovalRecord | void> => {
+    if (isLoading.value)
+      return
+
     isLoading.value = true
+
     try {
-      // Mock 接口延迟
-      await new Promise(resolve => setTimeout(resolve, 600))
-      console.log('[Mock API] 提交审批:', approvalId, payload)
-    } catch (err) {
-      ElMessage.error('操作失败，请重试')
-      throw err
-    } finally {
+      if (payload.action === 'create') {
+        await withTimeout(delay(MOCK_LATENCY_MS), SUBMIT_TIMEOUT_MS)
+        const record = await withTimeout(createApproval(payload.data), SUBMIT_TIMEOUT_MS)
+
+        const invalidateTasks: Array<Promise<unknown>> = [
+          queryClient.invalidateQueries({ queryKey: queryKeys.approval.list() }),
+          queryClient.invalidateQueries({ queryKey: queryKeys.approval.stats }),
+          queryClient.invalidateQueries({ queryKey: queryKeys.approval.notifications() }),
+        ]
+
+        await Promise.allSettled(invalidateTasks)
+        ElMessage.success('审批提交成功')
+        return record
+      }
+
+      if (payload.action === 'process') {
+        await withTimeout(processApproval({
+          id: payload.id,
+          action: payload.operation,
+          comment: payload.comment,
+          commentText: payload.commentText,
+          attachments: payload.attachments,
+          targetUserId: payload.targetUserId,
+          targetUserName: payload.targetUserName,
+          operatorId: payload.operatorId,
+          operatorName: payload.operatorName,
+        }), SUBMIT_TIMEOUT_MS)
+
+        const invalidateTasks: Array<Promise<unknown>> = [
+          queryClient.invalidateQueries({ queryKey: queryKeys.approval.list() }),
+          queryClient.invalidateQueries({ queryKey: queryKeys.approval.stats }),
+          queryClient.invalidateQueries({ queryKey: queryKeys.approval.detail(payload.id) }),
+          queryClient.invalidateQueries({ queryKey: queryKeys.approval.notifications() }),
+        ]
+
+        await Promise.allSettled(invalidateTasks)
+        ElMessage.success(getOperationSuccessMessage(payload.operation))
+      }
+    }
+    catch (error) {
+      if (error instanceof Error && error.message === 'submit-timeout')
+        ElMessage.error('提交超时，请重试')
+      else if (error instanceof Error && error.message === 'approval-not-found')
+        ElMessage.error('审批单不存在或已被删除')
+      else
+        ElMessage.error('操作失败，请重试')
+
+      throw error
+    }
+    finally {
       isLoading.value = false
     }
   }

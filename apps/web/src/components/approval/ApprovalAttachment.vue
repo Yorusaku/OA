@@ -131,7 +131,7 @@ async function handleDelete(attachment: Attachment) {
   </div>
 </template>
 
-<style scoped lang="scss">
+<style scoped >
 .approval-attachment {
   padding: 20px;
   background: #fff;

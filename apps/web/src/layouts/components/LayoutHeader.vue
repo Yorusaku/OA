@@ -6,10 +6,15 @@
  */
 
 import { useRouter } from 'vue-router'
+import { Bell } from '@element-plus/icons-vue'
 import { useUserStore } from '@/stores/user'
+import { useUnreadCount } from '@/composables/useMessage'
 
 const userStore = useUserStore()
 const router = useRouter()
+
+// 获取未读消息数
+const { data: unreadCount } = useUnreadCount()
 
 /**
  * 退出登录处理
@@ -18,6 +23,13 @@ const router = useRouter()
 function onLogout() {
   userStore.logout()
   router.push('/login')
+}
+
+/**
+ * 跳转到消息中心
+ */
+function goToMessageCenter() {
+  router.push('/message/list')
 }
 </script>
 
@@ -28,6 +40,11 @@ function onLogout() {
 
     <!-- 右侧用户信息区 -->
     <div class="flex items-center gap-3">
+      <!-- 消息铃铛图标 -->
+      <el-badge :value="unreadCount || 0" :hidden="!unreadCount" :max="99" class="message-badge">
+        <el-button :icon="Bell" circle @click="goToMessageCenter" />
+      </el-badge>
+
       <span class="text-sm text-slate-600">
         {{ userStore.userInfo?.name || '未登录用户' }}
       </span>
@@ -39,4 +56,7 @@ function onLogout() {
 </template>
 
 <style scoped>
+.message-badge {
+  cursor: pointer;
+}
 </style>

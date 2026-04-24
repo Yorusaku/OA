@@ -126,7 +126,7 @@ function triggerFileSelect() {
   </div>
 </template>
 
-<style scoped lang="scss">
+<style scoped >
 .document-uploader {
   position: relative;
   border: 2px dashed var(--el-border-color);

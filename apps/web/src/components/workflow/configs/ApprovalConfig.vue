@@ -68,9 +68,9 @@ const handler = computed({
 })
 
 // ==================== 节点权限配置 ====================
-const { permissions, setPermission, resetAllPermissions, exportPermissions } = useNodePermissions({
-  formSchema: ref(currentSchema.value),
-  currentPermissions: ref(props.modelValue.formPermissions),
+const { permissions, setPermission, resetAllPermissions } = useNodePermissions({
+  formSchema: computed(() => currentSchema.value),
+  currentPermissions: computed(() => props.modelValue.formPermissions),
 })
 
 // 监听 permissions 变化，同步到节点

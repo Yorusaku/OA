@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 用户状态管理
  */
 import type { RouteRecordRaw } from 'vue-router'
@@ -6,18 +6,12 @@ import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
 import { useStorage } from '@vueuse/core'
 
-/**
- * 用户信息接口
- */
 export interface UserInfo {
   id: string
   name: string
   avatar?: string
 }
 
-/**
- * 菜单项接口
- */
 export interface MenuItem {
   path: string
   name: string
@@ -27,32 +21,20 @@ export interface MenuItem {
   children?: MenuItem[]
 }
 
-/**
- * 用户状态存储
- */
 export const useUserStore = defineStore('user', () => {
-  /**
-   * 认证令牌（持久化到 localStorage）
-   */
   const token = useStorage('token', null as string | null)
-
-  /**
-   * 用户信息（持久化到 localStorage）
-   */
   const userInfo = useStorage('userInfo', null as UserInfo | null)
 
-  /**
-   * 权限列表
-   * 默认给当前用户一些基础权限，后续会由后端返回覆盖
-   */
   const permissions = ref<string[]>([
     'dashboard:view',
     'approval:center:view',
     'approval:launch',
     'approval:mine',
     'approval:todo',
+    'approval:detail',
     'org:view',
     'contacts:view',
+    'demo:view',
     'system:view',
     'system:user:view',
     'system:role:view',
@@ -60,9 +42,6 @@ export const useUserStore = defineStore('user', () => {
     'workflow:list',
   ])
 
-  /**
-   * 菜单列表
-   */
   const menus = ref<MenuItem[]>([
     {
       path: '/',
@@ -98,6 +77,16 @@ export const useUserStore = defineStore('user', () => {
       permission: 'contacts:view',
     },
     {
+      path: '/demo',
+      name: 'Demo',
+      title: '演示页面',
+      icon: 'bug',
+      permission: 'demo:view',
+      children: [
+        { path: '/demo/dynamic-form-linkage', name: 'DynamicFormLinkageDemo', title: '动态表单联动', permission: 'demo:view' },
+      ],
+    },
+    {
       path: '/system',
       name: 'System',
       title: '系统管理',
@@ -120,73 +109,84 @@ export const useUserStore = defineStore('user', () => {
     },
   ])
 
-  /**
-   * 是否已登录
-   */
   const isLoggedIn = computed(() => !!token.value)
 
-  /**
-   * 设置令牌
-   */
   function setToken(value: string | null) {
     token.value = value
   }
 
-  /**
-   * 设置用户信息
-   */
   function setUser(info: UserInfo | null) {
     userInfo.value = info
   }
 
-  /**
-   * 设置权限列表
-   */
   function setPermissions(codes: string[]) {
     permissions.value = codes
   }
 
-  /**
-   * 设置菜单列表
-   */
   function setMenus(list: MenuItem[]) {
     menus.value = list
   }
 
-  /**
-   * 检查是否有权限
-   */
   function hasPermission(code: string): boolean {
     if (!code)
       return true
     return permissions.value.includes(code)
   }
 
-  /**
-   * 登出
-   */
   function logout() {
     token.value = null
     userInfo.value = null
     permissions.value = []
-    // menus 可以保留基础菜单结构，也可以在真正接入后端时清空
   }
 
-  /**
-   * 清除用户状态（用于 401 登录过期）
-   */
   function clearUser() {
     token.value = null
     userInfo.value = null
     permissions.value = []
   }
 
-  /**
-   * 从菜单构建路由
-   * 这里先返回空数组，后续接入动态路由时再实现
-   */
   function buildRoutesFromMenus(): RouteRecordRaw[] {
-    return []
+    const componentMap: Record<string, any> = {
+      Dashboard: () => import('@/views/dashboard/Workbench.vue'),
+      ApprovalLaunch: () => import('@/views/approval/ApprovalLaunch.vue'),
+      ApprovalMine: () => import('@/views/approval/ApprovalMine.vue'),
+      ApprovalTodo: () => import('@/views/approval/ApprovalTodo.vue'),
+      OrgTree: () => import('@/views/org/OrgTree.vue'),
+      ContactsList: () => import('@/views/contacts/ContactsList.vue'),
+      DynamicFormLinkageDemo: () => import('@/views/demo/DynamicFormLinkageDemo.vue'),
+      UserList: () => import('@/views/system/UserList.vue'),
+      RoleList: () => import('@/views/system/RoleList.vue'),
+      WorkflowList: () => import('@/views/workflow/WorkflowList.vue'),
+    }
+
+    const routes: RouteRecordRaw[] = []
+
+    const walk = (items: MenuItem[]) => {
+      items.forEach((item) => {
+        if (item.children?.length) {
+          walk(item.children)
+          return
+        }
+
+        const component = componentMap[item.name]
+        if (!component)
+          return
+
+        routes.push({
+          path: item.path,
+          name: item.name,
+          component,
+          meta: {
+            title: item.title,
+            permission: item.permission,
+            requiresAuth: true,
+          },
+        })
+      })
+    }
+
+    walk(menus.value)
+    return routes
   }
 
   return {

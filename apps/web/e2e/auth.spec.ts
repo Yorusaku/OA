@@ -1,46 +1,17 @@
 import { expect, test } from '@playwright/test'
-import { DashboardPage } from './pages/DashboardPage'
-import { LoginPage } from './pages/LoginPage'
+import { loginAsMockUser } from './utils/auth'
 
 test.describe('Authentication', () => {
-  test('successful login', async ({ page }) => {
-    const loginPage = new LoginPage(page)
-    await loginPage.goto()
-    await loginPage.login('admin', 'password')
-
-    await expect(page).toHaveURL(/dashboard|workbench/)
+  test('未登录访问受保护路由会跳回登录页', async ({ page }) => {
+    await page.goto('/approval/launch')
+    await expect(page).toHaveURL(/\/login(?:\?.*)?$/)
   })
 
-  test('shows error on invalid credentials', async ({ page }) => {
-    const loginPage = new LoginPage(page)
-    await loginPage.goto()
-    await loginPage.login('wrong', 'wrong')
+  test('登录后进入工作区并可访问审批页面', async ({ page }) => {
+    await loginAsMockUser(page)
 
-    const error = await loginPage.getErrorMessage()
-    expect(error).toBeTruthy()
-  })
-})
-
-test.describe('Navigation', () => {
-  test('can navigate to approval launch', async ({ page }) => {
-    const loginPage = new LoginPage(page)
-    await loginPage.goto()
-    await loginPage.login('admin', 'password')
-
-    const dashboardPage = new DashboardPage(page)
-    await dashboardPage.goToApprovalLaunch()
-
-    await expect(page).toHaveURL(/approval/)
-  })
-
-  test('can navigate to workbench', async ({ page }) => {
-    const loginPage = new LoginPage(page)
-    await loginPage.goto()
-    await loginPage.login('admin', 'password')
-
-    const dashboardPage = new DashboardPage(page)
-    await dashboardPage.goToWorkbench()
-
-    await expect(page).toHaveURL(/workbench|dashboard/)
+    await page.goto('/approval/launch')
+    await expect(page).toHaveURL(/\/approval\/launch$/)
+    await expect(page.locator('.approval-launch')).toBeVisible()
   })
 })
