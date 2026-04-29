@@ -6,15 +6,59 @@
 
 import type { Ref } from 'vue'
 import type { ApprovalRecord } from '@/api/types'
+import type { ProcessApprovalPayload } from '@/api/approval'
 import { useQueryClient } from '@tanstack/vue-query'
 import { ElMessage } from 'element-plus'
 import { ref } from 'vue'
 import { processApproval, submitApproval as createApproval } from '@/api/approval'
 import { queryKeys } from '@/api/queryKeys'
+import { useUserStore } from '@/stores/user'
 
 const MOCK_LATENCY_MS = 600
 const SUBMIT_TIMEOUT_MS = 10_000
 type ProcessOperation = 'approve' | 'reject' | 'transfer' | 'addSign' | 'remind' | 'withdraw' | 'cancel'
+type SubmitErrorCode
+  = | 'submit-timeout'
+    | 'approval-not-found'
+    | 'approval-target-user-required'
+
+interface ProcessOperationConfig {
+  successMessage: string
+  requiresTargetUser?: boolean
+  defaultCommentText?: string
+}
+
+interface OperatorIdentity {
+  id?: string
+  name?: string
+}
+
+const PROCESS_OPERATION_CONFIG: Record<ProcessOperation, ProcessOperationConfig> = {
+  approve: {
+    successMessage: '审批通过成功',
+  },
+  reject: {
+    successMessage: '审批驳回成功',
+  },
+  transfer: {
+    successMessage: '审批转交成功',
+    requiresTargetUser: true,
+  },
+  addSign: {
+    successMessage: '加签成功',
+    requiresTargetUser: true,
+  },
+  remind: {
+    successMessage: '催办提醒已发送',
+    defaultCommentText: '发起催办提醒',
+  },
+  withdraw: {
+    successMessage: '审批撤回成功',
+  },
+  cancel: {
+    successMessage: '审批取消成功',
+  },
+}
 
 export type SubmitPayload
   = | {
@@ -45,7 +89,7 @@ function delay(ms: number): Promise<void> {
 
 function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
   return new Promise((resolve, reject) => {
-    const timer = setTimeout(() => reject(new Error('submit-timeout')), ms)
+    const timer = setTimeout(() => reject(new Error('submit-timeout' satisfies SubmitErrorCode)), ms)
     promise
       .then((value) => {
         clearTimeout(timer)
@@ -58,90 +102,112 @@ function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
   })
 }
 
-function getOperationSuccessMessage(operation: ProcessOperation): string {
-  switch (operation) {
-    case 'approve':
-      return '审批通过成功'
-    case 'reject':
-      return '审批驳回成功'
-    case 'transfer':
-      return '审批转交成功'
-    case 'addSign':
-      return '加签成功'
-    case 'remind':
-      return '催办提醒已发送'
-    case 'withdraw':
-      return '审批撤回成功'
-    case 'cancel':
-      return '审批取消成功'
-    default:
-      return '操作成功'
+function normalizeTargetUser(value?: string): string | undefined {
+  const nextValue = value?.trim()
+  return nextValue ? nextValue : undefined
+}
+
+function buildProcessPayload(
+  payload: Extract<SubmitPayload, { action: 'process' }>,
+  defaultOperator: OperatorIdentity,
+): ProcessApprovalPayload {
+  const config = PROCESS_OPERATION_CONFIG[payload.operation]
+  const targetUserId = normalizeTargetUser(payload.targetUserId)
+  const targetUserName = normalizeTargetUser(payload.targetUserName)
+
+  if (config.requiresTargetUser && !targetUserId && !targetUserName)
+    throw new Error('approval-target-user-required' satisfies SubmitErrorCode)
+
+  return {
+    id: payload.id,
+    action: payload.operation,
+    comment: payload.comment,
+    commentText: payload.commentText?.trim() || config.defaultCommentText,
+    attachments: payload.attachments,
+    targetUserId: targetUserId || targetUserName,
+    targetUserName: targetUserName || targetUserId,
+    operatorId: payload.operatorId || defaultOperator.id,
+    operatorName: payload.operatorName || defaultOperator.name,
   }
+}
+
+async function invalidateAfterCreate(queryClient: ReturnType<typeof useQueryClient>): Promise<void> {
+  const invalidateTasks: Array<Promise<unknown>> = [
+    queryClient.invalidateQueries({ queryKey: queryKeys.approval.list() }),
+    queryClient.invalidateQueries({ queryKey: queryKeys.approval.stats }),
+    queryClient.invalidateQueries({ queryKey: queryKeys.approval.notifications() }),
+  ]
+
+  await Promise.allSettled(invalidateTasks)
+}
+
+async function invalidateAfterProcess(queryClient: ReturnType<typeof useQueryClient>, id: string): Promise<void> {
+  const invalidateTasks: Array<Promise<unknown>> = [
+    queryClient.invalidateQueries({ queryKey: queryKeys.approval.list() }),
+    queryClient.invalidateQueries({ queryKey: queryKeys.approval.stats }),
+    queryClient.invalidateQueries({ queryKey: queryKeys.approval.detail(id) }),
+    queryClient.invalidateQueries({ queryKey: queryKeys.approval.notifications() }),
+  ]
+
+  await Promise.allSettled(invalidateTasks)
+}
+
+function handleSubmitError(error: unknown): void {
+  if (error instanceof Error && error.message === 'submit-timeout')
+    ElMessage.error('提交超时，请重试')
+  else if (error instanceof Error && error.message === 'approval-not-found')
+    ElMessage.error('审批单不存在或已被删除')
+  else if (error instanceof Error && error.message === 'approval-target-user-required')
+    ElMessage.warning('请选择目标处理人后再提交')
+  else
+    ElMessage.error('操作失败，请重试')
 }
 
 export const useApprovalSubmit = (): UseApprovalSubmitReturn => {
   const queryClient = useQueryClient()
+  const userStore = useUserStore()
   const isLoading = ref(false)
+  let currentSubmitPromise: Promise<ApprovalRecord | void> | null = null
 
   const submitApproval = async (payload: SubmitPayload): Promise<ApprovalRecord | void> => {
-    if (isLoading.value)
-      return
+    if (currentSubmitPromise)
+      return currentSubmitPromise
 
     isLoading.value = true
 
-    try {
-      if (payload.action === 'create') {
-        await withTimeout(delay(MOCK_LATENCY_MS), SUBMIT_TIMEOUT_MS)
-        const record = await withTimeout(createApproval(payload.data), SUBMIT_TIMEOUT_MS)
+    currentSubmitPromise = (async () => {
+      try {
+        if (payload.action === 'create') {
+          await withTimeout(delay(MOCK_LATENCY_MS), SUBMIT_TIMEOUT_MS)
+          const record = await withTimeout(createApproval(payload.data), SUBMIT_TIMEOUT_MS)
 
-        const invalidateTasks: Array<Promise<unknown>> = [
-          queryClient.invalidateQueries({ queryKey: queryKeys.approval.list() }),
-          queryClient.invalidateQueries({ queryKey: queryKeys.approval.stats }),
-          queryClient.invalidateQueries({ queryKey: queryKeys.approval.notifications() }),
-        ]
+          await invalidateAfterCreate(queryClient)
+          ElMessage.success('审批提交成功')
+          return record
+        }
 
-        await Promise.allSettled(invalidateTasks)
-        ElMessage.success('审批提交成功')
-        return record
+        if (payload.action === 'process') {
+          const processPayload = buildProcessPayload(payload, {
+            id: userStore.userInfo?.id,
+            name: userStore.userInfo?.name,
+          })
+          await withTimeout(processApproval(processPayload), SUBMIT_TIMEOUT_MS)
+
+          await invalidateAfterProcess(queryClient, payload.id)
+          ElMessage.success(PROCESS_OPERATION_CONFIG[payload.operation].successMessage)
+        }
       }
-
-      if (payload.action === 'process') {
-        await withTimeout(processApproval({
-          id: payload.id,
-          action: payload.operation,
-          comment: payload.comment,
-          commentText: payload.commentText,
-          attachments: payload.attachments,
-          targetUserId: payload.targetUserId,
-          targetUserName: payload.targetUserName,
-          operatorId: payload.operatorId,
-          operatorName: payload.operatorName,
-        }), SUBMIT_TIMEOUT_MS)
-
-        const invalidateTasks: Array<Promise<unknown>> = [
-          queryClient.invalidateQueries({ queryKey: queryKeys.approval.list() }),
-          queryClient.invalidateQueries({ queryKey: queryKeys.approval.stats }),
-          queryClient.invalidateQueries({ queryKey: queryKeys.approval.detail(payload.id) }),
-          queryClient.invalidateQueries({ queryKey: queryKeys.approval.notifications() }),
-        ]
-
-        await Promise.allSettled(invalidateTasks)
-        ElMessage.success(getOperationSuccessMessage(payload.operation))
+      catch (error) {
+        handleSubmitError(error)
+        throw error
       }
-    }
-    catch (error) {
-      if (error instanceof Error && error.message === 'submit-timeout')
-        ElMessage.error('提交超时，请重试')
-      else if (error instanceof Error && error.message === 'approval-not-found')
-        ElMessage.error('审批单不存在或已被删除')
-      else
-        ElMessage.error('操作失败，请重试')
+      finally {
+        isLoading.value = false
+        currentSubmitPromise = null
+      }
+    })()
 
-      throw error
-    }
-    finally {
-      isLoading.value = false
-    }
+    return currentSubmitPromise
   }
 
   return { isLoading, submitApproval }

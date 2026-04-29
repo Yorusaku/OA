@@ -38,6 +38,7 @@ export const useUserStore = defineStore('user', () => {
     'system:view',
     'system:user:view',
     'system:role:view',
+    'system:approval-delegation:view',
     'workflow:view',
     'workflow:list',
   ])
@@ -95,6 +96,7 @@ export const useUserStore = defineStore('user', () => {
       children: [
         { path: '/system/users', name: 'UserList', title: '用户管理', permission: 'system:user:view' },
         { path: '/system/roles', name: 'RoleList', title: '角色管理', permission: 'system:role:view' },
+        { path: '/system/approval-delegation', name: 'ApprovalDelegationSettings', title: '代理审批设置', permission: 'system:approval-delegation:view' },
       ],
     },
     {
@@ -156,6 +158,7 @@ export const useUserStore = defineStore('user', () => {
       DynamicFormLinkageDemo: () => import('@/views/demo/DynamicFormLinkageDemo.vue'),
       UserList: () => import('@/views/system/UserList.vue'),
       RoleList: () => import('@/views/system/RoleList.vue'),
+      ApprovalDelegationSettings: () => import('@/views/system/ApprovalDelegationSettings.vue'),
       WorkflowList: () => import('@/views/workflow/WorkflowList.vue'),
     }
 

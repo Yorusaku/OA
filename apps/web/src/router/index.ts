@@ -1,81 +1,46 @@
-/**
- * @file router/index.ts
- * @description 路由配置
- * 定义应用的所有路由规则和导航守卫
- *
- * 性能优化：
- * - 路由懒加载：所有非关键路由使用动态 import
- * - 代码分割：使用 webpackChunkName 注释为每个模块命名
- * - 预加载策略：高优先级路由使用 webpackPrefetch
- */
-
 import type { RouteRecordRaw } from 'vue-router'
 import { createRouter, createWebHistory } from 'vue-router'
 import { useUserStore } from '@/stores/user'
-
-// ==================== 路由组件 ====================
-
-// 认证模块（静态导入，确保登录页加载稳定）
 import Login from '@/views/auth/Login.vue'
 
-// 布局（高优先级，使用 prefetch）
 const MainLayout = () => import(/* webpackChunkName: "layout", webpackPrefetch: true */ '@/layouts/MainLayout.vue')
-
-// 工作台（高优先级，使用 prefetch）
 const Dashboard = () => import(/* webpackChunkName: "dashboard", webpackPrefetch: true */ '@/views/dashboard/Workbench.vue')
-// 工作台（高优先级，使用 prefetch）
-const Dashboard = () => import(/* webpackChunkName: "dashboard", webpackPrefetch: true */ '@/views/dashboard/Workbench.vue')
-
-// 动态表单联动演示
 const DynamicFormLinkageDemo = () => import(/* webpackChunkName: "demo" */ '@/views/demo/DynamicFormLinkageDemo.vue')
 
-// 审批模块（高频使用，使用 prefetch）
 const ApprovalLaunch = () => import(/* webpackChunkName: "approval-launch", webpackPrefetch: true */ '@/views/approval/ApprovalLaunch.vue')
 const ApprovalMine = () => import(/* webpackChunkName: "approval-mine" */ '@/views/approval/ApprovalMine.vue')
 const ApprovalTodo = () => import(/* webpackChunkName: "approval-todo", webpackPrefetch: true */ '@/views/approval/ApprovalTodo.vue')
 const ApprovalCC = () => import(/* webpackChunkName: "approval-cc" */ '@/views/approval/ApprovalCC.vue')
 
-// 组织架构
 const OrgTree = () => import(/* webpackChunkName: "org" */ '@/views/org/OrgTree.vue')
-
-// 通讯录
 const ContactsList = () => import(/* webpackChunkName: "contacts" */ '@/views/contacts/ContactsList.vue')
+const MessageList = () => import(/* webpackChunkName: "message" */ '@/views/message/MessageList.vue')
 
-// 系统管理（低频使用，按需加载）
 const UserList = () => import(/* webpackChunkName: "system-user" */ '@/views/system/UserList.vue')
 const RoleList = () => import(/* webpackChunkName: "system-role" */ '@/views/system/RoleList.vue')
 const LoginLogs = () => import(/* webpackChunkName: "system-logs" */ '@/views/system/LoginLogs.vue')
 const OperationLogs = () => import(/* webpackChunkName: "system-logs" */ '@/views/system/OperationLogs.vue')
+const ApprovalDelegationSettings = () => import(/* webpackChunkName: "system-approval-delegation" */ '@/views/system/ApprovalDelegationSettings.vue')
 
-// 流程管理
 const WorkflowList = () => import(/* webpackChunkName: "workflow-list" */ '@/views/workflow/WorkflowList.vue')
 const WorkflowEditor = () => import(/* webpackChunkName: "workflow-editor" */ '@/views/workflow/WorkflowEditor.vue')
 
-// 消息中心
-const MessageList = () => import(/* webpackChunkName: "message" */ '@/views/message/MessageList.vue')
-
-// 应用中心
 const ApplicationList = () => import(/* webpackChunkName: "application-list" */ '@/views/application/ApplicationList.vue')
 const ApplicationCreate = () => import(/* webpackChunkName: "application-edit" */ '@/views/application/ApplicationCreate.vue')
 const ApplicationEdit = () => import(/* webpackChunkName: "application-edit" */ '@/views/application/ApplicationEdit.vue')
 const ApplicationDetail = () => import(/* webpackChunkName: "application-detail" */ '@/views/application/ApplicationDetail.vue')
 
-// 模板市场
 const TemplateMarket = () => import(/* webpackChunkName: "template-market" */ '@/views/template/TemplateMarket.vue')
 const TemplateDetail = () => import(/* webpackChunkName: "template-detail" */ '@/views/template/TemplateDetail.vue')
 const MyTemplates = () => import(/* webpackChunkName: "template-my" */ '@/views/template/MyTemplates.vue')
 
-/**
- * 常量路由
- * 不需要动态权限的基础路由
- */
 export const constantRoutes: RouteRecordRaw[] = [
   {
     path: '/login',
     name: 'Login',
     component: Login,
     meta: {
-      public: true, // 公开路由，不需要登录
+      public: true,
       title: '登录',
     },
   },
@@ -90,8 +55,8 @@ export const constantRoutes: RouteRecordRaw[] = [
         meta: {
           title: '工作台',
           icon: 'dashboard',
-          requiresAuth: true, // 需要登录
-          permission: 'dashboard:view', // 权限标识
+          requiresAuth: true,
+          permission: 'dashboard:view',
         },
       },
       {
@@ -152,7 +117,7 @@ export const constantRoutes: RouteRecordRaw[] = [
               title: '审批详情',
               requiresAuth: true,
               permission: 'approval:detail',
-              hidden: true, // 不在菜单中显示
+              hidden: true,
             },
           },
         ],
@@ -235,7 +200,7 @@ export const constantRoutes: RouteRecordRaw[] = [
             name: 'DynamicFormLinkageDemo',
             component: DynamicFormLinkageDemo,
             meta: {
-              title: '动态表单联动校验',
+              title: '动态表单联动',
               requiresAuth: true,
             },
           },
@@ -291,6 +256,16 @@ export const constantRoutes: RouteRecordRaw[] = [
               permission: 'system:operation-log:view',
             },
           },
+          {
+            path: 'approval-delegation',
+            name: 'ApprovalDelegationSettings',
+            component: ApprovalDelegationSettings,
+            meta: {
+              title: '代理审批设置',
+              requiresAuth: true,
+              permission: 'system:approval-delegation:view',
+            },
+          },
         ],
       },
       {
@@ -319,7 +294,7 @@ export const constantRoutes: RouteRecordRaw[] = [
             meta: {
               title: '流程编辑',
               requiresAuth: true,
-              hidden: true, // 不在菜单中显示
+              hidden: true,
             },
           },
         ],
@@ -429,60 +404,22 @@ export const constantRoutes: RouteRecordRaw[] = [
     name: 'NotFound',
     component: () => import(/* webpackChunkName: "error" */ '@/views/error/NotFound.vue'),
     meta: {
-      public: true, // 公开路由
+      public: true,
       title: '404',
     },
   },
 ]
 
-/**
- * 路由实例
- */
 export const router = createRouter({
   history: createWebHistory(),
   routes: constantRoutes,
 })
 
-/**
- * 全局路由守卫
- * 处理登录验证和权限控制
- */
-router.beforeEach((to, _from) => {
-  const userStore = useUserStore()
-  const isLoggedIn = !!userStore.token
-
-  // 处理公开路由（登录页、404 等）
-  if (to.meta.public) {
-    // 已登录用户访问登录页，重定向到首页
-    if (to.path === '/login' && isLoggedIn) {
-      return { path: '/' }
-    }
-    return true
-  }
-
-  // 未登录用户访问需要认证的路由，重定向到登录页
-  if (!isLoggedIn) {
-    return {
-      path: '/login',
-      query: { redirect: to.fullPath }, // 登录后重定向回原页面
-    }
-  }
-
-  // 已登录后，校验路由权限（含父级与子级 meta.permission）
-  const requiredPermissions = to.matched
-    .map(record => record.meta?.permission)
-    .filter((code): code is string => typeof code === 'string' && code.length > 0)
-
-  const hasRoutePermission = requiredPermissions.every(code => userStore.hasPermission(code))
-  if (!hasRoutePermission) {
-    const fallbackPath = getFirstAccessiblePath(userStore.menus, userStore.hasPermission)
-    if (to.path !== fallbackPath)
-      return { path: fallbackPath }
-    return false
-  }
-
-  return true
-})
+interface MenuNode {
+  path: string
+  permission?: string
+  children?: MenuNode[]
+}
 
 function getFirstAccessiblePath(
   menus: MenuNode[],
@@ -505,8 +442,34 @@ function getFirstAccessiblePath(
   return '/'
 }
 
-interface MenuNode {
-  path: string
-  permission?: string
-  children?: MenuNode[]
-}
+router.beforeEach((to) => {
+  const userStore = useUserStore()
+  const isLoggedIn = !!userStore.token
+
+  if (to.meta.public) {
+    if (to.path === '/login' && isLoggedIn)
+      return { path: '/' }
+    return true
+  }
+
+  if (!isLoggedIn) {
+    return {
+      path: '/login',
+      query: { redirect: to.fullPath },
+    }
+  }
+
+  const requiredPermissions = to.matched
+    .map(record => record.meta?.permission)
+    .filter((code): code is string => typeof code === 'string' && code.length > 0)
+
+  const hasRoutePermission = requiredPermissions.every(code => userStore.hasPermission(code))
+  if (!hasRoutePermission) {
+    const fallbackPath = getFirstAccessiblePath(userStore.menus, userStore.hasPermission)
+    if (to.path !== fallbackPath)
+      return { path: fallbackPath }
+    return false
+  }
+
+  return true
+})

@@ -16,6 +16,19 @@ const form = reactive({
 
 const submitting = ref(false)
 
+const MOCK_USERS = {
+  admin: {
+    id: 'user-001',
+    name: 'admin',
+    password: 'admin123',
+  },
+  manager: {
+    id: 'user-002',
+    name: 'manager',
+    password: 'manager123',
+  },
+} as const
+
 // 登录日志记录
 const { mutateAsync: recordLog } = useRecordLoginLog()
 
@@ -27,14 +40,16 @@ async function onSubmit() {
 
   submitting.value = true
   try {
-    // 模拟登录验证
-    const loginSuccess = form.username === 'admin' && form.password === 'admin123'
+    const username = form.username.trim()
+    const password = form.password
+    const account = MOCK_USERS[username as keyof typeof MOCK_USERS]
+    const loginSuccess = !!account && account.password === password
 
     if (!loginSuccess) {
       // 记录登录失败日志
       await recordLog({
-        userId: '',
-        username: form.username,
+        userId: account?.id || '',
+        username,
         ipAddress: '192.168.1.100',
         location: '北京市',
         device: 'PC',
@@ -51,8 +66,8 @@ async function onSubmit() {
 
     userStore.setToken('mock-token')
     userStore.setUser({
-      id: '1',
-      name: form.username || '演示用户',
+      id: account.id,
+      name: account.name,
     })
 
     userStore.setPermissions([
@@ -70,6 +85,7 @@ async function onSubmit() {
       'system:view',
       'system:user:view',
       'system:role:view',
+      'system:approval-delegation:view',
       'system:login-log:view',
       'system:operation-log:view',
       'workflow:view',
@@ -150,6 +166,7 @@ async function onSubmit() {
         children: [
           { path: '/system/users', name: 'UserList', title: '用户管理', permission: 'system:user:view' },
           { path: '/system/roles', name: 'RoleList', title: '角色管理', permission: 'system:role:view' },
+          { path: '/system/approval-delegation', name: 'ApprovalDelegationSettings', title: '代理审批设置', permission: 'system:approval-delegation:view' },
           { path: '/system/login-logs', name: 'LoginLogs', title: '登录日志', permission: 'system:login-log:view' },
           { path: '/system/operation-logs', name: 'OperationLogs', title: '操作日志', permission: 'system:operation-log:view' },
         ],
@@ -189,8 +206,8 @@ async function onSubmit() {
 
     // 记录登录成功日志
     await recordLog({
-      userId: '1',
-      username: form.username,
+      userId: account.id,
+      username: account.name,
       ipAddress: '192.168.1.100',
       location: '北京市',
       device: 'PC',
@@ -221,22 +238,26 @@ async function onSubmit() {
       </h1>
       <el-form :model="form" label-position="top" @submit.prevent="onSubmit">
         <el-form-item label="用户名">
-          <el-input v-model="form.username" placeholder="请输入用户名" />
+          <el-input v-model="form.username" data-testid="login-username" placeholder="请输入用户名" />
         </el-form-item>
         <el-form-item label="密码">
           <el-input
             v-model="form.password"
+            data-testid="login-password"
             type="password"
             placeholder="请输入密码"
             show-password
           />
         </el-form-item>
         <el-form-item>
-          <el-button type="primary" class="w-full" :loading="submitting" @click="onSubmit">
+          <el-button type="primary" data-testid="login-submit" class="w-full" :loading="submitting" @click="onSubmit">
             登录
           </el-button>
         </el-form-item>
       </el-form>
+      <p class="text-xs text-gray-500 mt-2 leading-5">
+        演示账号：admin/admin123，manager/manager123
+      </p>
     </div>
   </div>
 </template>

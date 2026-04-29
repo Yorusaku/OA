@@ -81,6 +81,7 @@ declare module 'vue' {
     PdfViewer: typeof import('./components/document/pdf/PdfViewer.vue')['default']
     RouterLink: typeof import('vue-router')['RouterLink']
     RouterView: typeof import('vue-router')['RouterView']
+    VirtualList: typeof import('./components/common/VirtualList.vue')['default']
     WorkflowCanvas: typeof import('./components/workflow/WorkflowCanvas.vue')['default']
   }
   export interface GlobalDirectives {

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { ApprovalRecord } from '@/api/types'
-import { computed, ref } from 'vue'
+import { Location, Warning } from '@element-plus/icons-vue'
+import { ref, watch } from 'vue'
 import { useSwipe } from '@/composables/useSwipe'
 
 interface Props {
@@ -22,46 +23,54 @@ const props = defineProps<Props>()
 const emit = defineEmits<Emits>()
 
 const cardRef = ref<HTMLElement | null>(null)
-const actionsRef = ref<HTMLElement | null>(null)
 
-// 左滑操作
 const {
   translateX,
   isOpen,
   handleTouchStart,
   handleTouchMove,
   handleTouchEnd,
+  open,
+  close,
 } = useSwipe(cardRef, {
   threshold: 50,
+  maxDistance: 160,
   onOpen: () => emit('swipe-open'),
   onClose: () => emit('swipe-close'),
 })
 
-// 监听操作按钮宽度
-const actionsWidth = computed(() => {
-  return actionsRef.value?.offsetWidth || 140
-})
+watch(
+  () => props.isSwiped,
+  (nextValue) => {
+    if (nextValue && !isOpen.value) {
+      open()
+      return
+    }
+
+    if (!nextValue && isOpen.value)
+      close()
+  },
+)
 
 function handleCardClick() {
   if (isOpen.value) {
     emit('swipe-close')
+    return
   }
-  else {
-    emit('click')
-  }
+
+  emit('click')
 }
 
-function handleApprove(e: Event) {
-  e.stopPropagation()
+function handleApprove(event: Event) {
+  event.stopPropagation()
   emit('approve')
 }
 
-function handleReject(e: Event) {
-  e.stopPropagation()
+function handleReject(event: Event) {
+  event.stopPropagation()
   emit('reject')
 }
 
-// 格式化时间
 function formatTime(time: string) {
   const date = new Date(time)
   const now = new Date()
@@ -76,6 +85,7 @@ function formatTime(time: string) {
     }
     return `${hours}小时前`
   }
+
   if (days === 1)
     return '昨天'
   if (days < 7)
@@ -87,11 +97,7 @@ function formatTime(time: string) {
 
 <template>
   <div class="approval-card-mobile relative overflow-hidden">
-    <!-- 操作按钮（背景层） -->
-    <div
-      ref="actionsRef"
-      class="absolute right-0 top-0 bottom-0 flex items-stretch"
-    >
+    <div class="absolute right-0 top-0 bottom-0 flex items-stretch">
       <button
         class="w-20 bg-green-500 text-white flex items-center justify-center active:bg-green-600 transition-colors"
         @click="handleApprove"
@@ -106,7 +112,6 @@ function formatTime(time: string) {
       </button>
     </div>
 
-    <!-- 卡片内容（前景层） -->
     <div
       ref="cardRef"
       class="bg-white rounded-lg shadow-sm border border-gray-200 transition-transform"
@@ -117,7 +122,6 @@ function formatTime(time: string) {
       @click="handleCardClick"
     >
       <div class="p-4">
-        <!-- 头部：标题和状态 -->
         <div class="flex items-start justify-between mb-3">
           <div class="flex-1 min-w-0 mr-3">
             <h3 class="text-base font-semibold text-gray-800 truncate mb-1">
@@ -134,7 +138,6 @@ function formatTime(time: string) {
           </el-tag>
         </div>
 
-        <!-- 申请人信息 -->
         <div class="flex items-center gap-2 mb-3">
           <el-avatar :size="32" class="bg-primary shrink-0">
             {{ record.applicant.charAt(0) }}
@@ -149,7 +152,6 @@ function formatTime(time: string) {
           </div>
         </div>
 
-        <!-- 当前节点 -->
         <div v-if="record.currentNodeName" class="flex items-center gap-2 text-sm text-gray-600 mb-2">
           <el-icon :size="14">
             <Location />
@@ -157,13 +159,11 @@ function formatTime(time: string) {
           <span>{{ record.currentNodeName }}</span>
         </div>
 
-        <!-- 金额（如果有） -->
         <div v-if="record.amount" class="text-sm text-gray-600">
           <span class="text-gray-500">金额：</span>
           <span class="font-semibold text-primary">¥{{ record.amount.toLocaleString() }}</span>
         </div>
 
-        <!-- 紧急标记 -->
         <div v-if="record.isUrgent" class="mt-2">
           <el-tag type="danger" size="small" effect="plain">
             <el-icon class="mr-1">
@@ -174,9 +174,8 @@ function formatTime(time: string) {
         </div>
       </div>
 
-      <!-- 底部操作提示 -->
       <div v-if="record.status === 'pending'" class="border-t border-gray-100 px-4 py-2 bg-gray-50 text-xs text-gray-500 text-center">
-        左滑快速操作
+        左滑可快速处理
       </div>
     </div>
   </div>

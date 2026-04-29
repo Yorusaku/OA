@@ -11,6 +11,7 @@ import { useQuery, useQueryClient } from '@tanstack/vue-query'
 import { debounce } from 'lodash-es'
 import { getApprovalList, processApproval } from '@/api/approval'
 import { queryKeys } from '@/api/queryKeys'
+import { useUserStore } from '@/stores/user'
 
 export interface ApprovalTodoFilters {
   keyword: string
@@ -26,16 +27,19 @@ export interface UseApprovalTodoReturn {
   data: Ref<PageResult<ApprovalRecord> | undefined>
   isLoading: Ref<boolean>
   error: Ref<unknown>
+  refetch: () => Promise<unknown>
   handleSearch: (keyword?: string) => void
   handleSelectionChange: (rows: ApprovalRecord[]) => void
   batchApprove: () => Promise<void>
   batchReject: () => Promise<void>
+  processRecord: (id: string, action: 'approve' | 'reject') => Promise<void>
   handleProcess: (row: ApprovalRecord) => void
 }
 
 export const useApprovalTodo = (): UseApprovalTodoReturn => {
   const router = useRouter()
   const queryClient = useQueryClient()
+  const userStore = useUserStore()
 
   const filters = reactive<ApprovalTodoFilters>({
     keyword: '',
@@ -46,6 +50,9 @@ export const useApprovalTodo = (): UseApprovalTodoReturn => {
 
   const selectedIds = ref<Set<string>>(new Set())
   const pagination = ref<PageParams>({ page: 1, pageSize: 10 })
+  const assigneeId = computed(() => userStore.userInfo?.id || undefined)
+  const operatorId = computed(() => userStore.userInfo?.id || undefined)
+  const operatorName = computed(() => userStore.userInfo?.name || undefined)
 
   const queryResult = useQuery({
     queryKey: computed(() => queryKeys.approval.list({
@@ -58,6 +65,7 @@ export const useApprovalTodo = (): UseApprovalTodoReturn => {
             filters.dateRange[1].toISOString().slice(0, 10),
           ]
         : undefined,
+      assigneeId: assigneeId.value,
       page: pagination.value.page,
       pageSize: pagination.value.pageSize,
     })),
@@ -66,6 +74,7 @@ export const useApprovalTodo = (): UseApprovalTodoReturn => {
       status: filters.status || undefined,
       type: filters.type || undefined,
       dateRange: filters.dateRange,
+      assigneeId: assigneeId.value,
       page: pagination.value.page,
       pageSize: pagination.value.pageSize,
     }),
@@ -94,13 +103,19 @@ export const useApprovalTodo = (): UseApprovalTodoReturn => {
       ids.map(id => processApproval({
         id,
         action: status === 'approved' ? 'approve' : 'reject',
+        operatorId: operatorId.value,
+        operatorName: operatorName.value,
       })),
     )
 
     const failedCount = results.filter(item => item.status === 'rejected').length
 
-    await queryClient.invalidateQueries({ queryKey: queryKeys.approval.list() })
-    await queryClient.invalidateQueries({ queryKey: queryKeys.approval.stats })
+    await Promise.allSettled([
+      queryClient.invalidateQueries({ queryKey: queryKeys.approval.list() }),
+      queryClient.invalidateQueries({ queryKey: queryKeys.approval.stats }),
+      queryClient.invalidateQueries({ queryKey: queryKeys.approval.notifications() }),
+      ...ids.map(id => queryClient.invalidateQueries({ queryKey: queryKeys.approval.detail(id) })),
+    ])
 
     if (failedCount === 0) {
       ElMessage.success(status === 'approved'
@@ -116,6 +131,22 @@ export const useApprovalTodo = (): UseApprovalTodoReturn => {
 
   const batchApprove = async (): Promise<void> => runBatchAction('approved')
   const batchReject = async (): Promise<void> => runBatchAction('rejected')
+
+  const processRecord = async (id: string, action: 'approve' | 'reject'): Promise<void> => {
+    await processApproval({
+      id,
+      action,
+      operatorId: operatorId.value,
+      operatorName: operatorName.value,
+    })
+
+    await Promise.allSettled([
+      queryClient.invalidateQueries({ queryKey: queryKeys.approval.list() }),
+      queryClient.invalidateQueries({ queryKey: queryKeys.approval.stats }),
+      queryClient.invalidateQueries({ queryKey: queryKeys.approval.detail(id) }),
+      queryClient.invalidateQueries({ queryKey: queryKeys.approval.notifications() }),
+    ])
+  }
 
   const handleProcess = (row: ApprovalRecord): void => {
     router.push(`/approval/detail/${row.id}`)
@@ -143,10 +174,12 @@ export const useApprovalTodo = (): UseApprovalTodoReturn => {
     data,
     isLoading: queryResult.isLoading,
     error: queryResult.error,
+    refetch: queryResult.refetch,
     handleSearch,
     handleSelectionChange,
     batchApprove,
     batchReject,
+    processRecord,
     handleProcess,
   }
 }

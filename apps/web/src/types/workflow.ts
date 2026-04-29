@@ -6,12 +6,18 @@ export type HandlerType = 'role' | 'dept' | 'user' | 'deptManager' | 'initiator'
 
 export type ApprovalMode = 'or' | 'and' | 'sequential'
 
+export interface WorkflowAssignee {
+  id: string
+  name: string
+}
+
 export interface HandlerConfig {
   type: HandlerType
   roleIds?: string[]
   deptIds?: string[]
   userIds?: string[]
   mode?: ApprovalMode
+  assignees?: WorkflowAssignee[]
 }
 
 export interface ConditionExpression {
@@ -67,7 +73,7 @@ export interface WorkflowDefinition {
 
 export type WorkflowInstanceStatus = 'running' | 'approved' | 'rejected' | 'cancelled' | 'expired'
 
-export type TaskStatus = 'pending' | 'processing' | 'approved' | 'rejected' | 'transferred' | 'skipped'
+export type TaskStatus = 'pending' | 'processing' | 'approved' | 'rejected' | 'transferred' | 'skipped' | 'auto-closed'
 
 export interface WorkflowTask {
   id: string

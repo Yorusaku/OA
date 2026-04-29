@@ -9,6 +9,7 @@ export const queryKeys = {
     detail: (id: string) => ['approval', 'detail', id],
     stats: ['approval', 'stats'],
     notifications: (limit?: number) => ['approval', 'notifications', limit],
+    delegation: (ownerId: string) => ['approval', 'delegation', ownerId],
   },
   dept: {
     tree: ['dept', 'tree'],

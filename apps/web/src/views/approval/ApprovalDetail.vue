@@ -25,11 +25,29 @@ const { isLoading: isSubmitLoading, submitApproval } = useApprovalSubmit()
 const approvalData = computed(() => approval.value)
 const dynamicFormRef = ref<InstanceType<typeof DynamicForm> | null>(null)
 
-const isActionable = computed(() => approval.value?.status === 'pending')
+const isActionable = computed(() => {
+  if (approval.value?.status !== 'pending')
+    return false
+  if (typeof approval.value?.canCurrentUserProcess === 'boolean')
+    return approval.value.canCurrentUserProcess
+  return true
+})
 
 const formSchema = computed((): FormSchema | undefined => approval.value?.formSchema)
 
 const nodePermissions = computed((): PermissionsMap => approval.value?.nodePermissions || {})
+const collaborationModeText = computed(() => {
+  if (approval.value?.currentNodeMode === 'and')
+    return '会签'
+  if (approval.value?.currentNodeMode === 'or')
+    return '或签'
+  return '单人审批'
+})
+const currentNodeProgressText = computed(() => approval.value?.currentNodeProgressText || '-')
+const pendingHandlerText = computed(() => {
+  const handlers = approval.value?.pendingTaskHandlerNames || []
+  return handlers.length ? handlers.join('、') : '-'
+})
 
 const statusTextMap: Record<string, string> = {
   pending: '待审批',
@@ -75,6 +93,29 @@ async function submitProcess(
     attachments?: string[]
   },
 ): Promise<void> {
+  const currentApproval = approvalData.value
+  if (!currentApproval) {
+    ElMessage.error('审批数据不存在，请刷新后重试')
+    return
+  }
+
+  if (currentApproval.status !== 'pending') {
+    ElMessage.warning('当前状态不允许继续审批')
+    return
+  }
+
+  if (!isActionable.value) {
+    ElMessage.warning('当前审批节点不在你的待办范围内')
+    return
+  }
+
+  if ((operation === 'transfer' || operation === 'addSign')
+    && !options?.targetUserId?.trim()
+    && !options?.targetUserName?.trim()) {
+    ElMessage.warning('请选择目标处理人后再提交')
+    return
+  }
+
   await submitApproval({
     action: 'process',
     id: approvalId,
@@ -153,7 +194,11 @@ async function handleTransfer(): Promise<void> {
       inputPattern: /.+/,
       inputErrorMessage: '转交人不能为空',
     })
-    const targetUserId = typeof promptResult === 'string' ? promptResult : promptResult.value
+    const targetUserId = (typeof promptResult === 'string' ? promptResult : promptResult.value).trim()
+    if (!targetUserId) {
+      ElMessage.warning('转交人不能为空')
+      return
+    }
 
     await submitProcess('transfer', {
       targetUserId,
@@ -179,7 +224,11 @@ async function handleAddSign(): Promise<void> {
       inputPattern: /.+/,
       inputErrorMessage: '加签人不能为空',
     })
-    const targetUserId = typeof promptResult === 'string' ? promptResult : promptResult.value
+    const targetUserId = (typeof promptResult === 'string' ? promptResult : promptResult.value).trim()
+    if (!targetUserId) {
+      ElMessage.warning('加签人不能为空')
+      return
+    }
 
     await submitProcess('addSign', {
       targetUserId,
@@ -253,35 +302,31 @@ function extractCommentText(payload: unknown): string | undefined {
 
 // 移动端更多操作菜单
 function showMoreActions() {
-  ElMessageBox({
-    title: '更多操作',
-    message: '',
-    showCancelButton: true,
-    showConfirmButton: false,
-    cancelButtonText: '取消',
-    customClass: 'mobile-action-menu',
-  }).catch(() => {})
-
-  // 使用 action sheet 样式的按钮组
   const actions = [
-    { label: '转交', handler: handleTransfer },
-    { label: '加签', handler: handleAddSign },
-    { label: '催办', handler: handleRemind },
-    { label: '撤回', handler: handleWithdraw },
-    { label: '取消', handler: handleCancel },
+    { key: '1', label: '转交', handler: handleTransfer },
+    { key: '2', label: '加签', handler: handleAddSign },
+    { key: '3', label: '催办', handler: handleRemind },
+    { key: '4', label: '撤回', handler: handleWithdraw },
+    { key: '5', label: '取消', handler: handleCancel },
   ]
 
-  // 简化版：直接显示操作列表
-  ElMessageBox.confirm(
-    '请选择操作',
+  ElMessageBox.prompt(
+    actions.map(item => `${item.key}. ${item.label}`).join('\n'),
     '更多操作',
     {
-      distinguishCancelAndClose: true,
-      confirmButtonText: '转交',
-      cancelButtonText: '关闭',
+      inputPlaceholder: '请输入编号 1-5',
+      inputPattern: /^[1-5]$/,
+      inputErrorMessage: '请输入有效编号',
+      confirmButtonText: '执行',
+      cancelButtonText: '取消',
     },
-  ).then(() => {
-    handleTransfer()
+  ).then(({ value }) => {
+    const selected = actions.find(item => item.key === value.trim())
+    if (!selected) {
+      ElMessage.warning('无效操作')
+      return
+    }
+    selected.handler()
   }).catch(() => {})
 }
 </script>
@@ -323,10 +368,14 @@ function showMoreActions() {
         <p><strong>申请人：</strong>{{ approvalData.applicant }}</p>
         <p><strong>申请时间：</strong>{{ approvalData.applyTime }}</p>
         <p><strong>当前节点：</strong>{{ approvalData.currentNode?.name || approvalData.currentNodeName || '待处理' }}</p>
+        <p><strong>审批策略：</strong>{{ collaborationModeText }}</p>
+        <p><strong>节点进度：</strong>{{ currentNodeProgressText }}</p>
         <p><strong>SLA 截止：</strong>{{ approvalData.deadlineAt || '-' }}</p>
         <p><strong>催办次数：</strong>{{ approvalData.remindCount }}</p>
         <p><strong>最近催办：</strong>{{ approvalData.lastRemindAt || '-' }}</p>
         <p><strong>升级时间：</strong>{{ approvalData.escalatedAt || '-' }}</p>
+        <p><strong>升级摘要：</strong>{{ approvalData.currentEscalationSummary || '-' }}</p>
+        <p><strong>代理处理：</strong>{{ approvalData.currentDelegationSummary || '-' }}</p>
         <p><strong>描述：</strong>{{ approvalData.description || '-' }}</p>
       </div>
 
@@ -377,7 +426,12 @@ function showMoreActions() {
       </div>
 
       <div v-else class="mb-6 text-gray-500">
-        审批已结束，当前状态：{{ statusTextMap[approvalData.status] || approvalData.status }}
+        <template v-if="approvalData.status === 'pending'">
+          当前节点待 {{ pendingHandlerText }} 处理，你暂无操作权限
+        </template>
+        <template v-else>
+          审批已结束，当前状态：{{ statusTextMap[approvalData.status] || approvalData.status }}
+        </template>
       </div>
 
       <div class="timeline-block">
@@ -462,6 +516,18 @@ function showMoreActions() {
               <span class="text-gray-500 w-20">当前节点</span>
               <span class="flex-1">{{ approvalData.currentNode?.name || approvalData.currentNodeName || '待处理' }}</span>
             </div>
+            <div class="flex items-center text-gray-600">
+              <span class="text-gray-500 w-20">审批策略</span>
+              <span class="flex-1">{{ collaborationModeText }}</span>
+            </div>
+            <div class="flex items-center text-gray-600">
+              <span class="text-gray-500 w-20">节点进度</span>
+              <span class="flex-1">{{ currentNodeProgressText }}</span>
+            </div>
+            <div v-if="approvalData.currentDelegationSummary" class="flex items-start text-gray-600">
+              <span class="text-gray-500 w-20">代理说明</span>
+              <span class="flex-1">{{ approvalData.currentDelegationSummary }}</span>
+            </div>
             <div v-if="approvalData.description" class="flex items-start text-gray-600">
               <span class="text-gray-500 w-20">描述</span>
               <span class="flex-1">{{ approvalData.description }}</span>
@@ -469,6 +535,12 @@ function showMoreActions() {
             <div class="flex items-center">
               <span class="text-gray-500 w-20">SLA状态</span>
               <el-tag :type="slaTagType" size="small">{{ slaText }}</el-tag>
+            </div>
+            <div
+              v-if="approvalData.status === 'pending' && !isActionable"
+              class="text-xs text-amber-600"
+            >
+              当前节点待 {{ pendingHandlerText }} 处理
             </div>
           </div>
         </div>

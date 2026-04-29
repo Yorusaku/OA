@@ -5,8 +5,11 @@
 
 import type {
   ApprovalAction,
+  ApprovalDelegationRule,
   ApprovalRecord,
   ApprovalStatus,
+  ApprovalTask,
+  ApprovalTaskStatus,
   ApprovalTrailItem,
   CCRecord,
   MessageRecord,
@@ -15,7 +18,8 @@ import type {
   PageResult,
   WorkbenchStats,
 } from './types'
-import { mockApprovalRecords, mockCCRecords, mockMessageRecords } from './mock'
+import type { WorkflowAssignee, WorkflowDefinition, WorkflowNode } from '@/types/workflow'
+import { mockApprovalRecords, mockCCRecords, mockMessageRecords, mockWorkflowDefinitions } from './mock'
 
 const DEFAULT_SLA_HOURS = 48
 const LIST_DELAY_MS = 500
@@ -38,6 +42,11 @@ export interface ApprovalNotification {
 }
 
 const approvalNotifications: ApprovalNotification[] = []
+const approvalDelegationRules: ApprovalDelegationRule[] = []
+const ESCALATION_ASSIGNEE_MAP: Record<string, { id: string, name: string }> = {
+  'user-001': { id: 'user-002', name: 'manager' },
+  'user-002': { id: 'user-001', name: 'admin' },
+}
 
 async function sleep(ms: number): Promise<void> {
   await new Promise(resolve => setTimeout(resolve, ms))
@@ -79,6 +88,27 @@ function isOverdue(deadlineAt?: string): boolean {
   return parseDateTime(deadlineAt).getTime() < Date.now()
 }
 
+function isDelegationRuleActive(rule: ApprovalDelegationRule, now: Date): boolean {
+  if (!rule.enabled)
+    return false
+  const start = parseDateTime(rule.startAt).getTime()
+  const end = parseDateTime(rule.endAt).getTime()
+  const current = now.getTime()
+  return current >= start && current <= end
+}
+
+function findActiveDelegationRule(ownerId?: string, now = new Date()): ApprovalDelegationRule | undefined {
+  if (!ownerId)
+    return undefined
+  return approvalDelegationRules.find(rule => rule.ownerId === ownerId && isDelegationRuleActive(rule, now))
+}
+
+function resolveEscalationAssignee(ownerId?: string): { id: string, name: string } | undefined {
+  if (!ownerId)
+    return undefined
+  return ESCALATION_ASSIGNEE_MAP[ownerId]
+}
+
 function normalizeAttachments(input?: string[]): string[] | undefined {
   if (!input?.length)
     return undefined
@@ -112,42 +142,194 @@ function resolveCommentText(payload: ProcessApprovalPayload): string | undefined
   return String(payload.comment)
 }
 
+type NodeMode = 'and' | 'or'
+
+interface ApprovalNodeStrategy {
+  nodeId: string
+  nodeName: string
+  mode: NodeMode
+  assignees: WorkflowAssignee[]
+}
+
+const DEFAULT_ASSIGNEE: WorkflowAssignee = { id: 'user-001', name: 'admin' }
+
+function normalizeTaskStatus(status?: string): ApprovalTaskStatus {
+  if (
+    status === 'pending'
+    || status === 'processing'
+    || status === 'approved'
+    || status === 'rejected'
+    || status === 'transferred'
+    || status === 'cancelled'
+    || status === 'auto-closed'
+  ) {
+    return status
+  }
+  return 'pending'
+}
+
+function isTaskPending(task: ApprovalTask): boolean {
+  const status = normalizeTaskStatus(task.taskStatus || task.status)
+  return status === 'pending' || status === 'processing'
+}
+
+function isTaskCompleted(task: ApprovalTask): boolean {
+  return !isTaskPending(task)
+}
+
+function normalizeAssignees(assignees?: WorkflowAssignee[]): WorkflowAssignee[] {
+  if (!assignees?.length)
+    return []
+
+  return assignees
+    .map(item => ({
+      id: item.id?.trim(),
+      name: item.name?.trim() || item.id?.trim(),
+    }))
+    .filter(item => Boolean(item.id)) as WorkflowAssignee[]
+}
+
+function buildPendingTask(
+  nodeId: string,
+  ownerId: string,
+  ownerName: string,
+  now = new Date(),
+): ApprovalTask {
+  const rule = findActiveDelegationRule(ownerId, now)
+  const delegated = Boolean(rule)
+
+  return {
+    id: toTimestampId('task'),
+    nodeId,
+    handlerId: rule?.delegateId || ownerId,
+    handlerName: rule?.delegateName || ownerName,
+    ownerId,
+    ownerName,
+    delegatedFromId: delegated ? ownerId : undefined,
+    delegatedFromName: delegated ? ownerName : undefined,
+    delegatedAt: delegated ? formatDateTime(now) : undefined,
+    status: 'pending',
+    taskStatus: 'pending',
+  }
+}
+
+function createTasksForAssignees(nodeId: string, assignees: WorkflowAssignee[]): ApprovalTask[] {
+  return assignees.map(assignee =>
+    buildPendingTask(nodeId, assignee.id, assignee.name, new Date()),
+  )
+}
+
+function resolveWorkflowByType(type: string): WorkflowDefinition | undefined {
+  if (type === 'leave')
+    return mockWorkflowDefinitions.find(item => item.id === 'wf-001')
+  if (type === 'expense')
+    return mockWorkflowDefinitions.find(item => item.id === 'wf-002')
+
+  return mockWorkflowDefinitions.find(item => item.status === 'active')
+}
+
+function resolveApprovalNode(workflow?: WorkflowDefinition, nodeId?: string): WorkflowNode | undefined {
+  if (!workflow)
+    return undefined
+
+  if (nodeId) {
+    const byId = workflow.nodes.find(item => item.id === nodeId)
+    if (byId)
+      return byId
+  }
+
+  return workflow.nodes.find(item => item.type === 'approval')
+}
+
+function resolveNodeMode(mode?: string): NodeMode {
+  return mode === 'and' ? 'and' : 'or'
+}
+
+function resolveNodeStrategy(record: ApprovalRecord): ApprovalNodeStrategy {
+  const workflow = resolveWorkflowByType(record.type)
+  const approvalNode = resolveApprovalNode(workflow, record.workflowInstance?.currentNodeId)
+  const assigneesFromNode = normalizeAssignees(approvalNode?.handler?.assignees)
+  const assigneesFromRecord = normalizeAssignees(record.workflowInstance?.currentNodeAssignees)
+  const assigneesFromTask = (record.workflowInstance?.tasks || [])
+    .map(task => ({
+      id: task.handlerId,
+      name: task.handlerName || task.handlerId,
+    }))
+    .filter(item => Boolean(item.id))
+
+  const assignees = assigneesFromNode.length
+    ? assigneesFromNode
+    : assigneesFromRecord.length
+      ? assigneesFromRecord
+      : assigneesFromTask.length
+        ? assigneesFromTask
+        : [DEFAULT_ASSIGNEE]
+
+  return {
+    nodeId: approvalNode?.id || record.workflowInstance?.currentNodeId || 'node-default-approval',
+    nodeName: approvalNode?.name || record.currentNodeName || '审批节点',
+    mode: resolveNodeMode(record.workflowInstance?.currentNodeMode || approvalNode?.handler?.mode),
+    assignees,
+  }
+}
+
+function normalizeTask(task: ApprovalTask, defaultNodeId: string): ApprovalTask {
+  const taskStatus = normalizeTaskStatus(task.taskStatus || task.status)
+  const ownerId = task.ownerId || task.handlerId
+  const ownerName = task.ownerName || task.handlerName || task.handlerId
+  return {
+    ...task,
+    nodeId: task.nodeId || defaultNodeId,
+    handlerName: task.handlerName || task.handlerId,
+    ownerId,
+    ownerName,
+    status: taskStatus,
+    taskStatus,
+  }
+}
+
+function recalcProgress(record: ApprovalRecord): void {
+  const tasks = record.workflowInstance?.tasks || []
+  const nodeId = record.workflowInstance?.currentNodeId
+  const currentNodeTasks = nodeId
+    ? tasks.filter(task => task.nodeId === nodeId)
+    : tasks
+
+  const total = currentNodeTasks.length
+  const completed = currentNodeTasks.filter(isTaskCompleted).length
+
+  if (!record.workflowInstance)
+    record.workflowInstance = {}
+  record.workflowInstance.progress = { completed, total }
+}
+
 function ensureRecordDefaults(record: ApprovalRecord): ApprovalRecord {
   const applyDate = parseDateTime(record.applyTime)
+  const strategy = resolveNodeStrategy(record)
+  const rawTasks = record.workflowInstance?.tasks || []
+  const normalizedTasks = rawTasks
+    .map(task => normalizeTask(task, strategy.nodeId))
+
+  const tasks = normalizedTasks.length
+    ? normalizedTasks
+    : createTasksForAssignees(strategy.nodeId, strategy.assignees)
+
   const normalized: ApprovalRecord = {
     ...record,
-    currentNodeName: record.currentNodeName || '发起申请',
+    currentNodeName: record.currentNodeName || strategy.nodeName,
     deadlineAt: record.deadlineAt || formatDateTime(plusHours(applyDate, DEFAULT_SLA_HOURS)),
     remindCount: record.remindCount ?? 0,
     workflowInstance: {
-      currentNodeId: record.workflowInstance?.currentNodeId,
-      tasks: record.workflowInstance?.tasks?.map(task => ({
-        id: task.id,
-        handlerId: task.handlerId,
-        handlerName: task.handlerName,
-        status: task.status,
-        handledAt: task.handledAt,
-        comment: task.comment,
-      })) || [],
+      currentNodeId: record.workflowInstance?.currentNodeId || strategy.nodeId,
+      currentNodeMode: strategy.mode,
+      currentNodeAssignees: strategy.assignees,
+      tasks,
+      progress: record.workflowInstance?.progress,
     },
     operatorTrail: record.operatorTrail?.map(item => ({
       ...item,
       attachments: normalizeAttachments(item.attachments),
     })),
-  }
-
-  if (!normalized.workflowInstance?.tasks?.length) {
-    normalized.workflowInstance = {
-      ...(normalized.workflowInstance || {}),
-      tasks: [
-        {
-          id: toTimestampId('task'),
-          handlerId: 'system-default-handler',
-          handlerName: '默认审批人',
-          status: normalized.status === 'pending' ? 'pending' : normalized.status,
-        },
-      ],
-    }
   }
 
   if (!normalized.operatorTrail?.length) {
@@ -164,6 +346,7 @@ function ensureRecordDefaults(record: ApprovalRecord): ApprovalRecord {
   }
 
   Object.assign(record, normalized)
+  recalcProgress(record)
   return record
 }
 
@@ -177,6 +360,141 @@ function pushNotification(notification: Omit<ApprovalNotification, 'id' | 'creat
     id: toTimestampId('notice'),
     createdAt: formatDateTime(new Date()),
   })
+}
+
+function runAutoEscalation(now: Date): void {
+  const operatedAt = formatDateTime(now)
+  mockApprovalRecords.forEach((record) => {
+    if (record.status !== 'pending' || !isOverdue(record.deadlineAt) || record.escalatedAt)
+      return
+
+    const tasks = record.workflowInstance?.tasks || []
+    const currentNodeId = record.workflowInstance?.currentNodeId
+    const pendingTasks = tasks.filter((task) => {
+      if (!isTaskPending(task))
+        return false
+      if (currentNodeId && task.nodeId && task.nodeId !== currentNodeId)
+        return false
+      return true
+    })
+    if (pendingTasks.length === 0)
+      return
+
+    const affectedOwners = new Set<string>()
+    pendingTasks.forEach((task) => {
+      const ownerId = task.ownerId || task.handlerId
+      const ownerName = task.ownerName || task.handlerName || task.handlerId
+      const escalationTarget = resolveEscalationAssignee(ownerId)
+      if (!escalationTarget)
+        return
+
+      affectedOwners.add(`${ownerName}->${escalationTarget.name}`)
+      task.ownerId = escalationTarget.id
+      task.ownerName = escalationTarget.name
+      task.handlerId = escalationTarget.id
+      task.handlerName = escalationTarget.name
+      task.delegatedFromId = undefined
+      task.delegatedFromName = undefined
+      task.delegatedAt = undefined
+    })
+
+    if (affectedOwners.size === 0)
+      return
+
+    record.escalatedAt = operatedAt
+    record.currentNodeName = `SLA升级处理中（${Array.from(affectedOwners).join('；')}）`
+
+    appendTrail(record, {
+      id: toTimestampId('trail'),
+      action: 'escalate',
+      status: record.status,
+      operatorId: 'system',
+      operatorName: '系统自动治理',
+      operatedAt,
+      comment: `SLA超时自动升级：${Array.from(affectedOwners).join('；')}`,
+    })
+
+    pushNotification({
+      approvalId: record.id,
+      title: '审批已超时升级',
+      content: `《${record.title}》触发 SLA 自动升级，已改派处理人。`,
+      type: 'error',
+    })
+  })
+}
+
+function runDelegationSync(now: Date): void {
+  const operatedAt = formatDateTime(now)
+  mockApprovalRecords.forEach((record) => {
+    if (record.status !== 'pending')
+      return
+
+    const tasks = record.workflowInstance?.tasks || []
+    const currentNodeId = record.workflowInstance?.currentNodeId
+    const changedTasks: string[] = []
+
+    tasks.forEach((task) => {
+      if (!isTaskPending(task))
+        return
+      if (currentNodeId && task.nodeId && task.nodeId !== currentNodeId)
+        return
+
+      const ownerId = task.ownerId || task.handlerId
+      const ownerName = task.ownerName || task.handlerName || task.handlerId
+      task.ownerId = ownerId
+      task.ownerName = ownerName
+
+      const activeRule = findActiveDelegationRule(ownerId, now)
+      if (activeRule) {
+        if (task.handlerId !== activeRule.delegateId) {
+          changedTasks.push(`${ownerName}->${activeRule.delegateName}`)
+          task.handlerId = activeRule.delegateId
+          task.handlerName = activeRule.delegateName
+          task.delegatedFromId = ownerId
+          task.delegatedFromName = ownerName
+          task.delegatedAt = operatedAt
+        }
+        return
+      }
+
+      if (task.delegatedFromId && task.handlerId !== ownerId) {
+        changedTasks.push(`${task.handlerName || task.handlerId}->${ownerName}`)
+        task.handlerId = ownerId
+        task.handlerName = ownerName
+        task.delegatedFromId = undefined
+        task.delegatedFromName = undefined
+        task.delegatedAt = undefined
+      }
+    })
+
+    if (changedTasks.length === 0)
+      return
+
+    appendTrail(record, {
+      id: toTimestampId('trail'),
+      action: 'delegate',
+      status: record.status,
+      operatorId: 'system',
+      operatorName: '系统自动治理',
+      operatedAt,
+      comment: `代理同步：${changedTasks.join('；')}`,
+    })
+
+    pushNotification({
+      approvalId: record.id,
+      title: '代理审批已接管',
+      content: `《${record.title}》任务处理人已根据代理规则自动同步。`,
+      type: 'info',
+    })
+  })
+}
+
+function runApprovalAutomation(): void {
+  const now = new Date()
+  runAutoEscalation(now)
+  runDelegationSync(now)
+
+  mockApprovalRecords.forEach(recalcProgress)
 }
 
 function mapActionToStatus(action: ApprovalAction): ApprovalStatus {
@@ -215,33 +533,81 @@ function appendTrail(record: ApprovalRecord, item: ApprovalTrailItem): void {
   record.operatorTrail.unshift(item)
 }
 
-function markPendingTask(
-  record: ApprovalRecord,
-  status: string,
+function markTaskAs(
+  task: ApprovalTask,
+  status: ApprovalTaskStatus,
   operatedAt: string,
   comment?: string,
+  handledBy?: { id: string, name: string },
 ): void {
-  const pendingTask = record.workflowInstance?.tasks?.find(task => task.status === 'pending' || task.status === 'processing')
-  if (!pendingTask)
-    return
-
-  pendingTask.status = status
-  pendingTask.handledAt = operatedAt
-  pendingTask.comment = comment
+  task.status = status
+  task.taskStatus = status
+  task.handledAt = operatedAt
+  task.comment = comment
+  if (handledBy)
+    task.handledBy = handledBy
 }
 
-function createPendingTask(record: ApprovalRecord, targetUserId: string, targetUserName?: string): void {
-  if (!record.workflowInstance)
-    record.workflowInstance = {}
-  if (!record.workflowInstance.tasks)
-    record.workflowInstance.tasks = []
+function findPendingTaskForOperator(record: ApprovalRecord, operatorId?: string, operatorName?: string): ApprovalTask | undefined {
+  const pendingTasks = (record.workflowInstance?.tasks || []).filter(isTaskPending)
+  if (pendingTasks.length === 0)
+    return undefined
 
-  record.workflowInstance.tasks.unshift({
-    id: toTimestampId('task'),
-    handlerId: targetUserId,
-    handlerName: targetUserName || targetUserId,
-    status: 'pending',
+  if (operatorId) {
+    const byId = pendingTasks.find(task => task.handlerId === operatorId)
+    if (byId)
+      return byId
+  }
+
+  if (operatorName) {
+    const byName = pendingTasks.find(task => task.handlerName === operatorName)
+    if (byName)
+      return byName
+  }
+
+  return pendingTasks[0]
+}
+
+function closeOtherPendingTasks(record: ApprovalRecord, keepTaskId: string, operatedAt: string, operator: { id: string, name: string }): void {
+  const tasks = record.workflowInstance?.tasks || []
+  const currentNodeId = record.workflowInstance?.currentNodeId
+  tasks.forEach((task) => {
+    if (task.id === keepTaskId)
+      return
+    if (currentNodeId && task.nodeId && task.nodeId !== currentNodeId)
+      return
+    if (!isTaskPending(task))
+      return
+    markTaskAs(task, 'auto-closed', operatedAt, '节点已完成，自动关闭剩余任务', operator)
   })
+}
+
+function hasPendingTaskForAssignee(record: ApprovalRecord, assigneeId?: string): boolean {
+  if (!assigneeId)
+    return true
+
+  const tasks = record.workflowInstance?.tasks || []
+  return tasks.some(task => task.handlerId === assigneeId && isTaskPending(task))
+}
+
+function getCurrentNodeTasks(record: ApprovalRecord): ApprovalTask[] {
+  const tasks = record.workflowInstance?.tasks || []
+  const nodeId = record.workflowInstance?.currentNodeId
+  if (!nodeId)
+    return tasks
+  return tasks.filter(task => task.nodeId === nodeId)
+}
+
+function getCurrentProgressText(record: ApprovalRecord): string {
+  const completed = record.workflowInstance?.progress?.completed ?? 0
+  const total = record.workflowInstance?.progress?.total ?? 0
+  return `${completed}/${total}`
+}
+
+function getRemainingApproverNames(record: ApprovalRecord): string[] {
+  return getCurrentNodeTasks(record)
+    .filter(isTaskPending)
+    .map(task => task.handlerName || task.handlerId)
 }
 
 /**
@@ -253,10 +619,12 @@ export async function getApprovalList(
     keyword?: string
     type?: string
     dateRange?: DateRange | null
+    assigneeId?: string
   },
 ): Promise<PageResult<ApprovalRecord>> {
   await sleep(LIST_DELAY_MS)
   ensureAllRecordsDefaults()
+  runApprovalAutomation()
 
   let filteredList = [...mockApprovalRecords]
 
@@ -277,6 +645,14 @@ export async function getApprovalList(
 
   if (params.type) {
     filteredList = filteredList.filter(item => item.type === params.type)
+  }
+
+  if (params.assigneeId) {
+    filteredList = filteredList.filter((item) => {
+      if (item.status !== 'pending')
+        return false
+      return hasPendingTaskForAssignee(item, params.assigneeId)
+    })
   }
 
   const normalizedRange = toDateRange(params.dateRange)
@@ -305,6 +681,7 @@ export async function getApprovalList(
 export async function getApprovalDetail(id: string): Promise<ApprovalRecord | null> {
   await sleep(DETAIL_DELAY_MS)
   ensureAllRecordsDefaults()
+  runApprovalAutomation()
 
   const record = mockApprovalRecords.find(item => item.id === id)
   if (!record)
@@ -323,6 +700,17 @@ export async function submitApproval(
 
   const now = new Date()
   const applyTime = formatDateTime(now)
+  const initialStrategy = resolveNodeStrategy({
+    ...data,
+    id: '',
+    status: 'pending',
+    applyTime,
+    applicant: data.applicant || '当前用户',
+    title: data.title || '通用审批申请',
+    type: data.type || 'other',
+  } as ApprovalRecord)
+  const initialTasks = createTasksForAssignees(initialStrategy.nodeId, initialStrategy.assignees)
+  const modeText = initialStrategy.mode === 'and' ? '会签' : '或签'
 
   const newRecord: ApprovalRecord = ensureRecordDefaults({
     ...data,
@@ -332,10 +720,20 @@ export async function submitApproval(
     title: data.title || '通用审批申请',
     type: data.type || 'other',
     applicant: data.applicant || '当前用户',
-    currentNodeName: data.currentNodeName || '发起申请',
+    currentNodeName: initialStrategy.nodeName,
     deadlineAt: data.deadlineAt || formatDateTime(plusHours(now, DEFAULT_SLA_HOURS)),
     latestComment: data.latestComment,
     latestAttachments: normalizeAttachments(data.latestAttachments),
+    workflowInstance: {
+      currentNodeId: initialStrategy.nodeId,
+      currentNodeMode: initialStrategy.mode,
+      currentNodeAssignees: initialStrategy.assignees,
+      progress: {
+        completed: 0,
+        total: initialTasks.length,
+      },
+      tasks: initialTasks,
+    },
     operatorTrail: [
       {
         id: toTimestampId('trail'),
@@ -354,7 +752,7 @@ export async function submitApproval(
   pushNotification({
     approvalId: newRecord.id,
     title: '新审批待处理',
-    content: `《${newRecord.title}》已发起，请相关审批人及时处理。`,
+    content: `《${newRecord.title}》已发起，当前节点为${modeText}（${newRecord.workflowInstance?.progress?.completed || 0}/${newRecord.workflowInstance?.progress?.total || 0}）。`,
     type: 'info',
   })
 
@@ -381,6 +779,7 @@ export async function processApproval(
 ): Promise<ApprovalRecord> {
   await sleep(PROCESS_DELAY_MS)
   ensureAllRecordsDefaults()
+  runApprovalAutomation()
 
   const record = mockApprovalRecords.find(item => item.id === payload.id)
   if (!record)
@@ -391,41 +790,134 @@ export async function processApproval(
   const comment = resolveCommentText(payload)
   const attachments = normalizeAttachments(payload.attachments)
   const operatedAt = formatDateTime(new Date())
-  const operatorName = payload.operatorName || '当前用户'
+  const operatorName = payload.operatorName?.trim() || '当前用户'
+  const operatorId = payload.operatorId?.trim() || operatorName
+  const operator = { id: operatorId, name: operatorName }
+  const currentMode = record.workflowInstance?.currentNodeMode || 'or'
+  let decisionSummary: string | undefined
 
-  const nextStatus = mapActionToStatus(payload.action)
-  record.status = nextStatus
   record.latestComment = comment
   record.latestAttachments = attachments
 
-  if (payload.action === 'approve') {
-    record.currentNodeName = '审批完成'
-    markPendingTask(record, 'approved', operatedAt, comment)
-    pushNotification({
-      approvalId: record.id,
-      title: '审批已通过',
-      content: `《${record.title}》已审批通过。`,
-      type: 'success',
-    })
-  }
+  if (payload.action === 'approve' || payload.action === 'reject') {
+    const processingTask = findPendingTaskForOperator(record, payload.operatorId, payload.operatorName)
+    if (!processingTask)
+      throw new Error('approval-task-not-found')
 
-  if (payload.action === 'reject') {
-    record.currentNodeName = '已驳回'
-    markPendingTask(record, 'rejected', operatedAt, comment)
-    pushNotification({
-      approvalId: record.id,
-      title: '审批被驳回',
-      content: `《${record.title}》已被驳回。`,
-      type: 'error',
-    })
+    const currentNodeTasks = getCurrentNodeTasks(record)
+    const nextTaskStatus: ApprovalTaskStatus = payload.action === 'approve' ? 'approved' : 'rejected'
+    markTaskAs(processingTask, nextTaskStatus, operatedAt, comment, operator)
+    recalcProgress(record)
+
+    if (payload.action === 'approve') {
+      if (currentMode === 'or') {
+        closeOtherPendingTasks(record, processingTask.id, operatedAt, operator)
+        record.status = 'approved'
+        record.currentNodeName = '审批完成'
+        recalcProgress(record)
+        decisionSummary = `或签通过，${operator.name} 处理后自动关闭其余任务（进度 ${getCurrentProgressText(record)}）`
+        pushNotification({
+          approvalId: record.id,
+          title: '审批已通过',
+          content: `《${record.title}》已通过或签策略完成审批（${getCurrentProgressText(record)}）。`,
+          type: 'success',
+        })
+      }
+      else {
+        const allApproved = currentNodeTasks.every(
+          task => normalizeTaskStatus(task.taskStatus || task.status) === 'approved',
+        )
+        if (allApproved) {
+          record.status = 'approved'
+          record.currentNodeName = '审批完成'
+          decisionSummary = `会签全部通过，节点完成（进度 ${getCurrentProgressText(record)}）`
+          pushNotification({
+            approvalId: record.id,
+            title: '审批已通过',
+            content: `《${record.title}》会签已全部通过。`,
+            type: 'success',
+          })
+        }
+        else {
+          record.status = 'pending'
+          record.currentNodeName = `会签进行中（${getCurrentProgressText(record)}）`
+          const pendingNames = getRemainingApproverNames(record)
+          decisionSummary = `会签待处理，剩余处理人：${pendingNames.join('、') || '-'}（进度 ${getCurrentProgressText(record)}）`
+          pushNotification({
+            approvalId: record.id,
+            title: '会签进度更新',
+            content: `《${record.title}》会签进度 ${getCurrentProgressText(record)}，待 ${pendingNames.join('、')} 处理。`,
+            type: 'info',
+          })
+        }
+      }
+    }
+
+    if (payload.action === 'reject') {
+      if (currentMode === 'and') {
+        closeOtherPendingTasks(record, processingTask.id, operatedAt, operator)
+        record.status = 'rejected'
+        record.currentNodeName = '已驳回'
+        recalcProgress(record)
+        decisionSummary = `会签任一驳回即结束，${operator.name} 已驳回`
+        pushNotification({
+          approvalId: record.id,
+          title: '审批被驳回',
+          content: `《${record.title}》会签中出现驳回，流程结束。`,
+          type: 'error',
+        })
+      }
+      else {
+        const allRejected = currentNodeTasks.every(
+          task => normalizeTaskStatus(task.taskStatus || task.status) === 'rejected',
+        )
+        if (allRejected) {
+          record.status = 'rejected'
+          record.currentNodeName = '已驳回'
+          decisionSummary = `或签全部驳回，流程结束`
+          pushNotification({
+            approvalId: record.id,
+            title: '审批被驳回',
+            content: `《${record.title}》或签结果为全部驳回。`,
+            type: 'error',
+          })
+        }
+        else {
+          record.status = 'pending'
+          record.currentNodeName = `或签待处理（${getCurrentProgressText(record)}）`
+          const pendingNames = getRemainingApproverNames(record)
+          decisionSummary = `或签仍待处理，剩余处理人：${pendingNames.join('、') || '-'}（进度 ${getCurrentProgressText(record)}）`
+          pushNotification({
+            approvalId: record.id,
+            title: '或签进度更新',
+            content: `《${record.title}》仍在或签处理中，待 ${pendingNames.join('、')} 处理。`,
+            type: 'warning',
+          })
+        }
+      }
+    }
   }
 
   if (payload.action === 'transfer') {
     const targetUserId = payload.targetUserId || 'unassigned-user'
     const targetUserName = payload.targetUserName || targetUserId
+    const processingTask = findPendingTaskForOperator(record, payload.operatorId, payload.operatorName)
+    if (processingTask)
+      markTaskAs(processingTask, 'transferred', operatedAt, comment, operator)
+
+    record.status = mapActionToStatus(payload.action)
     record.currentNodeName = `已转交（${targetUserName}）`
-    markPendingTask(record, 'transferred', operatedAt, comment)
-    createPendingTask(record, targetUserId, targetUserName)
+    record.workflowInstance?.tasks?.unshift(
+      buildPendingTask(record.workflowInstance?.currentNodeId || 'node-default-approval', targetUserId, targetUserName),
+    )
+    if (record.workflowInstance) {
+      record.workflowInstance.currentNodeAssignees = normalizeAssignees([
+        ...(record.workflowInstance.currentNodeAssignees || []),
+        { id: targetUserId, name: targetUserName },
+      ])
+    }
+    recalcProgress(record)
+
     pushNotification({
       approvalId: record.id,
       title: '审批已转交',
@@ -437,9 +929,23 @@ export async function processApproval(
   if (payload.action === 'addSign') {
     const targetUserId = payload.targetUserId || 'cosign-user'
     const targetUserName = payload.targetUserName || targetUserId
+
     record.status = 'pending'
     record.currentNodeName = `加签中（${targetUserName}）`
-    createPendingTask(record, targetUserId, targetUserName)
+    if (!record.workflowInstance)
+      record.workflowInstance = {}
+    if (!record.workflowInstance.tasks)
+      record.workflowInstance.tasks = []
+    record.workflowInstance.tasks.unshift(
+      buildPendingTask(record.workflowInstance.currentNodeId || 'node-default-approval', targetUserId, targetUserName),
+    )
+    const nextAssignees = normalizeAssignees([
+      ...(record.workflowInstance.currentNodeAssignees || []),
+      { id: targetUserId, name: targetUserName },
+    ])
+    record.workflowInstance.currentNodeAssignees = nextAssignees
+    recalcProgress(record)
+
     pushNotification({
       approvalId: record.id,
       title: '审批已加签',
@@ -454,16 +960,6 @@ export async function processApproval(
     record.remindCount = (record.remindCount || 0) + 1
     record.lastRemindAt = operatedAt
 
-    if (isOverdue(record.deadlineAt) && !record.escalatedAt) {
-      record.escalatedAt = operatedAt
-      pushNotification({
-        approvalId: record.id,
-        title: '审批已超时升级',
-        content: `《${record.title}》触发 SLA 超时升级，请尽快处理。`,
-        type: 'error',
-      })
-    }
-
     pushNotification({
       approvalId: record.id,
       title: '审批催办提醒',
@@ -472,24 +968,22 @@ export async function processApproval(
     })
   }
 
-  if (payload.action === 'withdraw') {
-    record.currentNodeName = '已撤回'
-    markPendingTask(record, 'cancelled', operatedAt, comment)
-    pushNotification({
-      approvalId: record.id,
-      title: '审批已撤回',
-      content: `《${record.title}》已由发起人撤回。`,
-      type: 'info',
+  if (payload.action === 'withdraw' || payload.action === 'cancel') {
+    const nextStatus = mapActionToStatus(payload.action)
+    record.status = nextStatus
+    record.currentNodeName = payload.action === 'withdraw' ? '已撤回' : '已取消'
+    record.workflowInstance?.tasks?.forEach((task) => {
+      if (isTaskPending(task))
+        markTaskAs(task, 'cancelled', operatedAt, comment, operator)
     })
-  }
+    recalcProgress(record)
 
-  if (payload.action === 'cancel') {
-    record.currentNodeName = '已取消'
-    markPendingTask(record, 'cancelled', operatedAt, comment)
     pushNotification({
       approvalId: record.id,
-      title: '审批已取消',
-      content: `《${record.title}》已取消。`,
+      title: payload.action === 'withdraw' ? '审批已撤回' : '审批已取消',
+      content: payload.action === 'withdraw'
+        ? `《${record.title}》已由发起人撤回。`
+        : `《${record.title}》已取消。`,
       type: 'info',
     })
   }
@@ -498,10 +992,10 @@ export async function processApproval(
     id: toTimestampId('trail'),
     action: payload.action,
     status: record.status,
-    operatorId: payload.operatorId,
+    operatorId,
     operatorName,
     operatedAt,
-    comment,
+    comment: decisionSummary ? [comment, decisionSummary].filter(Boolean).join(' | ') : comment,
     attachments,
     targetUserId: payload.targetUserId,
     targetUserName: payload.targetUserName,
@@ -516,6 +1010,7 @@ export async function processApproval(
 export async function getWorkbenchStats(): Promise<WorkbenchStats> {
   await sleep(STATS_DELAY_MS)
   ensureAllRecordsDefaults()
+  runApprovalAutomation()
 
   const overdueCount = mockApprovalRecords.filter(item => item.status === 'pending' && isOverdue(item.deadlineAt)).length
   const escalatedCount = mockApprovalRecords.filter(item => !!item.escalatedAt).length
@@ -537,7 +1032,79 @@ export async function getWorkbenchStats(): Promise<WorkbenchStats> {
  */
 export async function getApprovalNotifications(limit = 20): Promise<ApprovalNotification[]> {
   await sleep(120)
+  ensureAllRecordsDefaults()
+  runApprovalAutomation()
   return approvalNotifications.slice(0, limit)
+}
+
+/**
+ * 获取当前用户的审批代理规则
+ */
+export async function getApprovalDelegation(ownerId: string): Promise<ApprovalDelegationRule | null> {
+  await sleep(120)
+  const normalizedOwnerId = ownerId.trim()
+  if (!normalizedOwnerId)
+    return null
+
+  const found = approvalDelegationRules.find(rule => rule.ownerId === normalizedOwnerId)
+  return found ? { ...found } : null
+}
+
+/**
+ * 创建或更新审批代理规则
+ */
+export async function upsertApprovalDelegation(rule: ApprovalDelegationRule): Promise<ApprovalDelegationRule> {
+  await sleep(180)
+
+  const ownerId = rule.ownerId.trim()
+  const ownerName = rule.ownerName.trim() || ownerId
+  const delegateId = rule.delegateId.trim()
+  const delegateName = rule.delegateName.trim() || delegateId
+  const nextRule: ApprovalDelegationRule = {
+    ownerId,
+    ownerName,
+    delegateId,
+    delegateName,
+    startAt: rule.startAt,
+    endAt: rule.endAt,
+    enabled: rule.enabled,
+    updatedAt: formatDateTime(new Date()),
+  }
+
+  const index = approvalDelegationRules.findIndex(item => item.ownerId === ownerId)
+  if (index >= 0)
+    approvalDelegationRules[index] = nextRule
+  else
+    approvalDelegationRules.unshift(nextRule)
+
+  ensureAllRecordsDefaults()
+  runApprovalAutomation()
+  return { ...nextRule }
+}
+
+/**
+ * 禁用审批代理规则
+ */
+export async function disableApprovalDelegation(ownerId: string): Promise<void> {
+  await sleep(120)
+  const normalizedOwnerId = ownerId.trim()
+  const found = approvalDelegationRules.find(rule => rule.ownerId === normalizedOwnerId)
+  if (!found)
+    return
+
+  found.enabled = false
+  found.updatedAt = formatDateTime(new Date())
+
+  ensureAllRecordsDefaults()
+  runApprovalAutomation()
+}
+
+/**
+ * 仅供测试：重置审批运行时缓存
+ */
+export function __resetApprovalRuntimeState(): void {
+  approvalNotifications.splice(0, approvalNotifications.length)
+  approvalDelegationRules.splice(0, approvalDelegationRules.length)
 }
 
 /**
@@ -744,4 +1311,3 @@ export async function getCCUnreadCount(): Promise<number> {
   await sleep(100)
   return mockCCRecords.filter(item => !item.read).length
 }
-

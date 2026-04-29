@@ -116,14 +116,12 @@ export const useApprovalLaunch = (): UseApprovalLaunchReturn => {
     }
     catch (err) {
       if (err !== 'cancel') {
-        ElMessage.error('提交失败，请重试')
         throw err
       }
     }
   }
 
   const handleSuccess = (): void => {
-    ElMessage.success('审批提交成功')
     router.push('/approval/mine')
   }
 

@@ -1,9 +1,17 @@
 ﻿import { useQuery } from '@tanstack/vue-query'
 import { getApprovalDetail } from '@/api/approval'
 import { mockExpenseSchema, mockLeaveSchema, mockPurchaseSchema, mockWorkflowDefinitions } from '@/api/mock'
-import type { ApprovalAction, ApprovalRecord as BaseApprovalRecord, ApprovalStatus, ApprovalTrailItem } from '@/api/types'
+import type {
+  ApprovalAction,
+  ApprovalRecord as BaseApprovalRecord,
+  ApprovalStatus,
+  ApprovalSystemTrailAction,
+  ApprovalTrailItem,
+} from '@/api/types'
+import { useUserStore } from '@/stores/user'
 import type { FormSchema, PermissionsMap } from '@/types/form-schema'
 import type { WorkflowDefinition, WorkflowInstance, WorkflowNode } from '@/types/workflow'
+import { computed } from 'vue'
 
 export interface ApprovalHistoryRecord {
   id: string
@@ -17,7 +25,7 @@ export interface ApprovalHistoryRecord {
 
 export interface ApprovalTimelineItem {
   id: string
-  action: 'create' | ApprovalAction
+  action: 'create' | ApprovalAction | ApprovalSystemTrailAction
   status: ApprovalStatus
   operatorName: string
   operatedAt: string
@@ -51,14 +59,30 @@ export interface ApprovalDetail {
   nodePermissions?: PermissionsMap
   currentNode?: WorkflowNode
   workflowInstance?: WorkflowInstance
+  currentNodeMode?: 'and' | 'or'
+  currentNodeProgress: {
+    completed: number
+    total: number
+  }
+  currentNodeProgressText: string
+  canCurrentUserProcess: boolean
+  pendingTaskHandlerNames: string[]
+  currentDelegationSummary?: string
+  currentEscalationSummary?: string
 
   operatorTrail: ApprovalTrailItem[]
   timeline: ApprovalTimelineItem[]
 }
 
 export function useApprovalDetail(approvalId: string) {
+  const userStore = useUserStore()
+
   return useQuery({
-    queryKey: ['approval-detail', approvalId],
+    queryKey: computed(() => [
+      'approval-detail',
+      approvalId,
+      userStore.userInfo?.id || getStoredUserInfo()?.id || 'anonymous',
+    ]),
     queryFn: async (): Promise<ApprovalDetail> => {
       const record = await getApprovalDetail(approvalId)
       if (!record)
@@ -79,14 +103,39 @@ export function useApprovalDetail(approvalId: string) {
         currentNodeId: currentNode?.id || record.workflowInstance?.currentNodeId,
         tasks: (record.workflowInstance?.tasks || []).map(task => ({
           id: task.id,
+          nodeId: task.nodeId,
           handlerId: task.handlerId,
           handlerName: task.handlerName,
           status: task.status as WorkflowInstance['tasks'][number]['status'],
-          handledAt: task.handledAt,
           comment: task.comment,
+          handledAt: task.handledAt,
         })),
         createdAt: record.applyTime,
       }
+
+      const currentNodeTasks = workflowInstance.tasks.filter(task =>
+        !workflowInstance.currentNodeId || task.nodeId === workflowInstance.currentNodeId,
+      )
+      const pendingTasks = currentNodeTasks.filter(task => task.status === 'pending' || task.status === 'processing')
+      const defaultCompleted = currentNodeTasks.length - pendingTasks.length
+      const progress = {
+        completed: record.workflowInstance?.progress?.completed ?? defaultCompleted,
+        total: record.workflowInstance?.progress?.total ?? currentNodeTasks.length,
+      }
+      const storageUser = getStoredUserInfo()
+      const currentUserId = userStore.userInfo?.id || storageUser?.id
+      const currentUserName = userStore.userInfo?.name || storageUser?.name
+      const hasTaskAssignmentInfo = currentNodeTasks.length > 0
+      const canCurrentUserProcess = record.status === 'pending' && (
+        !hasTaskAssignmentInfo
+        || pendingTasks.some(task =>
+          (currentUserId && task.handlerId === currentUserId)
+          || (currentUserName && task.handlerName === currentUserName),
+        )
+      )
+      const pendingTaskHandlerNames = pendingTasks.map(task => task.handlerName || task.handlerId)
+      const delegatedTask = pendingTasks.find(task => !!task.delegatedFromId)
+      const escalationTrail = (record.operatorTrail || []).find(item => item.action === 'escalate')
 
       const history: ApprovalHistoryRecord[] = workflowInstance.tasks
         .filter(task => task.status !== 'pending' && task.status !== 'processing')
@@ -130,6 +179,15 @@ export function useApprovalDetail(approvalId: string) {
         workflowInstance,
         workflowDefinition,
         history,
+        currentNodeMode: record.workflowInstance?.currentNodeMode,
+        currentNodeProgress: progress,
+        currentNodeProgressText: `${progress.completed}/${progress.total}`,
+        canCurrentUserProcess,
+        pendingTaskHandlerNames,
+        currentDelegationSummary: delegatedTask
+          ? `当前由 ${delegatedTask.handlerName || delegatedTask.handlerId} 代理处理（代理自 ${delegatedTask.delegatedFromName || delegatedTask.delegatedFromId}）`
+          : undefined,
+        currentEscalationSummary: escalationTrail?.comment,
         deadlineAt: record.deadlineAt,
         escalatedAt: record.escalatedAt,
         lastRemindAt: record.lastRemindAt,
@@ -236,6 +294,8 @@ function buildTimelineSummary(item: ApprovalTrailItem): string {
     remind: '催办提醒',
     withdraw: '发起人撤回',
     cancel: '审批取消',
+    escalate: '系统自动升级',
+    delegate: '代理同步',
   }
 
   const base = actionLabels[item.action] || item.action
@@ -245,6 +305,29 @@ function buildTimelineSummary(item: ApprovalTrailItem): string {
     return `${base} -> ${target}`
 
   return base
+}
+
+function getStoredUserInfo(): { id?: string, name?: string } | null {
+  if (typeof window === 'undefined')
+    return null
+
+  try {
+    const raw = window.localStorage.getItem('userInfo')
+    if (!raw)
+      return null
+
+    const parsed = JSON.parse(raw) as { id?: string, name?: string } | null
+    if (!parsed)
+      return null
+
+    return {
+      id: parsed.id,
+      name: parsed.name,
+    }
+  }
+  catch {
+    return null
+  }
 }
 
 function normalizeHistoryStatus(status: string): ApprovalStatus {
@@ -258,5 +341,7 @@ function normalizeHistoryStatus(status: string): ApprovalStatus {
   ) {
     return status
   }
+  if (status === 'auto-closed')
+    return 'cancelled'
   return 'rejected'
 }

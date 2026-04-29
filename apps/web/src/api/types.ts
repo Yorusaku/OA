@@ -83,13 +83,14 @@ export type ApprovalAction
  * 审批轨迹动作（包含创建动作）
  */
 export type ApprovalTrailAction = ApprovalAction | 'create'
+export type ApprovalSystemTrailAction = 'escalate' | 'delegate'
 
 /**
  * 审批操作轨迹
  */
 export interface ApprovalTrailItem {
   id: string
-  action: ApprovalTrailAction
+  action: ApprovalTrailAction | ApprovalSystemTrailAction
   status: ApprovalStatus
   operatorId?: string
   operatorName?: string
@@ -98,6 +99,37 @@ export interface ApprovalTrailItem {
   attachments?: string[]
   targetUserId?: string
   targetUserName?: string
+}
+
+export type ApprovalTaskStatus
+  = | 'pending'
+    | 'processing'
+    | 'approved'
+    | 'rejected'
+    | 'transferred'
+    | 'cancelled'
+    | 'auto-closed'
+
+export interface ApprovalTaskHandledBy {
+  id: string
+  name: string
+}
+
+export interface ApprovalTask {
+  id: string
+  nodeId?: string
+  handlerId: string
+  handlerName?: string
+  ownerId?: string
+  ownerName?: string
+  delegatedFromId?: string
+  delegatedFromName?: string
+  delegatedAt?: string
+  status: string
+  taskStatus?: ApprovalTaskStatus
+  handledBy?: ApprovalTaskHandledBy
+  handledAt?: string
+  comment?: string
 }
 
 /**
@@ -134,19 +166,29 @@ export interface ApprovalRecord {
 
   workflowInstance?: {
     currentNodeId?: string
-    tasks?: Array<{
-      id: string
-      handlerId: string
-      handlerName?: string
-      status: string
-      handledAt?: string
-      comment?: string
-    }>
+    currentNodeMode?: 'and' | 'or'
+    currentNodeAssignees?: ApprovalTaskHandledBy[]
+    progress?: {
+      completed: number
+      total: number
+    }
+    tasks?: ApprovalTask[]
   }
 
   formSchema?: import('@/types/form-schema').FormSchema
   nodePermissions?: import('@/types/form-schema').PermissionsMap
   formData?: Record<string, any>
+}
+
+export interface ApprovalDelegationRule {
+  ownerId: string
+  ownerName: string
+  delegateId: string
+  delegateName: string
+  startAt: string
+  endAt: string
+  enabled: boolean
+  updatedAt?: string
 }
 
 /**
