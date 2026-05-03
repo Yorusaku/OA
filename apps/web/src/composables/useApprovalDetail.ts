@@ -9,7 +9,7 @@ import type {
   ApprovalTrailItem,
 } from '@/api/types'
 import { useUserStore } from '@/stores/user'
-import type { FormSchema, PermissionsMap } from '@/types/form-schema'
+import type { FormSchema, PermissionsMap, FormSchemaField } from '@/types/form-schema'
 import type { WorkflowDefinition, WorkflowInstance, WorkflowNode } from '@/types/workflow'
 import { computed } from 'vue'
 
@@ -232,8 +232,10 @@ function resolveNodePermissions(record: BaseApprovalRecord, schema: FormSchema):
     return record.nodePermissions
 
   const defaults: PermissionsMap = {}
-  schema.fields.forEach((field) => {
-    defaults[field.key] = 'editable'
+  schema.fields.forEach((field: FormSchemaField) => {
+    const fieldKey = field.key || field.id
+    if (fieldKey)
+      defaults[fieldKey] = 'editable'
   })
   return defaults
 }

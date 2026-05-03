@@ -58,7 +58,8 @@ export interface SelectOption {
 }
 
 export interface FormFieldSchema {
-  key: string
+  id?: string
+  key?: string
   label: string
   type: FieldType
   placeholder?: string
@@ -79,8 +80,17 @@ export interface FormFieldSchema {
   max?: number
 }
 
+export interface LegacyFormFieldSchema extends Omit<FormFieldSchema, 'key'> {
+  key: string
+  id: string
+}
+
+export type FormSchemaField = FormFieldSchema | LegacyFormFieldSchema
+
 export interface FormSchema {
-  fields: FormFieldSchema[]
+  id?: string
+  name?: string
+  fields: FormSchemaField[]
   initialValues?: Record<string, any>
   layout?: 'horizontal' | 'vertical' | 'inline'
   labelWidth?: string

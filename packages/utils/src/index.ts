@@ -268,13 +268,13 @@ export const STORAGE_KEYS = {
 
 export const ROUTES = {
   LOGIN: '/login',
-  WORKBENCH: '/dashboard/workbench',
+  WORKBENCH: '/',
   APPROVAL_LAUNCH: '/approval/launch',
   APPROVAL_MINE: '/approval/mine',
   APPROVAL_TODO: '/approval/todo',
   ORG_TREE: '/org/tree',
   CONTACTS: '/contacts/list',
-  SYSTEM_USER: '/system/user',
-  SYSTEM_ROLE: '/system/role',
+  SYSTEM_USER: '/system/users',
+  SYSTEM_ROLE: '/system/roles',
   WORKFLOW_LIST: '/workflow/list',
 } as const

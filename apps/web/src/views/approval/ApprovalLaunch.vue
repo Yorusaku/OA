@@ -9,7 +9,7 @@ import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import DynamicForm from '@/components/dynamic-form/DynamicForm.vue'
 import { useApprovalLaunch } from './composables/useApprovalLaunch'
-import type { PermissionsMap } from '@/types/form-schema'
+import type { PermissionsMap, FormSchemaField } from '@/types/form-schema'
 
 // ==================== 常量定义 ====================
 const CONSTANTS = {
@@ -41,10 +41,13 @@ const router = useRouter()
 // ==================== 计算属性 ====================
 // 可编辑权限 (所有字段都可编辑)
 const editablePermissions = computed((): PermissionsMap => {
-  if (!formSchema.value) return {}
+  if (!formSchema.value)
+    return {}
   const permissions: PermissionsMap = {}
-  formSchema.value.fields.forEach(field => {
-    permissions[field.key] = 'editable'
+  formSchema.value.fields.forEach((field: FormSchemaField) => {
+    const fieldKey = field.key || field.id
+    if (fieldKey)
+      permissions[fieldKey] = 'editable'
   })
   return permissions
 })

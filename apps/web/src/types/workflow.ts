@@ -21,10 +21,11 @@ export interface HandlerConfig {
 }
 
 export interface ConditionExpression {
-  id: string
-  name: string
-  fieldKey: string
-  operator: 'eq' | 'ne' | 'gt' | 'gte' | 'lt' | 'lte' | 'in' | 'contains' | 'includes'
+  id?: string
+  name?: string
+  fieldKey?: string
+  field?: string
+  operator: 'eq' | 'ne' | 'gt' | 'gte' | 'lt' | 'lte' | 'in' | 'contains' | 'includes' | '>' | '<' | '>=' | '<='
   value: any
 }
 
@@ -36,6 +37,8 @@ export interface WorkflowNode {
   handler?: HandlerConfig
   formSchemaId?: string
   conditions?: ConditionExpression[]
+  condition?: ConditionExpression
+  ccUsers?: HandlerConfig
   position?: { x: number, y: number }
   className?: string
   enabled?: boolean
@@ -82,6 +85,11 @@ export interface WorkflowTask {
   nodeName?: string
   handlerId: string
   handlerName?: string
+  ownerId?: string
+  ownerName?: string
+  delegatedFromId?: string
+  delegatedFromName?: string
+  delegatedAt?: string
   status: TaskStatus | WorkflowInstanceStatus
   comment?: string
   handledAt?: string

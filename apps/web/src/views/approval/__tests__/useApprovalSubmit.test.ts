@@ -103,12 +103,13 @@ describe('useApprovalSubmit', () => {
 
     for (const item of cases) {
       vi.clearAllMocks()
+      const isTransferLike = item.operation === 'transfer' || item.operation === 'addSign'
       await submitApproval({
         action: 'process',
         id: 'APPROVE-TEST-002',
         operation: item.operation,
-        targetUserId: item.targetUserId,
-        targetUserName: item.targetUserName,
+        targetUserId: isTransferLike ? item.targetUserId : undefined,
+        targetUserName: isTransferLike ? item.targetUserName : undefined,
       })
 
       expect(processApproval).toHaveBeenCalledTimes(1)

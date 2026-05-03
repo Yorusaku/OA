@@ -19,7 +19,6 @@ export default defineConfig({
     }),
   ],
   build: {
-    // 性能优化配置
     target: 'es2015',
     cssCodeSplit: true,
     sourcemap: false,
@@ -30,11 +29,9 @@ export default defineConfig({
         drop_debugger: true,
       },
     },
-    // chunk 大小警告限制
     chunkSizeWarningLimit: 1000,
     rollupOptions: {
       output: {
-        // 手动代码分割
         manualChunks(id) {
           if (!id.includes('node_modules'))
             return
@@ -62,15 +59,14 @@ export default defineConfig({
           if (id.includes('nanoid') || id.includes('comlink'))
             return 'vendor-helpers'
           if (
-            id.includes('/vue/') ||
-            id.includes('vue-router') ||
-            id.includes('pinia')
+            id.includes('/vue/')
+            || id.includes('vue-router')
+            || id.includes('pinia')
           ) {
             return 'vendor-framework'
           }
           return 'vendor-misc'
         },
-        // 输出文件命名
         chunkFileNames: 'assets/[name]-[hash].js',
         entryFileNames: 'assets/[name]-[hash].js',
         assetFileNames: 'assets/[name]-[hash].[ext]',
@@ -85,8 +81,13 @@ export default defineConfig({
   server: {
     port: 5173,
     host: '0.0.0.0',
+    proxy: {
+      '/api': {
+        target: process.env.VITE_BFF_TARGET || 'http://127.0.0.1:8088',
+        changeOrigin: true,
+      },
+    },
   },
-  // 优化依赖预构建
   optimizeDeps: {
     include: [
       'vue',
@@ -95,8 +96,6 @@ export default defineConfig({
       '@vueuse/core',
       'element-plus',
       'axios',
-    ],
-    exclude: [
       '@logicflow/core',
       '@logicflow/extension',
     ],

@@ -9,6 +9,19 @@ import {
   mockFormSchemas,
   mockWorkflowDefinitions,
 } from './mock'
+import {
+  remoteCreateWorkflowDefinition,
+  remoteDebugWorkflowRuleTrace,
+  remoteDeleteWorkflowDefinition,
+  remoteGetFormSchemas,
+  remoteGetWorkflowDefinition,
+  remoteGetWorkflowDefinitions,
+  remoteGetWorkflowImpact,
+  remotePublishWorkflow,
+  remoteRollbackWorkflow,
+  remoteUpdateWorkflowDefinition,
+} from './workflow.remote'
+import { useRemoteWorkflowApi } from './runtime'
 
 /**
  * 分页请求参数
@@ -45,6 +58,9 @@ export interface PageResponse<T> {
  * @returns 分页流程列表
  */
 export function getWorkflowDefinitions(params?: PageParams): Promise<PageResponse<WorkflowDefinition>> {
+  if (useRemoteWorkflowApi())
+    return remoteGetWorkflowDefinitions(params)
+
   // Mock 实现
   let list = [...mockWorkflowDefinitions]
 
@@ -78,6 +94,9 @@ export function getWorkflowDefinitions(params?: PageParams): Promise<PageRespons
  * @returns 流程定义详情
  */
 export function getWorkflowDefinition(id: string): Promise<WorkflowDefinition> {
+  if (useRemoteWorkflowApi())
+    return remoteGetWorkflowDefinition(id)
+
   const workflow = mockWorkflowDefinitions.find(w => w.id === id)
   if (!workflow) {
     return Promise.reject(new Error('流程不存在'))
@@ -91,6 +110,9 @@ export function getWorkflowDefinition(id: string): Promise<WorkflowDefinition> {
  * @returns 创建后的流程定义
  */
 export function createWorkflowDefinition(data: WorkflowDefinition): Promise<WorkflowDefinition> {
+  if (useRemoteWorkflowApi())
+    return remoteCreateWorkflowDefinition(data)
+
   const newWorkflow: WorkflowDefinition = {
     ...data,
     id: `wf-${Date.now()}`,
@@ -109,6 +131,9 @@ export function createWorkflowDefinition(data: WorkflowDefinition): Promise<Work
  * @returns 更新后的流程定义
  */
 export function updateWorkflowDefinition(id: string, data: WorkflowDefinition): Promise<WorkflowDefinition> {
+  if (useRemoteWorkflowApi())
+    return remoteUpdateWorkflowDefinition(id, data)
+
   const index = mockWorkflowDefinitions.findIndex(w => w.id === id)
   if (index === -1) {
     return Promise.reject(new Error('流程不存在'))
@@ -129,6 +154,9 @@ export function updateWorkflowDefinition(id: string, data: WorkflowDefinition): 
  * @param id - 流程定义 ID
  */
 export function deleteWorkflowDefinition(id: string): Promise<void> {
+  if (useRemoteWorkflowApi())
+    return remoteDeleteWorkflowDefinition(id)
+
   const index = mockWorkflowDefinitions.findIndex(w => w.id === id)
   if (index === -1) {
     return Promise.reject(new Error('流程不存在'))
@@ -142,5 +170,79 @@ export function deleteWorkflowDefinition(id: string): Promise<void> {
  * @returns 表单 Schema 列表
  */
 export function getFormSchemas(): Promise<Array<{ id: string, name: string }>> {
+  if (useRemoteWorkflowApi())
+    return remoteGetFormSchemas()
+
   return Promise.resolve(mockFormSchemas)
+}
+
+export function publishWorkflowDefinition(id: string, actor?: string) {
+  if (useRemoteWorkflowApi())
+    return remotePublishWorkflow(id, actor)
+
+  const target = mockWorkflowDefinitions.find(item => item.id === id)
+  if (!target)
+    return Promise.reject(new Error('流程不存在'))
+  target.status = 'active'
+  target.updatedAt = new Date().toISOString()
+  target.version = (target.version || 0) + 1
+  return Promise.resolve({
+    id: `${id}-mock-v${target.version}`,
+    workflowId: target.id,
+    workflowName: target.name,
+    status: 'published',
+    snapshot: target,
+    createdAt: target.updatedAt,
+    createdBy: actor || 'mock',
+  })
+}
+
+export function rollbackWorkflowDefinition(id: string, versionId: string, actor?: string) {
+  if (useRemoteWorkflowApi())
+    return remoteRollbackWorkflow(id, versionId, actor)
+
+  const target = mockWorkflowDefinitions.find(item => item.id === id)
+  if (!target)
+    return Promise.reject(new Error('流程不存在'))
+  target.updatedAt = new Date().toISOString()
+  target.version = (target.version || 0) + 1
+  return Promise.resolve({
+    id: `${id}-mock-rb-${Date.now()}`,
+    workflowId: target.id,
+    workflowName: target.name,
+    status: 'rolled_back',
+    snapshot: target,
+    createdAt: target.updatedAt,
+    createdBy: actor || 'mock',
+    note: `mock rollback to ${versionId}`,
+  })
+}
+
+export function getWorkflowImpact(id: string) {
+  if (useRemoteWorkflowApi())
+    return remoteGetWorkflowImpact(id)
+
+  return Promise.resolve({
+    workflowId: id,
+    pendingCount: 0,
+    involvedNodeCount: 0,
+    riskLevel: 'low' as const,
+    suggestions: ['当前为 mock 模式，影响分析为占位数据'],
+  })
+}
+
+export function debugWorkflowRuleTrace(
+  workflowId: string,
+  payload: { nodeId?: string, formData?: Record<string, unknown> },
+) {
+  if (useRemoteWorkflowApi())
+    return remoteDebugWorkflowRuleTrace(workflowId, payload)
+
+  return Promise.resolve({
+    workflowId,
+    nodeId: payload.nodeId,
+    matched: true,
+    summary: 'mock 模式调试结果',
+    fields: [],
+  })
 }

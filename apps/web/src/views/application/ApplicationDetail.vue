@@ -1,261 +1,34 @@
 <script setup lang="ts">
-import { computed, reactive, ref } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
-import { ElMessage, ElMessageBox } from 'element-plus'
-import { Edit, Delete } from '@element-plus/icons-vue'
-import type { ApplicationCategory, ApplicationStatus } from '@/types/application'
-import {
-  useApplicationDetail,
-  useApplicationStats,
-  useApplicationVersions,
-  usePublishApplication,
-  useToggleApplicationStatus,
-  useRollbackVersion,
-} from '@/composables/useApplication'
-import { useCreateTemplate } from '@/composables/useTemplate'
+import { Edit } from '@element-plus/icons-vue'
+import { useApplicationDetailPage } from './composables/useApplicationDetailPage'
 
-const route = useRoute()
-const router = useRouter()
-
-const appId = computed(() => route.params.id as string)
-
-// 获取应用详情
-const { data: app, isLoading } = useApplicationDetail(appId)
-
-// 获取统计数据
-const { data: stats } = useApplicationStats(appId)
-
-// 获取版本历史
-const { data: versions } = useApplicationVersions(appId)
-
-// 发布应用
-const { mutateAsync: publishApp } = usePublishApplication()
-
-// 切换状态
-const { mutateAsync: toggleStatus } = useToggleApplicationStatus()
-
-// 回滚版本
-const { mutateAsync: rollback } = useRollbackVersion()
-
-// 创建模板
-const { mutateAsync: createTemplate, isPending: isCreatingTemplate } = useCreateTemplate()
-
-// 当前 Tab
-const activeTab = ref('overview')
-
-// 分享为模板对话框
-const showShareDialog = ref(false)
-const shareForm = reactive({
-  name: '',
-  description: '',
-  icon: '📋',
-  category: 'approval' as ApplicationCategory,
-  tags: [] as string[],
-  features: [] as string[],
-})
-const tagInput = ref('')
-const featureInput = ref('')
-
-// 编辑应用
-function handleEdit() {
-  router.push(`/application/edit/${appId.value}`)
-}
-
-// 发布应用
-async function handlePublish() {
-  try {
-    await ElMessageBox.confirm(
-      '确定要发布此应用吗？发布后用户即可使用。',
-      '发布确认',
-      {
-        confirmButtonText: '确定',
-        cancelButtonText: '取消',
-        type: 'info',
-      },
-    )
-
-    await publishApp(appId.value)
-    ElMessage.success('发布成功')
-  }
-  catch (error) {
-    if (error !== 'cancel') {
-      ElMessage.error('发布失败')
-    }
-  }
-}
-
-// 停用应用
-async function handleDisable() {
-  try {
-    await ElMessageBox.confirm(
-      '确定要停用此应用吗？停用后用户将无法使用。',
-      '停用确认',
-      {
-        confirmButtonText: '确定',
-        cancelButtonText: '取消',
-        type: 'warning',
-      },
-    )
-
-    await toggleStatus({ id: appId.value, status: 'disabled' })
-    ElMessage.success('已停用')
-  }
-  catch (error) {
-    if (error !== 'cancel') {
-      ElMessage.error('操作失败')
-    }
-  }
-}
-
-// 启用应用
-async function handleEnable() {
-  try {
-    await toggleStatus({ id: appId.value, status: 'published' })
-    ElMessage.success('已启用')
-  }
-  catch (error) {
-    ElMessage.error('操作失败')
-  }
-}
-
-// 回滚版本
-async function handleRollback(versionId: string, versionName: string) {
-  try {
-    await ElMessageBox.confirm(
-      `确定要回滚到版本 ${versionName} 吗？`,
-      '回滚确认',
-      {
-        confirmButtonText: '确定',
-        cancelButtonText: '取消',
-        type: 'warning',
-      },
-    )
-
-    await rollback({ applicationId: appId.value, versionId })
-    ElMessage.success('回滚成功')
-  }
-  catch (error) {
-    if (error !== 'cancel') {
-      ElMessage.error('回滚失败')
-    }
-  }
-}
-
-// 格式化状态
-function formatStatus(status: ApplicationStatus): string {
-  const map: Record<ApplicationStatus, string> = {
-    draft: '草稿',
-    published: '已发布',
-    disabled: '已停用',
-    archived: '已归档',
-  }
-  return map[status] || status
-}
-
-// 状态标签类型
-function getStatusType(status: ApplicationStatus): 'info' | 'success' | 'warning' | 'danger' {
-  const map: Record<ApplicationStatus, 'info' | 'success' | 'warning' | 'danger'> = {
-    draft: 'info',
-    published: 'success',
-    disabled: 'warning',
-    archived: 'danger',
-  }
-  return map[status] || 'info'
-}
-
-// 格式化分类
-function formatCategory(category: ApplicationCategory): string {
-  const map: Record<ApplicationCategory, string> = {
-    approval: '审批类',
-    hr: '人事类',
-    finance: '财务类',
-    admin: '行政类',
-    project: '项目类',
-    other: '其他',
-  }
-  return map[category] || category
-}
-
-// 格式化变更类型
-function formatChangeType(type: 'major' | 'minor' | 'patch'): string {
-  const map = {
-    major: '重大更新',
-    minor: '功能更新',
-    patch: '修复更新',
-  }
-  return map[type] || type
-}
-
-// 打开分享对话框
-function handleShare() {
-  if (!app.value)
-    return
-
-  // 初始化表单
-  shareForm.name = `${app.value.name}模板`
-  shareForm.description = app.value.description || ''
-  shareForm.icon = app.value.icon || '📋'
-  shareForm.category = app.value.category
-  shareForm.tags = [...(app.value.tags || [])]
-  shareForm.features = []
-
-  showShareDialog.value = true
-}
-
-// 添加标签
-function handleAddTag() {
-  const tag = tagInput.value.trim()
-  if (tag && !shareForm.tags.includes(tag)) {
-    shareForm.tags.push(tag)
-    tagInput.value = ''
-  }
-}
-
-// 删除标签
-function handleRemoveTag(tag: string) {
-  shareForm.tags = shareForm.tags.filter(t => t !== tag)
-}
-
-// 添加特性
-function handleAddFeature() {
-  const feature = featureInput.value.trim()
-  if (feature && !shareForm.features.includes(feature)) {
-    shareForm.features.push(feature)
-    featureInput.value = ''
-  }
-}
-
-// 删除特性
-function handleRemoveFeature(feature: string) {
-  shareForm.features = shareForm.features.filter(f => f !== feature)
-}
-
-// 提交分享
-async function handleSubmitShare() {
-  if (!shareForm.name.trim()) {
-    ElMessage.warning('请输入模板名称')
-    return
-  }
-
-  try {
-    const template = await createTemplate({
-      name: shareForm.name,
-      description: shareForm.description,
-      icon: shareForm.icon,
-      category: shareForm.category,
-      tags: shareForm.tags,
-      features: shareForm.features,
-      sourceApplicationId: appId.value,
-    })
-
-    ElMessage.success('分享成功！模板已创建')
-    showShareDialog.value = false
-    router.push(`/template/my`)
-  }
-  catch (error) {
-    ElMessage.error('分享失败，请稍后重试')
-  }
-}
+const {
+  app,
+  isLoading,
+  stats,
+  versions,
+  activeTab,
+  showShareDialog,
+  shareForm,
+  tagInput,
+  featureInput,
+  isCreatingTemplate,
+  handleEdit,
+  handlePublish,
+  handleDisable,
+  handleEnable,
+  handleRollback,
+  formatStatus,
+  getStatusType,
+  formatCategory,
+  formatChangeType,
+  handleShare,
+  handleAddTag,
+  handleRemoveTag,
+  handleAddFeature,
+  handleRemoveFeature,
+  handleSubmitShare,
+} = useApplicationDetailPage()
 </script>
 
 <template>

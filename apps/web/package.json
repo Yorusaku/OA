@@ -36,6 +36,7 @@
     "@form-create/element-ui": "3.2.0",
     "@logicflow/core": "^2.1.11",
     "@logicflow/extension": "^2.1.13",
+    "@oa/contracts": "workspace:*",
     "@oa/utils": "workspace:*",
     "@tanstack/vue-query": "latest",
     "@vueuse/core": "latest",
@@ -70,7 +71,6 @@
     "unplugin-auto-import": "latest",
     "unplugin-vue-components": "latest",
     "vite": "latest",
-    "vite-plugin-pwa": "^0.20.5",
     "vitest": "^4.0.18",
     "vue-tsc": "latest"
   },

@@ -67,10 +67,10 @@ export function extractFieldsFromSchema(schema: FormSchema): Array<{ key: string
   }
 
   return schema.fields.map(field => ({
-    key: field.key,
+    key: field.key || field.id || '',
     label: field.label,
     type: field.type,
-  }))
+  })).filter(field => !!field.key)
 }
 
 /**

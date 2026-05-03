@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref } from 'vue'
+import { computed, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import type { ApplicationConfig } from '@/types/application'
@@ -54,46 +54,30 @@ getFormSchemas().then((data) => {
 })
 
 // 获取工作流列表
-const { data: workflowsData } = useWorkflowList(ref({ page: 1, pageSize: 100 }))
-const workflows = computed(() => workflowsData.value?.list || [])
+const { data: workflowsData } = useWorkflowList()
+const workflows = computed(() => workflowsData.value || [])
 
 // 更新应用
 const { mutateAsync: updateApp, isPending } = useUpdateApplication()
 
 // 初始化表单数据
-onMounted(() => {
-  if (app.value) {
-    Object.assign(formData, {
-      name: app.value.name,
-      description: app.value.description,
-      icon: app.value.icon,
-      category: app.value.category,
-      formSchemaId: app.value.formSchemaId,
-      workflowId: app.value.workflowId,
-      isDefault: app.value.isDefault,
-      allowCustomize: app.value.allowCustomize,
-      tags: app.value.tags || [],
-    })
-  }
-})
+watch(app, (value) => {
+  if (!value || formData.name)
+    return
+  Object.assign(formData, {
+    name: value.name,
+    description: value.description,
+    icon: value.icon,
+    category: value.category,
+    formSchemaId: value.formSchemaId,
+    workflowId: value.workflowId,
+    isDefault: value.isDefault,
+    allowCustomize: value.allowCustomize,
+    tags: value.tags || [],
+  })
+}, { immediate: true })
 
 // 监听应用数据变化
-const stopWatch = computed(() => {
-  if (app.value && !formData.name) {
-    Object.assign(formData, {
-      name: app.value.name,
-      description: app.value.description,
-      icon: app.value.icon,
-      category: app.value.category,
-      formSchemaId: app.value.formSchemaId,
-      workflowId: app.value.workflowId,
-      isDefault: app.value.isDefault,
-      allowCustomize: app.value.allowCustomize,
-      tags: app.value.tags || [],
-    })
-  }
-  return null
-})
 
 // 添加标签
 function handleAddTag() {

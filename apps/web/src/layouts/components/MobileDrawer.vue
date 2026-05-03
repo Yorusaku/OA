@@ -47,14 +47,14 @@ function handleLogout() {
     <!-- 用户信息头部 -->
     <div class="flex items-center gap-3 p-4 border-b border-gray-200">
       <el-avatar :size="56" class="bg-primary">
-        {{ userStore.user?.name?.charAt(0) || 'U' }}
+        {{ userStore.userInfo?.name?.charAt(0) || 'U' }}
       </el-avatar>
       <div class="flex-1">
         <div class="font-semibold text-base mb-1">
-          {{ userStore.user?.name || '用户' }}
+          {{ userStore.userInfo?.name || '用户' }}
         </div>
         <div class="text-sm text-gray-500">
-          {{ userStore.user?.id || '' }}
+          {{ userStore.userInfo?.id || '' }}
         </div>
       </div>
     </div>

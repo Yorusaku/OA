@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import type { TabPaneName } from 'element-plus'
 import type { ColumnDefinition } from '@/types/document'
 /**
  * Excel 数据预览组件
@@ -110,11 +111,12 @@ const displayColumns = computed(() => {
 })
 
 // 方法
-function handleSheetChange(sheet: string) {
-  currentSheet.value = sheet
+function handleSheetChange(sheet: TabPaneName) {
+  const sheetName = String(sheet)
+  currentSheet.value = sheetName
   currentPage.value = 1
   searchQuery.value = ''
-  emit('sheetChange', sheet)
+  emit('sheetChange', sheetName)
 }
 
 function handleSearch() {

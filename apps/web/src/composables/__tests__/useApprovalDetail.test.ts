@@ -5,9 +5,8 @@
 
 import { describe, expect, it, vi, beforeEach } from 'vitest'
 import { ref } from 'vue'
-import { useApprovalDetail } from '@/composables/useApprovalDetail'
-import type { FormSchema, PermissionsMap } from '@/types/form-schema'
-import type { WorkflowDefinition, WorkflowNode } from '@/types/workflow'
+import { createPinia, setActivePinia } from 'pinia'
+import type { WorkflowDefinition } from '@/types/workflow'
 
 // Mock useQuery
 vi.mock('@tanstack/vue-query', () => ({
@@ -22,6 +21,7 @@ vi.mock('@/api/approval', () => ({
 describe('useApprovalDetail - Red Light Test', () => {
   beforeEach(() => {
     vi.resetAllMocks()
+    setActivePinia(createPinia())
   })
 
   it('应该能够调用 useApprovalDetail 并返回数据结构', async () => {
@@ -62,11 +62,12 @@ describe('useApprovalDetail - Red Light Test', () => {
     const result = useApprovalDetail('1')
 
     expect(result).toBeDefined()
-    expect(useQueryMock).toHaveBeenCalledWith(
-      expect.objectContaining({
-        queryKey: ['approval-detail', '1'],
-      })
-    )
+    expect(useQueryMock).toHaveBeenCalledOnce()
+    const queryOptions = useQueryMock.mock.calls[0]?.[0]
+    expect(queryOptions).toBeDefined()
+    const queryKeyValue = queryOptions.queryKey?.value as unknown[]
+    expect(Array.isArray(queryKeyValue)).toBe(true)
+    expect(queryKeyValue.slice(0, 2)).toEqual(['approval-detail', '1'])
   })
 
   it('应该返回 ApprovalDetail 接口中定义的必填字段', async () => {

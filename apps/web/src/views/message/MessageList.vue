@@ -28,13 +28,13 @@
     <!-- 筛选栏 -->
     <div class="message-filters">
       <el-radio-group v-model="readFilter" @change="handleFilterChange">
-        <el-radio-button label="all">
+        <el-radio-button value="all">
           全部
         </el-radio-button>
-        <el-radio-button label="unread">
+        <el-radio-button value="unread">
           未读
         </el-radio-button>
-        <el-radio-button label="read">
+        <el-radio-button value="read">
           已读
         </el-radio-button>
       </el-radio-group>
@@ -53,9 +53,9 @@
           @click="handleMessageClick(message)"
         >
           <el-checkbox
-            v-model="selectedIds"
-            :value="message.id"
+            :model-value="selectedIds.includes(message.id)"
             class="message-checkbox"
+            @change="(checked) => handleSelectChange(message.id, !!checked)"
             @click.stop
           />
 
@@ -239,6 +239,15 @@ function handleSizeChange() {
   selectedIds.value = []
 }
 
+function handleSelectChange(id: string, checked: boolean) {
+  if (checked) {
+    if (!selectedIds.value.includes(id))
+      selectedIds.value.push(id)
+    return
+  }
+  selectedIds.value = selectedIds.value.filter(item => item !== id)
+}
+
 // 标记已读
 async function handleMarkAsRead(id: string) {
   try {
@@ -384,7 +393,7 @@ function getIconColor(type: MessageType) {
 
 // 获取类型标签类型
 function getTypeTagType(type: MessageType) {
-  const typeMap = {
+  const typeMap: Record<MessageType, 'primary' | 'success' | 'warning' | 'info' | 'danger'> = {
     approval: 'primary',
     system: 'success',
     cc: 'warning',

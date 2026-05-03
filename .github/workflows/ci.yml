@@ -5,9 +5,47 @@ on:
     branches: [main, develop]
   pull_request:
     branches: [main, develop]
+  schedule:
+    - cron: '0 18 * * *'
+  workflow_dispatch:
 
 jobs:
-  verify-web:
+  quick-verify:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: latest
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install
+
+      - name: Install Playwright Chromium
+        run: pnpm --filter panorama-oa-web exec playwright install --with-deps chromium
+
+      - name: Typecheck (web)
+        run: pnpm --filter panorama-oa-web typecheck
+
+      - name: Unit Test (web)
+        run: pnpm --filter panorama-oa-web test --run
+
+      - name: Smoke E2E (ondemand)
+        run: pnpm --filter panorama-oa-web test:smoke:ondemand
+
+  verify-matrix:
+    if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
 
     steps:

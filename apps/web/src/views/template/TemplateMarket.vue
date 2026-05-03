@@ -66,6 +66,11 @@ const categoryIconMap: Record<ApplicationCategory, string> = {
   other: '📦',
 }
 
+function getCategoryIcon(category: ApplicationCategory | string) {
+  const key = category as ApplicationCategory
+  return categoryIconMap[key] || '📄'
+}
+
 // 搜索
 function handleSearch() {
   pagination.page = 1
@@ -207,7 +212,7 @@ function handlePageChange(page: number) {
           @click="handleViewDetail(template.id)"
         >
           <div class="template-icon">
-            {{ template.icon || categoryIconMap[template.category] }}
+            {{ template.icon || getCategoryIcon(template.category) }}
           </div>
           <div class="template-info">
             <div class="template-name">

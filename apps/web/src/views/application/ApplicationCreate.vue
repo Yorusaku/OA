@@ -51,8 +51,8 @@ getFormSchemas().then((data) => {
 })
 
 // 获取工作流列表
-const { data: workflowsData } = useWorkflowList(ref({ page: 1, pageSize: 100 }))
-const workflows = computed(() => workflowsData.value?.list || [])
+const { data: workflowsData } = useWorkflowList()
+const workflows = computed(() => workflowsData.value || [])
 
 // 创建应用
 const { mutateAsync: createApp, isPending } = useCreateApplication()

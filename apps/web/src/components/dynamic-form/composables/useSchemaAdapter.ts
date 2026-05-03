@@ -3,7 +3,7 @@
  * 将外部传入的 FormSchema 转换为 form-create 认识的基础 Rule[]
  * 支持联动校验（requiredWhen/visibleWhen/disabledWhen）、日期限制、选项映射等
  */
-import type { FormSchema, FormFieldSchema } from '@/types/form-schema'
+import type { FormSchema, FormFieldSchema, FormSchemaField } from '@/types/form-schema'
 import { checkCondition, checkConditions, getConditionFields } from '@oa/utils'
 
 // ==================== 类型映射 ====================
@@ -109,7 +109,11 @@ export function useSchemaAdapter(
   const fields = schema?.fields
   if (!fields?.length) return []
 
-  return fields.map((field: FormFieldSchema) => {
+  return fields.map((rawField: FormSchemaField) => {
+    const field = {
+      ...rawField,
+      key: rawField.key || rawField.id || '',
+    } as FormFieldSchema
     const mappedType = TYPE_MAP[field.type] || field.type
     const today = new Date()
 

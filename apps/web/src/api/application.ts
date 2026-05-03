@@ -313,7 +313,7 @@ export async function rollbackToVersion(
   const now = formatDateTime(new Date())
 
   // 更新应用配置为指定版本的快照
-  application.formSchemaId = version.formSchemaSnapshot.id
+  application.formSchemaId = version.formSchemaSnapshot.id || version.formSchemaSnapshot.name || application.formSchemaId
   application.workflowId = version.workflowSnapshot.id
   application.version = version.version
   application.currentVersionId = versionId
@@ -356,18 +356,20 @@ export async function compareVersions(
   const fields1 = version1.formSchemaSnapshot.fields || []
   const fields2 = version2.formSchemaSnapshot.fields || []
 
-  const fieldIds1 = new Set(fields1.map(f => f.id))
-  const fieldIds2 = new Set(fields2.map(f => f.id))
+  const fieldIds1 = new Set(fields1.map(f => f.id || f.key).filter(Boolean))
+  const fieldIds2 = new Set(fields2.map(f => f.id || f.key).filter(Boolean))
 
   fields2.forEach((field) => {
-    if (!fieldIds1.has(field.id)) {
-      formChanges.added.push(field.label || field.id)
+    const fieldId = field.id || field.key
+    if (fieldId && !fieldIds1.has(fieldId)) {
+      formChanges.added.push(field.label || fieldId)
     }
   })
 
   fields1.forEach((field) => {
-    if (!fieldIds2.has(field.id)) {
-      formChanges.removed.push(field.label || field.id)
+    const fieldId = field.id || field.key
+    if (fieldId && !fieldIds2.has(fieldId)) {
+      formChanges.removed.push(field.label || fieldId)
     }
   })
 

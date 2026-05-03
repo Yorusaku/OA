@@ -28,8 +28,8 @@ test.describe('Smoke: 核心链路', () => {
     await loginAsMockUser(page)
 
     await page.goto('/workflow/editor/wf-001')
-    await expect(page.locator('.workflow-canvas')).toBeVisible()
-    await expect(page.locator('.h-screen.flex.flex-col.overflow-hidden.bg-gray-50')).toBeVisible()
+    await expect(page.getByTestId('workflow-editor-page')).toBeVisible()
+    await expect(page.getByTestId('workflow-editor-main')).toBeVisible()
     await expect(page.locator('.bg-white.border-r.border-gray-200.flex.flex-col.w-60')).toBeVisible()
   })
 })

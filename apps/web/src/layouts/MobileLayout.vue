@@ -21,7 +21,7 @@ const userStore = useUserStore()
           <Bell />
         </el-icon>
         <el-avatar :size="28" class="bg-primary">
-          {{ userStore.user?.name?.charAt(0) || 'U' }}
+          {{ userStore.userInfo?.name?.charAt(0) || 'U' }}
         </el-avatar>
       </div>
     </div>

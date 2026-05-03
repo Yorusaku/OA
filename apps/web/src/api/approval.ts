@@ -20,6 +20,29 @@ import type {
 } from './types'
 import type { WorkflowAssignee, WorkflowDefinition, WorkflowNode } from '@/types/workflow'
 import { mockApprovalRecords, mockCCRecords, mockMessageRecords, mockWorkflowDefinitions } from './mock'
+import {
+  remoteBatchDeleteMessages,
+  remoteBatchMarkAsRead,
+  remoteBatchMarkCCAsRead,
+  remoteDeleteMessage,
+  remoteDisableApprovalDelegation,
+  remoteGetApprovalDelegation,
+  remoteGetApprovalDetail,
+  remoteGetApprovalList,
+  remoteGetApprovalNotifications,
+  remoteGetCCList,
+  remoteGetCCUnreadCount,
+  remoteGetMessageList,
+  remoteGetUnreadCount,
+  remoteGetWorkbenchStats,
+  remoteMarkAllAsRead,
+  remoteMarkCCAsRead,
+  remoteMarkMessageAsRead,
+  remoteProcessApproval,
+  remoteSubmitApproval,
+  remoteUpsertApprovalDelegation,
+} from './approval.remote'
+import { useRemoteApprovalApi } from './runtime'
 
 const DEFAULT_SLA_HOURS = 48
 const LIST_DELAY_MS = 500
@@ -622,6 +645,9 @@ export async function getApprovalList(
     assigneeId?: string
   },
 ): Promise<PageResult<ApprovalRecord>> {
+  if (useRemoteApprovalApi())
+    return remoteGetApprovalList(params)
+
   await sleep(LIST_DELAY_MS)
   ensureAllRecordsDefaults()
   runApprovalAutomation()
@@ -679,6 +705,9 @@ export async function getApprovalList(
  * 获取审批详情
  */
 export async function getApprovalDetail(id: string): Promise<ApprovalRecord | null> {
+  if (useRemoteApprovalApi())
+    return remoteGetApprovalDetail(id)
+
   await sleep(DETAIL_DELAY_MS)
   ensureAllRecordsDefaults()
   runApprovalAutomation()
@@ -696,6 +725,9 @@ export async function getApprovalDetail(id: string): Promise<ApprovalRecord | nu
 export async function submitApproval(
   data: Omit<ApprovalRecord, 'id' | 'status' | 'applyTime'>,
 ): Promise<ApprovalRecord> {
+  if (useRemoteApprovalApi())
+    return remoteSubmitApproval(data)
+
   await sleep(SUBMIT_DELAY_MS)
 
   const now = new Date()
@@ -777,6 +809,9 @@ export interface ProcessApprovalPayload {
 export async function processApproval(
   payload: ProcessApprovalPayload,
 ): Promise<ApprovalRecord> {
+  if (useRemoteApprovalApi())
+    return remoteProcessApproval(payload)
+
   await sleep(PROCESS_DELAY_MS)
   ensureAllRecordsDefaults()
   runApprovalAutomation()
@@ -1008,6 +1043,9 @@ export async function processApproval(
  * 获取工作台统计（含审批超时与催办联动）
  */
 export async function getWorkbenchStats(): Promise<WorkbenchStats> {
+  if (useRemoteApprovalApi())
+    return remoteGetWorkbenchStats()
+
   await sleep(STATS_DELAY_MS)
   ensureAllRecordsDefaults()
   runApprovalAutomation()
@@ -1031,6 +1069,9 @@ export async function getWorkbenchStats(): Promise<WorkbenchStats> {
  * 获取审批通知列表（用于工作台联动展示）
  */
 export async function getApprovalNotifications(limit = 20): Promise<ApprovalNotification[]> {
+  if (useRemoteApprovalApi())
+    return remoteGetApprovalNotifications(limit)
+
   await sleep(120)
   ensureAllRecordsDefaults()
   runApprovalAutomation()
@@ -1041,6 +1082,9 @@ export async function getApprovalNotifications(limit = 20): Promise<ApprovalNoti
  * 获取当前用户的审批代理规则
  */
 export async function getApprovalDelegation(ownerId: string): Promise<ApprovalDelegationRule | null> {
+  if (useRemoteApprovalApi())
+    return remoteGetApprovalDelegation(ownerId)
+
   await sleep(120)
   const normalizedOwnerId = ownerId.trim()
   if (!normalizedOwnerId)
@@ -1054,6 +1098,9 @@ export async function getApprovalDelegation(ownerId: string): Promise<ApprovalDe
  * 创建或更新审批代理规则
  */
 export async function upsertApprovalDelegation(rule: ApprovalDelegationRule): Promise<ApprovalDelegationRule> {
+  if (useRemoteApprovalApi())
+    return remoteUpsertApprovalDelegation(rule)
+
   await sleep(180)
 
   const ownerId = rule.ownerId.trim()
@@ -1086,6 +1133,9 @@ export async function upsertApprovalDelegation(rule: ApprovalDelegationRule): Pr
  * 禁用审批代理规则
  */
 export async function disableApprovalDelegation(ownerId: string): Promise<void> {
+  if (useRemoteApprovalApi())
+    return remoteDisableApprovalDelegation(ownerId)
+
   await sleep(120)
   const normalizedOwnerId = ownerId.trim()
   const found = approvalDelegationRules.find(rule => rule.ownerId === normalizedOwnerId)
@@ -1114,6 +1164,9 @@ export async function getMessageList(params: PageParams & {
   type?: MessageType | 'all'
   read?: boolean
 }): Promise<PageResult<MessageRecord>> {
+  if (useRemoteApprovalApi())
+    return remoteGetMessageList(params)
+
   await sleep(LIST_DELAY_MS)
 
   let filtered = [...mockMessageRecords]
@@ -1148,6 +1201,9 @@ export async function getMessageList(params: PageParams & {
  * 标记消息已读
  */
 export async function markMessageAsRead(id: string): Promise<void> {
+  if (useRemoteApprovalApi())
+    return remoteMarkMessageAsRead(id)
+
   await sleep(200)
   const message = mockMessageRecords.find(item => item.id === id)
   if (message && !message.read) {
@@ -1160,6 +1216,9 @@ export async function markMessageAsRead(id: string): Promise<void> {
  * 批量标记消息已读
  */
 export async function batchMarkAsRead(ids: string[]): Promise<void> {
+  if (useRemoteApprovalApi())
+    return remoteBatchMarkAsRead(ids)
+
   await sleep(300)
   const now = formatDateTime(new Date())
   ids.forEach((id) => {
@@ -1175,6 +1234,9 @@ export async function batchMarkAsRead(ids: string[]): Promise<void> {
  * 全部标记已读
  */
 export async function markAllAsRead(): Promise<void> {
+  if (useRemoteApprovalApi())
+    return remoteMarkAllAsRead()
+
   await sleep(400)
   const now = formatDateTime(new Date())
   mockMessageRecords.forEach((message) => {
@@ -1189,6 +1251,9 @@ export async function markAllAsRead(): Promise<void> {
  * 删除消息
  */
 export async function deleteMessage(id: string): Promise<void> {
+  if (useRemoteApprovalApi())
+    return remoteDeleteMessage(id)
+
   await sleep(200)
   const index = mockMessageRecords.findIndex(item => item.id === id)
   if (index !== -1) {
@@ -1200,6 +1265,9 @@ export async function deleteMessage(id: string): Promise<void> {
  * 批量删除消息
  */
 export async function batchDeleteMessages(ids: string[]): Promise<void> {
+  if (useRemoteApprovalApi())
+    return remoteBatchDeleteMessages(ids)
+
   await sleep(300)
   ids.forEach((id) => {
     const index = mockMessageRecords.findIndex(item => item.id === id)
@@ -1213,6 +1281,9 @@ export async function batchDeleteMessages(ids: string[]): Promise<void> {
  * 获取未读消息数
  */
 export async function getUnreadCount(): Promise<number> {
+  if (useRemoteApprovalApi())
+    return remoteGetUnreadCount()
+
   await sleep(100)
   return mockMessageRecords.filter(item => !item.read).length
 }
@@ -1228,6 +1299,9 @@ export async function getCCList(params: PageParams & {
   read?: boolean
   dateRange?: DateRange | null
 }): Promise<PageResult<CCRecord>> {
+  if (useRemoteApprovalApi())
+    return remoteGetCCList(params)
+
   await sleep(LIST_DELAY_MS)
 
   let filtered = [...mockCCRecords]
@@ -1281,6 +1355,9 @@ export async function getCCList(params: PageParams & {
  * 标记抄送为已读
  */
 export async function markCCAsRead(id: string): Promise<void> {
+  if (useRemoteApprovalApi())
+    return remoteMarkCCAsRead(id)
+
   await sleep(200)
   const record = mockCCRecords.find(item => item.id === id)
   if (record && !record.read) {
@@ -1293,6 +1370,9 @@ export async function markCCAsRead(id: string): Promise<void> {
  * 批量标记抄送为已读
  */
 export async function batchMarkCCAsRead(ids: string[]): Promise<void> {
+  if (useRemoteApprovalApi())
+    return remoteBatchMarkCCAsRead(ids)
+
   await sleep(300)
   const now = formatDateTime(new Date())
   ids.forEach((id) => {
@@ -1308,6 +1388,9 @@ export async function batchMarkCCAsRead(ids: string[]): Promise<void> {
  * 获取抄送未读数量
  */
 export async function getCCUnreadCount(): Promise<number> {
+  if (useRemoteApprovalApi())
+    return remoteGetCCUnreadCount()
+
   await sleep(100)
   return mockCCRecords.filter(item => !item.read).length
 }
