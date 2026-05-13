@@ -30,6 +30,12 @@ export function listWorkflows(state: RuntimeState, params: WorkflowListQuery) {
   }
 }
 
+export function listWorkflowVersions(state: RuntimeState, workflowId: string): WorkflowVersion[] {
+  return state.workflowVersions
+    .filter(item => item.workflowId === workflowId)
+    .sort((a, b) => parseTime(b.createdAt).getTime() - parseTime(a.createdAt).getTime())
+}
+
 export function getWorkflowDefinition(state: RuntimeState, id: string): WorkflowDefinition {
   const workflow = state.workflows.find(item => item.id === id)
   if (!workflow)

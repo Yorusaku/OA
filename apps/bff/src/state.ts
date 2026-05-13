@@ -129,6 +129,7 @@ export function createInitialState(): RuntimeState {
       },
     ],
     approvalEvents: [],
+    auditLogs: [],
     idempotency: [],
   }
 }

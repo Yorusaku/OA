@@ -75,6 +75,10 @@ export function remoteGetWorkflowImpact(id: string): Promise<{
   return get(`/v1/workflow/${id}/impact`)
 }
 
+export function remoteGetWorkflowVersions(workflowId: string): Promise<WorkflowVersion[]> {
+  return get(`/v1/workflow/${workflowId}/versions`)
+}
+
 export function remoteDebugWorkflowRuleTrace(
   workflowId: string,
   payload: { nodeId?: string, formData?: Record<string, unknown> },

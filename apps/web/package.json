@@ -67,6 +67,7 @@
     "jsdom": "^28.1.0",
     "postcss": "latest",
     "tailwindcss": "latest",
+    "terser": "^5.44.1",
     "typescript": "latest",
     "unplugin-auto-import": "latest",
     "unplugin-vue-components": "latest",

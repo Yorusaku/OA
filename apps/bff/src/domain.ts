@@ -220,6 +220,45 @@ export interface RuntimeIdempotencyEntry {
   response: unknown
 }
 
+export type AuditAction
+  = | 'auth.login'
+    | 'approval.submit'
+    | 'approval.process'
+    | 'approval.delegate.enable'
+    | 'approval.delegate.disable'
+    | 'workflow.publish'
+    | 'workflow.rollback'
+
+export type AuditResult = 'success' | 'failed'
+
+export interface AuditSummaryLink {
+  targetType: 'approval' | 'workflow' | 'delegation' | 'auth'
+  targetId: string
+  title?: string
+  path?: string
+}
+
+export interface AuditEvent {
+  id: string
+  operatorId: string
+  operatorName: string
+  operatedAt: string
+  module: 'approval' | 'workflow' | 'system' | 'auth'
+  action: AuditAction
+  result: AuditResult
+  targetType: string
+  targetId: string
+  summary: string
+  before?: Record<string, unknown> | null
+  after?: Record<string, unknown> | null
+  traceId: string
+  ip: string
+  userAgent: string
+  durationMs: number
+  links?: AuditSummaryLink[]
+  metadata?: Record<string, unknown>
+}
+
 export interface RuntimeState {
   users: Array<{
     id: string
@@ -244,5 +283,6 @@ export interface RuntimeState {
     note?: string
   }>
   approvalEvents: ApprovalEvent[]
+  auditLogs: AuditEvent[]
   idempotency: RuntimeIdempotencyEntry[]
 }

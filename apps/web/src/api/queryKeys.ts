@@ -22,6 +22,7 @@ export const queryKeys = {
   workflow: {
     list: (params?: any) => ['workflow', 'list', params],
     detail: (id: string) => ['workflow', 'detail', id],
+    versions: (id: string) => ['workflow', 'versions', id],
     formSchemas: ['workflow', 'formSchemas'],
   },
   message: {
@@ -34,6 +35,10 @@ export const queryKeys = {
   operationLog: {
     list: (params?: any) => ['operationLog', 'list', params],
     detail: (id: string) => ['operationLog', 'detail', id],
+  },
+  auditLog: {
+    list: (params?: any) => ['auditLog', 'list', params],
+    detail: (id: string) => ['auditLog', 'detail', id],
   },
   cc: {
     list: (params?: any) => ['cc', 'list', params],

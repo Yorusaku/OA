@@ -17,6 +17,7 @@ import {
   remoteGetWorkflowDefinition,
   remoteGetWorkflowDefinitions,
   remoteGetWorkflowImpact,
+  remoteGetWorkflowVersions,
   remotePublishWorkflow,
   remoteRollbackWorkflow,
   remoteUpdateWorkflowDefinition,
@@ -229,6 +230,23 @@ export function getWorkflowImpact(id: string) {
     riskLevel: 'low' as const,
     suggestions: ['当前为 mock 模式，影响分析为占位数据'],
   })
+}
+
+export function getWorkflowVersions(workflowId: string): Promise<import('@oa/contracts').WorkflowVersion[]> {
+  if (useRemoteWorkflowApi())
+    return remoteGetWorkflowVersions(workflowId)
+  return Promise.resolve([
+    {
+      id: `${workflowId}-mock-v1`,
+      workflowId,
+      workflowName: 'Mock 流程',
+      status: 'published',
+      snapshot: null as any,
+      createdAt: new Date().toISOString(),
+      createdBy: 'mock',
+      note: 'Mock 版本数据',
+    },
+  ])
 }
 
 export function debugWorkflowRuleTrace(

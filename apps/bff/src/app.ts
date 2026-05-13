@@ -5,7 +5,7 @@ import cors from '@fastify/cors'
 import Fastify from 'fastify'
 import { z } from 'zod'
 import type { BffConfig } from './config'
-import type { ApprovalDelegationRule } from './domain'
+import type { ApprovalDelegationRule, AuditAction, AuditEvent } from './domain'
 import { createStore, type RuntimeStore } from './store'
 import { RealtimeHub } from './sse'
 import {
@@ -33,6 +33,12 @@ import {
   submitApproval,
   upsertApprovalDelegation,
 } from './services/approval-service'
+import {
+  exportAuditLogsCsv,
+  getAuditLogDetail,
+  listAuditLogs,
+  writeAuditLog,
+} from './services/audit-service'
 import { buildApprovalMetricSnapshot } from './services/metrics-service'
 import {
   analyzeWorkflowImpact,
@@ -44,6 +50,7 @@ import {
   listWorkflows,
   publishWorkflow,
   rollbackWorkflow,
+  listWorkflowVersions,
   updateWorkflowDefinition,
 } from './services/workflow-service'
 
@@ -83,6 +90,40 @@ function sendOk<T>(request: FastifyRequest, reply: FastifyReply, data: T, messag
     traceId: request.id,
   }
   reply.send(payload)
+}
+
+
+function readClientMeta(request: FastifyRequest): { ip: string, userAgent: string } {
+  const headers = request.headers as Record<string, string | string[] | undefined>
+  const userAgent = typeof headers['user-agent'] === 'string'
+    ? headers['user-agent']
+    : Array.isArray(headers['user-agent']) ? headers['user-agent'][0] : '-'
+
+  const xff = typeof headers['x-forwarded-for'] === 'string'
+    ? headers['x-forwarded-for']
+    : Array.isArray(headers['x-forwarded-for']) ? headers['x-forwarded-for'][0] : undefined
+  const ip = xff?.split(',')[0]?.trim() || request.ip || '-'
+
+  return { ip, userAgent }
+}
+
+function resolveOperatorFromRequest(
+  request: FastifyRequest,
+  fallback: { id: string, name: string } = { id: 'user-001', name: 'admin' },
+): { id: string, name: string } {
+  const headers = request.headers as Record<string, string | string[] | undefined>
+  const headerId = typeof headers['x-user-id'] === 'string' ? headers['x-user-id'] : undefined
+  const headerName = typeof headers['x-user-name'] === 'string' ? headers['x-user-name'] : undefined
+  return {
+    id: headerId?.trim() || fallback.id,
+    name: headerName?.trim() || fallback.name,
+  }
+}
+
+function mapActionToAudit(action: string): AuditAction {
+  if (action === 'approve' || action === 'reject' || action === 'transfer' || action === 'addSign' || action === 'remind' || action === 'withdraw' || action === 'cancel')
+    return 'approval.process'
+  return 'approval.process'
 }
 
 function toQueryDateRange(raw: unknown): [Date, Date] | null {
@@ -151,6 +192,7 @@ export async function buildApp(config: BffConfig, injectedStore?: RuntimeStore) 
   })
 
   app.post('/api/v1/auth/login', async (request, reply) => {
+    const loginStartAt = Date.now()
     const schema = z.object({
       username: z.string().min(1),
       password: z.string().min(1),
@@ -171,6 +213,25 @@ export async function buildApp(config: BffConfig, injectedStore?: RuntimeStore) 
         name: user.name,
       },
     }, '登录成功')
+
+    const loginMeta = readClientMeta(request)
+    await store.runInTransaction((state) => {
+      writeAuditLog(state, {
+        operatorId: user.id,
+        operatorName: user.name,
+        module: 'auth',
+        action: 'auth.login',
+        result: 'success',
+        targetType: 'user',
+        targetId: user.id,
+        summary: `用户 ${user.name} 登录`,
+        traceId: request.id,
+        ip: loginMeta.ip,
+        userAgent: loginMeta.userAgent,
+        durationMs: Date.now() - loginStartAt,
+        links: [{ targetType: 'auth', targetId: user.id, title: user.name, path: '/system/login-logs' }],
+      })
+    })
   })
 
   app.get('/api/v1/approval/list', async (request, reply) => {
@@ -218,6 +279,7 @@ export async function buildApp(config: BffConfig, injectedStore?: RuntimeStore) 
   }
 
   app.post('/api/v1/approval', async (request, reply) => {
+    const submitStartAt = Date.now()
     const schema = z.object({
       title: z.string().optional(),
       type: z.string().optional(),
@@ -237,6 +299,26 @@ export async function buildApp(config: BffConfig, injectedStore?: RuntimeStore) 
     realtimeHub.publish('approval.created', { approvalId: record.id, status: record.status })
     realtimeHub.publish('approval.todo.changed', { approvalId: record.id })
     realtimeHub.publish('message.new', { approvalId: record.id })
+
+    const submitMeta = readClientMeta(request)
+    const submitOp = resolveOperatorFromRequest(request)
+    await store.runInTransaction((state) => {
+      writeAuditLog(state, {
+        operatorId: submitOp.id,
+        operatorName: submitOp.name,
+        module: 'approval',
+        action: 'approval.submit',
+        result: 'success',
+        targetType: 'approval',
+        targetId: record.id,
+        summary: `发起审批 "${record.title || record.id}"`,
+        traceId: request.id,
+        ip: submitMeta.ip,
+        userAgent: submitMeta.userAgent,
+        durationMs: Date.now() - submitStartAt,
+        links: [{ targetType: 'approval', targetId: record.id, title: record.title, path: `/approval/detail/${record.id}` }],
+      })
+    })
     sendOk(request, reply, record, '提交成功')
   })
 
@@ -256,10 +338,31 @@ export async function buildApp(config: BffConfig, injectedStore?: RuntimeStore) 
     if (!parsed.success)
       throw new AppError('请求参数错误', { statusCode: 400, businessCode: API_ERROR.BAD_REQUEST, details: parsed.error.flatten() })
 
+    const actionStartAt = Date.now()
     const nextRecord = await runWriteWithIdempotency(request, '/api/v1/approval/:id/action', state =>
       processApproval(state, { id, ...parsed.data }))
     realtimeHub.publish('approval.updated', { approvalId: nextRecord.id, status: nextRecord.status })
     realtimeHub.publish('approval.todo.changed', { approvalId: nextRecord.id, status: nextRecord.status })
+
+    const actionMeta = readClientMeta(request)
+    const actionOp = resolveOperatorFromRequest(request)
+    await store.runInTransaction((state) => {
+      writeAuditLog(state, {
+        operatorId: parsed.data.operatorId || actionOp.id,
+        operatorName: parsed.data.operatorName || actionOp.name,
+        module: 'approval',
+        action: mapActionToAudit(parsed.data.action),
+        result: 'success',
+        targetType: 'approval',
+        targetId: nextRecord.id,
+        summary: `${parsed.data.action} 审批 "${nextRecord.title || id}"`,
+        traceId: request.id,
+        ip: actionMeta.ip,
+        userAgent: actionMeta.userAgent,
+        durationMs: Date.now() - actionStartAt,
+        links: [{ targetType: 'approval', targetId: nextRecord.id, title: nextRecord.title, path: `/approval/detail/${nextRecord.id}` }],
+      })
+    })
     sendOk(request, reply, nextRecord, '处理成功')
   })
 
@@ -282,6 +385,7 @@ export async function buildApp(config: BffConfig, injectedStore?: RuntimeStore) 
   })
 
   app.post('/api/v1/approval/delegation', async (request, reply) => {
+    const delegationStartAt = Date.now()
     const schema = z.object({
       ownerId: z.string().min(1),
       ownerName: z.string().min(1),
@@ -294,19 +398,70 @@ export async function buildApp(config: BffConfig, injectedStore?: RuntimeStore) 
     const parsed = schema.safeParse(request.body)
     if (!parsed.success)
       throw new AppError('请求参数错误', { statusCode: 400, businessCode: API_ERROR.BAD_REQUEST, details: parsed.error.flatten() })
+    const beforeRule = await store.runInTransaction(state => getApprovalDelegation(state, parsed.data.ownerId))
     const result = await runWriteWithIdempotency(request, '/api/v1/approval/delegation', state =>
       upsertApprovalDelegation(state, parsed.data as ApprovalDelegationRule))
     realtimeHub.publish('approval.todo.changed', { ownerId: result.ownerId, delegateId: result.delegateId })
+
+    const delegationMeta = readClientMeta(request)
+    await store.runInTransaction((state) => {
+      writeAuditLog(state, {
+        operatorId: parsed.data.ownerId,
+        operatorName: parsed.data.ownerName,
+        module: 'approval',
+        action: 'approval.delegate.enable',
+        result: 'success',
+        targetType: 'delegation',
+        targetId: result.ownerId,
+        summary: `设置代理审批 ${result.ownerName} -> ${result.delegateName}`,
+        before: beforeRule ? {
+          delegateId: beforeRule.delegateId,
+          enabled: beforeRule.enabled,
+          startAt: beforeRule.startAt,
+          endAt: beforeRule.endAt,
+        } : null,
+        after: { delegateId: result.delegateId, enabled: result.enabled, startAt: result.startAt, endAt: result.endAt },
+        traceId: request.id,
+        ip: delegationMeta.ip,
+        userAgent: delegationMeta.userAgent,
+        durationMs: Date.now() - delegationStartAt,
+        links: [{ targetType: 'delegation', targetId: result.ownerId, title: result.ownerName }],
+      })
+    })
     sendOk(request, reply, result, '保存成功')
   })
 
   app.delete('/api/v1/approval/delegation/:ownerId', async (request, reply) => {
     const { ownerId } = request.params as { ownerId: string }
+    const disableStartAt = Date.now()
+    const beforeDisabled = await store.runInTransaction(state => getApprovalDelegation(state, ownerId))
     await runWriteWithIdempotency(request, '/api/v1/approval/delegation/:ownerId', (state) => {
       disableApprovalDelegation(state, ownerId)
       return { success: true }
     })
     realtimeHub.publish('approval.todo.changed', { ownerId })
+
+    if (beforeDisabled) {
+      const disableMeta = readClientMeta(request)
+      await store.runInTransaction((state) => {
+        writeAuditLog(state, {
+          operatorId: beforeDisabled.ownerId,
+          operatorName: beforeDisabled.ownerName,
+          module: 'approval',
+          action: 'approval.delegate.disable',
+          result: 'success',
+          targetType: 'delegation',
+          targetId: ownerId,
+          summary: `关闭代理审批 ${beforeDisabled.ownerName}`,
+          before: { delegateId: beforeDisabled.delegateId, enabled: beforeDisabled.enabled },
+          traceId: request.id,
+          ip: disableMeta.ip,
+          userAgent: disableMeta.userAgent,
+          durationMs: Date.now() - disableStartAt,
+          links: [{ targetType: 'delegation', targetId: ownerId, title: beforeDisabled.ownerName }],
+        })
+      })
+    }
     sendOk(request, reply, { success: true }, '关闭成功')
   })
 
@@ -452,17 +607,62 @@ export async function buildApp(config: BffConfig, injectedStore?: RuntimeStore) 
 
   app.post('/api/v1/workflow/:id/publish', async (request, reply) => {
     const { id } = request.params as { id: string }
+    const publishStartAt = Date.now()
     const body = request.body as { actor?: string } | undefined
     const result = await runWriteWithIdempotency(request, '/api/v1/workflow/:id/publish', state =>
       publishWorkflow(state, id, body?.actor || 'system'))
+
+    const publishMeta = readClientMeta(request)
+    const publishOp = resolveOperatorFromRequest(request)
+    await store.runInTransaction((state) => {
+      writeAuditLog(state, {
+        operatorId: publishOp.id,
+        operatorName: publishOp.name,
+        module: 'workflow',
+        action: 'workflow.publish',
+        result: 'success',
+        targetType: 'workflow',
+        targetId: id,
+        summary: `发布流程 "${result.workflowName}"`,
+        after: { status: 'active', versionId: result.id },
+        traceId: request.id,
+        ip: publishMeta.ip,
+        userAgent: publishMeta.userAgent,
+        durationMs: Date.now() - publishStartAt,
+        links: [{ targetType: 'workflow', targetId: id, title: result.workflowName, path: `/workflow/editor/${id}` }],
+      })
+    })
     sendOk(request, reply, result, '发布成功')
   })
 
   app.post('/api/v1/workflow/:id/rollback', async (request, reply) => {
     const { id } = request.params as { id: string }
+    const rollbackStartAt = Date.now()
     const body = z.object({ versionId: z.string().min(1), actor: z.string().optional() }).parse(request.body)
     const result = await runWriteWithIdempotency(request, '/api/v1/workflow/:id/rollback', state =>
       rollbackWorkflow(state, id, body.versionId, body.actor || 'system'))
+
+    const rollbackMeta = readClientMeta(request)
+    const rollbackOp = resolveOperatorFromRequest(request)
+    await store.runInTransaction((state) => {
+      writeAuditLog(state, {
+        operatorId: rollbackOp.id,
+        operatorName: rollbackOp.name,
+        module: 'workflow',
+        action: 'workflow.rollback',
+        result: 'success',
+        targetType: 'workflow',
+        targetId: id,
+        summary: `回滚流程 "${result.workflowName}" 到版本 ${body.versionId}`,
+        before: { fromVersionId: body.versionId },
+        after: { status: result.status, versionId: result.id },
+        traceId: request.id,
+        ip: rollbackMeta.ip,
+        userAgent: rollbackMeta.userAgent,
+        durationMs: Date.now() - rollbackStartAt,
+        links: [{ targetType: 'workflow', targetId: id, title: result.workflowName, path: `/workflow/editor/${id}` }],
+      })
+    })
     sendOk(request, reply, result, '回滚成功')
   })
 
@@ -484,6 +684,48 @@ export async function buildApp(config: BffConfig, injectedStore?: RuntimeStore) 
       formData: body.formData,
     }, config.enableRuleTraceDebug))
     sendOk(request, reply, result, '获取成功')
+  })
+
+  app.get('/api/v1/workflow/:id/versions', async (request, reply) => {
+    const { id } = request.params as { id: string }
+    const result = await store.runInTransaction(state => listWorkflowVersions(state, id))
+    sendOk(request, reply, result, '获取成功')
+  })
+
+  // ==================== 审计日志 API ====================
+  app.get('/api/v1/audit/logs', async (request, reply) => {
+    const query = request.query as Record<string, unknown>
+    const result = await store.runInTransaction(state => listAuditLogs(state, {
+      page: parseNumber(query.page, 1),
+      pageSize: parseNumber(query.pageSize, 20),
+      operatorName: typeof query.operatorName === 'string' ? query.operatorName : undefined,
+      action: typeof query.action === 'string' ? query.action as any : undefined,
+      module: typeof query.module === 'string' ? query.module as any : undefined,
+      result: typeof query.result === 'string' ? query.result as any : undefined,
+      dateRange: toQueryDateRange(query.dateRange),
+    }))
+    sendOk(request, reply, result, '获取成功')
+  })
+
+  app.get('/api/v1/audit/logs/:id', async (request, reply) => {
+    const { id } = request.params as { id: string }
+    const detail = await store.runInTransaction(state => getAuditLogDetail(state, id))
+    if (!detail) throw new AppError('审计日志不存在', { statusCode: 404, businessCode: API_ERROR.NOT_FOUND })
+    sendOk(request, reply, detail, '获取成功')
+  })
+
+  app.get('/api/v1/audit/logs/export/csv', async (request, reply) => {
+    const query = request.query as Record<string, unknown>
+    const csv = await store.runInTransaction(state => exportAuditLogsCsv(state, {
+      operatorName: typeof query.operatorName === 'string' ? query.operatorName : undefined,
+      action: typeof query.action === 'string' ? query.action as any : undefined,
+      module: typeof query.module === 'string' ? query.module as any : undefined,
+      result: typeof query.result === 'string' ? query.result as any : undefined,
+      dateRange: toQueryDateRange(query.dateRange),
+    }))
+    reply.header('Content-Type', 'text/csv;charset=utf-8')
+    reply.header('Content-Disposition', `attachment; filename=audit-logs-${Date.now()}.csv`)
+    reply.send(csv)
   })
 
   app.get('/api/v1/metrics/approval/overview', async (request, reply) => {

@@ -1,25 +1,26 @@
 {
-  "name": "panorama-oa-monorepo",
-  "type": "module",
-  "private": true,
-  "packageManager": "pnpm@10.28.2",
-  "scripts": {
-    "dev": "turbo run dev",
-    "dev:bff": "pnpm --filter panorama-oa-bff dev",
-    "dev:hybrid": "turbo run dev --filter=panorama-oa-bff --filter=panorama-oa-web",
-    "build": "turbo run build",
-    "lint": "turbo run lint",
-    "typecheck": "turbo run typecheck",
-    "test": "turbo run test",
-    "verify:web": "pnpm --filter panorama-oa-web verify:matrix",
-    "lint:fix": "eslint --fix .",
-    "format": "prettier --write .",
-    "docs:dev": "vitepress dev docs",
-    "docs:build": "vitepress build docs",
-    "docs:preview": "vitepress preview docs",
-    "docs:api": "typedoc --options typedoc.json"
-  },
-  "devDependencies": {
-    "turbo": "^2.3.3"
-  }
+    "name":  "panorama-oa-monorepo",
+    "type":  "module",
+    "private":  true,
+    "packageManager":  "pnpm@10.28.2",
+    "scripts":  {
+                    "dev":  "turbo run dev",
+                    "dev:bff":  "pnpm --filter panorama-oa-bff dev",
+                    "dev:hybrid":  "turbo run dev --filter=panorama-oa-bff --filter=panorama-oa-web",
+                    "build":  "turbo run build",
+                    "lint":  "turbo run lint",
+                    "typecheck":  "turbo run typecheck",
+                    "test":  "turbo run test",
+                    "verify:web":  "pnpm --filter panorama-oa-web verify:matrix",
+                    "lint:fix":  "eslint --fix .",
+                    "format":  "prettier --write .",
+                    "docs:dev":  "vitepress dev docs",
+                    "docs:build":  "vitepress build docs",
+                    "docs:preview":  "vitepress preview docs",
+                    "docs:api":  "typedoc --options typedoc.json"
+                },
+    "devDependencies":  {
+                            "turbo":  "^2.3.3",
+                            "@oa/config":  "workspace:*"
+                        }
 }

@@ -137,4 +137,152 @@ describe('oa bff', () => {
     expect(trace.statusCode).toBe(200)
     expect(Array.isArray(trace.json().data.fields)).toBe(true)
   })
+  it('supports workflow version listing', async () => {
+    await app.inject({
+      method: 'POST',
+      url: '/api/v1/workflow',
+      payload: {
+        name: '版本测试流程',
+        nodes: [],
+        edges: [],
+        status: 'draft',
+      },
+    })
+
+    const listRes = await app.inject({
+      method: 'GET',
+      url: '/api/v1/workflow/list',
+    })
+    const wfList = listRes.json()
+    const wf = wfList.data.list[0]
+
+    const versions = await app.inject({
+      method: 'GET',
+      url: `/api/v1/workflow/${wf.id}/versions`,
+    })
+    expect(versions.statusCode).toBe(200)
+    const vData = versions.json()
+    expect(vData.data.length).toBeGreaterThanOrEqual(1)
+    expect(vData.data[0].workflowId).toBe(wf.id)
+  })
+
+  it('supports audit log listing', async () => {
+    const logs = await app.inject({
+      method: 'GET',
+      url: '/api/v1/audit/logs?page=1&pageSize=10',
+    })
+    expect(logs.statusCode).toBe(200)
+    const logData = logs.json()
+    expect(logData.data).toHaveProperty('list')
+    expect(logData.data).toHaveProperty('total')
+  })
+
+  it('publishes workflow and creates audit event', async () => {
+    await app.inject({
+      method: 'POST',
+      url: '/api/v1/workflow',
+      payload: {
+        name: '发布审计测试流程',
+        nodes: [],
+        edges: [],
+        status: 'draft',
+      },
+    })
+
+    const listRes = await app.inject({
+      method: 'GET',
+      url: '/api/v1/workflow/list',
+    })
+    const wf = listRes.json().data.list.find((w: any) => w.name === '发布审计测试流程')
+    expect(wf).toBeTruthy()
+
+    const publishRes = await app.inject({
+      method: 'POST',
+      url: `/api/v1/workflow/${wf.id}/publish`,
+      payload: { actor: 'tester' },
+    })
+    expect(publishRes.statusCode).toBe(200)
+
+    const logs = await app.inject({
+      method: 'GET',
+      url: '/api/v1/audit/logs?action=workflow.publish&pageSize=50',
+    })
+    const logData = logs.json()
+    const publishLog = logData.data.list.find((l: any) => l.targetId === wf.id && l.action === 'workflow.publish')
+    expect(publishLog).toBeTruthy()
+    expect(publishLog.summary).toContain('发布')
+  })
+
+  it('rollback workflow and creates audit event', async () => {
+    await app.inject({
+      method: 'POST',
+      url: '/api/v1/workflow',
+      payload: {
+        name: '回滚审计测试流程',
+        nodes: [],
+        edges: [],
+        status: 'draft',
+      },
+    })
+
+    const listRes = await app.inject({
+      method: 'GET',
+      url: '/api/v1/workflow/list',
+    })
+    const wf = listRes.json().data.list.find((w: any) => w.name === '回滚审计测试流程')
+
+    await app.inject({
+      method: 'POST',
+      url: `/api/v1/workflow/${wf.id}/publish`,
+      payload: { actor: 'tester' },
+    })
+
+    const versionsRes = await app.inject({
+      method: 'GET',
+      url: `/api/v1/workflow/${wf.id}/versions`,
+    })
+    const versions = versionsRes.json().data
+    const publishedVersion = versions.find((v: any) => v.status === 'published')
+    expect(publishedVersion).toBeTruthy()
+
+    const rollbackRes = await app.inject({
+      method: 'POST',
+      url: `/api/v1/workflow/${wf.id}/rollback`,
+      payload: { versionId: publishedVersion.id, actor: 'tester' },
+    })
+    expect(rollbackRes.statusCode).toBe(200)
+
+    const logs = await app.inject({
+      method: 'GET',
+      url: '/api/v1/audit/logs?action=workflow.rollback&pageSize=50',
+    })
+    const logData = logs.json()
+    const rollbackLog = logData.data.list.find((l: any) => l.targetId === wf.id && l.action === 'workflow.rollback')
+    expect(rollbackLog).toBeTruthy()
+    expect(rollbackLog.summary).toContain('回滚')
+  })
+
+  it('delegation triggers audit events', async () => {
+    await app.inject({
+      method: 'POST',
+      url: '/api/v1/approval/delegation',
+      payload: {
+        ownerId: 'user-test-delegate',
+        ownerName: '委托人',
+        delegateId: 'user-test-agent',
+        delegateName: '代理人',
+        startAt: new Date().toISOString(),
+        endAt: new Date(Date.now() + 86400000).toISOString(),
+        enabled: true,
+      },
+    })
+
+    const logs = await app.inject({
+      method: 'GET',
+      url: '/api/v1/audit/logs?action=approval.delegate.enable&pageSize=50',
+    })
+    const logData = logs.json()
+    expect(logData.data.list.some((l: any) => l.targetId === 'user-test-delegate')).toBeTruthy()
+  })
+
 })

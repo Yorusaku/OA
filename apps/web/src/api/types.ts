@@ -310,3 +310,54 @@ export interface CCRecord {
   amount?: number
   description?: string
 }
+
+/**
+ * 审计动作
+ */
+export type AuditAction
+  = | 'auth.login'
+    | 'approval.submit'
+    | 'approval.process'
+    | 'approval.delegate.enable'
+    | 'approval.delegate.disable'
+    | 'workflow.publish'
+    | 'workflow.rollback'
+
+/**
+ * 审计结果
+ */
+export type AuditResult = 'success' | 'failed'
+
+/**
+ * 审计关联链接
+ */
+export interface AuditSummaryLink {
+  targetType: 'approval' | 'workflow' | 'delegation' | 'auth'
+  targetId: string
+  title?: string
+  path?: string
+}
+
+/**
+ * 审计事件
+ */
+export interface AuditEvent {
+  id: string
+  operatorId: string
+  operatorName: string
+  operatedAt: string
+  module: 'approval' | 'workflow' | 'system' | 'auth'
+  action: AuditAction
+  result: AuditResult
+  targetType: string
+  targetId: string
+  summary: string
+  before?: Record<string, unknown> | null
+  after?: Record<string, unknown> | null
+  traceId: string
+  ip: string
+  userAgent: string
+  durationMs: number
+  links?: AuditSummaryLink[]
+  metadata?: Record<string, unknown>
+}

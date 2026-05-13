@@ -1,8 +1,15 @@
-import antfu from '@antfu/eslint-config'
-import config from '@oa/config/eslint'
+import shared from '@oa/config/eslint'
 
-export default antfu({
-  ...config,
-  vue: true,
-  typescript: true,
-})
+const ignores = Array.isArray(shared.ignores) ? shared.ignores : []
+const safeRules = Object.fromEntries(
+  Object.entries(shared.rules || {}).filter(([name]) => !name.includes('/')),
+)
+
+export default [
+  {
+    ignores,
+  },
+  {
+    rules: safeRules,
+  },
+]

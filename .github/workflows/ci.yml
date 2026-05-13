@@ -38,8 +38,14 @@ jobs:
       - name: Typecheck (web)
         run: pnpm --filter panorama-oa-web typecheck
 
+      - name: Lint (web)
+        run: pnpm --filter panorama-oa-web lint
+
       - name: Unit Test (web)
         run: pnpm --filter panorama-oa-web test --run
+
+      - name: Build (web)
+        run: pnpm --filter panorama-oa-web build
 
       - name: Smoke E2E (ondemand)
         run: pnpm --filter panorama-oa-web test:smoke:ondemand
@@ -71,3 +77,9 @@ jobs:
 
       - name: Verify Matrix (web)
         run: pnpm --filter panorama-oa-web verify:matrix
+
+      - name: Lint (web)
+        run: pnpm --filter panorama-oa-web lint
+
+      - name: Build (web)
+        run: pnpm --filter panorama-oa-web build
