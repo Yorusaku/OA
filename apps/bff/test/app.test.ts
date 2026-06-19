@@ -10,6 +10,11 @@ describe('oa bff', () => {
     postgres: {
       connectionString: '',
     },
+    knowledge: {
+      qdrantUrl: 'http://127.0.0.1:6333',
+      qdrantCollectionName: 'oa_knowledge_chunks_test',
+      embeddingDimensions: 1024,
+    },
     idempotencyTtlHours: 24,
     enableRuleTraceDebug: true,
   }
@@ -283,6 +288,157 @@ describe('oa bff', () => {
     })
     const logData = logs.json()
     expect(logData.data.list.some((l: any) => l.targetId === 'user-test-delegate')).toBeTruthy()
+  })
+
+  it('returns fallback ai approval suggestion when ark key is missing', async () => {
+    const response = await app.inject({
+      method: 'POST',
+      url: '/api/v1/ai/approval-suggestion',
+      payload: {
+        approvalId: 'APPROVE-SEED-001',
+      },
+    })
+
+    expect(response.statusCode).toBe(200)
+    const body = response.json()
+    expect(body.data.suggestion).toBe('manual_review')
+    expect(body.data.confidence).toBeLessThanOrEqual(0.5)
+    expect(body.data.disclaimer).toContain('人工审批')
+  })
+
+  it('returns 404 when ai approval suggestion target does not exist', async () => {
+    const response = await app.inject({
+      method: 'POST',
+      url: '/api/v1/ai/approval-suggestion',
+      payload: {
+        approvalId: 'NOT-EXISTS',
+      },
+    })
+
+    expect(response.statusCode).toBe(404)
+  })
+
+  it('streams ai approval suggestion events', async () => {
+    const response = await app.inject({
+      method: 'POST',
+      url: '/api/v1/ai/approval-suggestion/stream',
+      payload: {
+        approvalId: 'APPROVE-SEED-001',
+      },
+    })
+
+    expect(response.statusCode).toBe(200)
+    expect(response.headers['content-type']).toContain('text/event-stream')
+    expect(response.body).toContain('"type":"meta"')
+    expect(response.body).toContain('"type":"done"')
+  })
+
+  it('supports knowledge base CRUD and search in inmemory mode', async () => {
+    const createKb = await app.inject({
+      method: 'POST',
+      url: '/api/v1/knowledge',
+      payload: {
+        name: '企业报销制度',
+        description: '财务报销相关规则',
+      },
+    })
+
+    expect(createKb.statusCode).toBe(200)
+    const kbId = createKb.json().data.id as string
+
+    const upload = await app.inject({
+      method: 'POST',
+      url: `/api/v1/knowledge/${kbId}/documents`,
+      payload: {
+        filename: '报销制度.txt',
+        fileType: 'text/plain',
+        content: '差旅住宿标准：北京出差单晚住宿标准不超过500元。交通费用需提供合规票据。',
+      },
+    })
+
+    expect(upload.statusCode).toBe(200)
+    expect(upload.json().data.chunkCount).toBeGreaterThan(0)
+
+    const listDocs = await app.inject({
+      method: 'GET',
+      url: `/api/v1/knowledge/${kbId}/documents`,
+    })
+
+    expect(listDocs.statusCode).toBe(200)
+    expect(listDocs.json().data.length).toBe(1)
+
+    const search = await app.inject({
+      method: 'POST',
+      url: `/api/v1/knowledge/${kbId}/search`,
+      payload: {
+        query: '北京出差住宿标准是多少',
+      },
+    })
+
+    expect(search.statusCode).toBe(200)
+    expect(search.json().data.sources.length).toBeGreaterThan(0)
+
+    const deleteDoc = await app.inject({
+      method: 'DELETE',
+      url: `/api/v1/knowledge/${kbId}/documents/${upload.json().data.id as string}`,
+    })
+
+    expect(deleteDoc.statusCode).toBe(200)
+
+    const deleteKb = await app.inject({
+      method: 'DELETE',
+      url: `/api/v1/knowledge/${kbId}`,
+    })
+
+    expect(deleteKb.statusCode).toBe(200)
+  })
+
+  it('falls back to local chunk indexing when ark embedding config is missing', async () => {
+    const createKb = await app.inject({
+      method: 'POST',
+      url: '/api/v1/knowledge',
+      payload: {
+        name: '联调降级知识库',
+        description: '验证未配置 Ark 时的上传降级',
+      },
+    })
+
+    expect(createKb.statusCode).toBe(200)
+    const kbId = createKb.json().data.id as string
+
+    const originalArkApiKey = process.env.ARK_API_KEY
+    delete process.env.ARK_API_KEY
+
+    try {
+      const upload = await app.inject({
+        method: 'POST',
+        url: `/api/v1/knowledge/${kbId}/documents`,
+        payload: {
+          filename: '联调降级.txt',
+          fileType: 'text/plain',
+          content: '出差住宿标准：一线城市单晚不超过500元，超标需人工审批。',
+        },
+      })
+
+      expect(upload.statusCode).toBe(200)
+      expect(upload.json().data.status).toBe('ready')
+      expect(upload.json().data.chunkCount).toBeGreaterThan(0)
+
+      const search = await app.inject({
+        method: 'POST',
+        url: `/api/v1/knowledge/${kbId}/search`,
+        payload: {
+          query: '出差住宿标准',
+        },
+      })
+
+      expect(search.statusCode).toBe(200)
+      expect(search.json().data.sources.length).toBeGreaterThan(0)
+    }
+    finally {
+      if (originalArkApiKey)
+        process.env.ARK_API_KEY = originalArkApiKey
+    }
   })
 
 })

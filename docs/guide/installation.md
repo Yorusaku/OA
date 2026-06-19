@@ -26,7 +26,7 @@ pnpm install
 pnpm dev
 ```
 
-访问 http://localhost:5173/ 查看应用。
+默认开发态可访问 `http://localhost:5173/` 查看应用。
 
 ## 项目结构
 

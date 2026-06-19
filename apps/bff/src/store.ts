@@ -1,17 +1,20 @@
-import type { PoolClient } from 'pg'
+import type { PoolClient, QueryResultRow } from 'pg'
 import { Pool } from 'pg'
 import type { RuntimeState } from './domain'
 import { createInitialState } from './state'
 import { deepClone } from './utils'
 
 export interface RuntimeStore {
+  storage: 'postgres' | 'inmemory'
   init(): Promise<void>
   readState(): Promise<RuntimeState>
   runInTransaction<T>(handler: (draft: RuntimeState) => Promise<T> | T): Promise<T>
+  query?<TRow extends QueryResultRow = Record<string, unknown>>(sql: string, params?: unknown[]): Promise<{ rows: TRow[], rowCount: number }>
   close(): Promise<void>
 }
 
 class InMemoryStore implements RuntimeStore {
+  storage: 'inmemory' = 'inmemory'
   private state: RuntimeState = createInitialState()
   private queue: Promise<unknown> = Promise.resolve()
 
@@ -33,10 +36,15 @@ class InMemoryStore implements RuntimeStore {
     return next as Promise<T>
   }
 
+  async query<TRow extends QueryResultRow = Record<string, unknown>>(): Promise<{ rows: TRow[], rowCount: number }> {
+    throw new Error('inmemory-store-query-not-supported')
+  }
+
   async close(): Promise<void> {}
 }
 
 class PostgresStore implements RuntimeStore {
+  storage: 'postgres' = 'postgres'
   private readonly pool: Pool
   private readonly stateKey = 'oa-bff-state'
 
@@ -50,6 +58,36 @@ class PostgresStore implements RuntimeStore {
         state_key TEXT PRIMARY KEY,
         value JSONB NOT NULL,
         updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
+    `)
+
+    await this.pool.query(`
+      CREATE TABLE IF NOT EXISTS knowledge_bases (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        description TEXT NOT NULL DEFAULT '',
+        chunk_size INTEGER NOT NULL DEFAULT 500,
+        chunk_overlap INTEGER NOT NULL DEFAULT 50,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
+    `)
+
+    await this.pool.query(`
+      CREATE TABLE IF NOT EXISTS knowledge_documents (
+        id TEXT PRIMARY KEY,
+        kb_id TEXT NOT NULL,
+        filename TEXT NOT NULL,
+        file_type TEXT NOT NULL,
+        file_size INTEGER NOT NULL DEFAULT 0,
+        content TEXT NOT NULL,
+        chunk_count INTEGER NOT NULL DEFAULT 0,
+        status TEXT NOT NULL DEFAULT 'processing',
+        error_message TEXT,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        CONSTRAINT fk_knowledge_documents_kb
+          FOREIGN KEY (kb_id)
+          REFERENCES knowledge_bases(id)
+          ON DELETE CASCADE
       );
     `)
 
@@ -112,6 +150,14 @@ class PostgresStore implements RuntimeStore {
     }
     finally {
       client.release()
+    }
+  }
+
+  async query<TRow extends QueryResultRow = Record<string, unknown>>(sql: string, params: unknown[] = []): Promise<{ rows: TRow[], rowCount: number }> {
+    const result = await this.pool.query<TRow>(sql, params)
+    return {
+      rows: result.rows,
+      rowCount: result.rowCount ?? 0,
     }
   }
 

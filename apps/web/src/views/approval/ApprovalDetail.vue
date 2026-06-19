@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ElButton, ElCard, ElTag } from 'element-plus'
 import DynamicForm from '@/components/dynamic-form/DynamicForm.vue'
+import AiSuggestion from './components/AiSuggestion.vue'
 import { useApprovalDetailPage } from './composables/useApprovalDetailPage'
 
 const {
@@ -161,6 +162,7 @@ const {
           </el-timeline-item>
         </el-timeline>
       </div>
+      <AiSuggestion :approval-id="approvalData.id" />
     </ElCard>
 
     <div v-else class="empty-state">

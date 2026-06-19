@@ -39,6 +39,19 @@ import {
   listAuditLogs,
   writeAuditLog,
 } from './services/audit-service'
+import {
+  runApprovalSuggestion,
+  runApprovalSuggestionStream,
+} from './services/approval-ai-service'
+import {
+  createKnowledgeBase,
+  deleteKnowledgeBase,
+  deleteKnowledgeDocument,
+  listKnowledgeBases,
+  listKnowledgeDocuments,
+  searchKnowledge,
+  uploadDocument,
+} from './services/knowledge-service'
 import { buildApprovalMetricSnapshot } from './services/metrics-service'
 import {
   analyzeWorkflowImpact,
@@ -164,6 +177,16 @@ export async function buildApp(config: BffConfig, injectedStore?: RuntimeStore) 
   })
 
   app.setErrorHandler((error, request, reply) => {
+    if ((error as { code?: string }).code === 'FST_ERR_CTP_BODY_TOO_LARGE') {
+      reply.status(413).send({
+        code: API_ERROR.BAD_REQUEST,
+        message: '上传内容过大，请拆分文档或减少单次上传内容',
+        data: null,
+        traceId: request.id,
+      })
+      return
+    }
+
     if (error instanceof AppError) {
       reply.status(error.statusCode).send({
         code: error.businessCode,
@@ -256,6 +279,185 @@ export async function buildApp(config: BffConfig, injectedStore?: RuntimeStore) 
     if (!result)
       throw new AppError('审批单不存在', { statusCode: 404, businessCode: API_ERROR.NOT_FOUND })
     sendOk(request, reply, result, '获取成功')
+  })
+
+  app.post('/api/v1/ai/approval-suggestion', async (request, reply) => {
+    const parsed = z.object({
+      approvalId: z.string().min(1),
+    }).safeParse(request.body)
+
+    if (!parsed.success) {
+      throw new AppError('请求参数错误', {
+        statusCode: 400,
+        businessCode: API_ERROR.BAD_REQUEST,
+        details: parsed.error.flatten(),
+      })
+    }
+
+    const result = await runApprovalSuggestion(store, parsed.data.approvalId)
+    if (!result)
+      throw new AppError('审批单不存在', { statusCode: 404, businessCode: API_ERROR.NOT_FOUND })
+
+    sendOk(request, reply, result, '获取成功')
+  })
+
+  app.post('/api/v1/ai/approval-suggestion/stream', async (request, reply) => {
+    const parsed = z.object({
+      approvalId: z.string().min(1),
+    }).safeParse(request.body)
+
+    if (!parsed.success) {
+      throw new AppError('请求参数错误', {
+        statusCode: 400,
+        businessCode: API_ERROR.BAD_REQUEST,
+        details: parsed.error.flatten(),
+      })
+    }
+
+    reply.raw.setHeader('Content-Type', 'text/event-stream')
+    reply.raw.setHeader('Cache-Control', 'no-cache, no-transform')
+    reply.raw.setHeader('Connection', 'keep-alive')
+    reply.raw.setHeader('X-Accel-Buffering', 'no')
+    reply.hijack()
+
+    reply.raw.write(`data: ${JSON.stringify({
+      type: 'meta',
+      approvalId: parsed.data.approvalId,
+      generatedAt: new Date().toISOString(),
+    })}\n\n`)
+
+    const result = await runApprovalSuggestionStream(store, parsed.data.approvalId, (chunk) => {
+      reply.raw.write(`data: ${JSON.stringify({ type: 'chunk', content: chunk })}\n\n`)
+    })
+
+    if (!result) {
+      reply.raw.write(`data: ${JSON.stringify({
+        type: 'error',
+        message: '审批单不存在',
+      })}\n\n`)
+      reply.raw.end()
+      return
+    }
+
+    reply.raw.write(`data: ${JSON.stringify({
+      type: 'done',
+      response: result,
+    })}\n\n`)
+    reply.raw.end()
+  })
+
+  app.get('/api/v1/knowledge', async (request, reply) => {
+    const result = await listKnowledgeBases(store)
+    sendOk(request, reply, result, '获取成功')
+  })
+
+  app.post('/api/v1/knowledge', async (request, reply) => {
+    const parsed = z.object({
+      name: z.string().min(1),
+      description: z.string().optional(),
+      chunkSize: z.number().int().min(100).max(5000).optional(),
+      chunkOverlap: z.number().int().min(0).max(1000).optional(),
+    }).safeParse(request.body)
+
+    if (!parsed.success) {
+      throw new AppError('请求参数错误', {
+        statusCode: 400,
+        businessCode: API_ERROR.BAD_REQUEST,
+        details: parsed.error.flatten(),
+      })
+    }
+
+    const result = await createKnowledgeBase(store, config, parsed.data)
+    sendOk(request, reply, result, '创建成功')
+  })
+
+  app.delete('/api/v1/knowledge/:id', async (request, reply) => {
+    const { id } = request.params as { id: string }
+    await deleteKnowledgeBase(store, config, id)
+    sendOk(request, reply, { success: true }, '删除成功')
+  })
+
+  app.get('/api/v1/knowledge/:kbId/documents', async (request, reply) => {
+    const { kbId } = request.params as { kbId: string }
+    const result = await listKnowledgeDocuments(store, kbId)
+    sendOk(request, reply, result, '获取成功')
+  })
+
+  app.post('/api/v1/knowledge/:kbId/documents', {
+    bodyLimit: 10 * 1024 * 1024,
+  }, async (request, reply) => {
+    const { kbId } = request.params as { kbId: string }
+    const parsed = z.object({
+      filename: z.string().min(1),
+      fileType: z.string().min(1),
+      fileSize: z.number().int().nonnegative().optional(),
+      content: z.string().min(1),
+    }).safeParse(request.body)
+
+    if (!parsed.success) {
+      throw new AppError('请求参数错误', {
+        statusCode: 400,
+        businessCode: API_ERROR.BAD_REQUEST,
+        details: parsed.error.flatten(),
+      })
+    }
+
+    try {
+      const result = await uploadDocument(store, config, {
+        kbId,
+        ...parsed.data,
+      })
+      sendOk(request, reply, result, '上传成功')
+    }
+    catch (error) {
+      if (error instanceof Error && error.message === 'knowledge-base-not-found') {
+        throw new AppError('知识库不存在', {
+          statusCode: 404,
+          businessCode: API_ERROR.NOT_FOUND,
+        })
+      }
+      throw error
+    }
+  })
+
+  app.delete('/api/v1/knowledge/:kbId/documents/:id', async (request, reply) => {
+    const { id } = request.params as { kbId: string, id: string }
+    await deleteKnowledgeDocument(store, config, id)
+    sendOk(request, reply, { success: true }, '删除成功')
+  })
+
+  app.post('/api/v1/knowledge/:kbId/search', async (request, reply) => {
+    const { kbId } = request.params as { kbId: string }
+    const parsed = z.object({
+      query: z.string().min(1),
+      topK: z.number().int().min(1).max(10).optional(),
+    }).safeParse(request.body)
+
+    if (!parsed.success) {
+      throw new AppError('请求参数错误', {
+        statusCode: 400,
+        businessCode: API_ERROR.BAD_REQUEST,
+        details: parsed.error.flatten(),
+      })
+    }
+
+    try {
+      const result = await searchKnowledge(store, config, {
+        kbId,
+        query: parsed.data.query,
+        topK: parsed.data.topK,
+      })
+      sendOk(request, reply, result, '检索成功')
+    }
+    catch (error) {
+      if (error instanceof Error && error.message === 'knowledge-base-not-found') {
+        throw new AppError('知识库不存在', {
+          statusCode: 404,
+          businessCode: API_ERROR.NOT_FOUND,
+        })
+      }
+      throw error
+    }
   })
 
   async function runWriteWithIdempotency<T>(

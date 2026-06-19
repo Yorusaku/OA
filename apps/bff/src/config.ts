@@ -5,6 +5,11 @@ export interface BffConfig {
   postgres: {
     connectionString: string
   }
+  knowledge: {
+    qdrantUrl: string
+    qdrantCollectionName: string
+    embeddingDimensions: number
+  }
   idempotencyTtlHours: number
   enableRuleTraceDebug: boolean
 }
@@ -32,6 +37,11 @@ export function loadBffConfig(): BffConfig {
     storage,
     postgres: {
       connectionString: buildPostgresConnectionString(),
+    },
+    knowledge: {
+      qdrantUrl: process.env.QDRANT_URL ?? 'http://127.0.0.1:6333',
+      qdrantCollectionName: process.env.QDRANT_COLLECTION_NAME ?? 'oa_knowledge_chunks',
+      embeddingDimensions: Number(process.env.ARK_EMBEDDING_DIMENSIONS ?? '1024'),
     },
     idempotencyTtlHours: Number(process.env.BFF_IDEMPOTENCY_TTL_HOURS ?? '24'),
     enableRuleTraceDebug: (process.env.BFF_ENABLE_RULE_TRACE_DEBUG ?? 'false').toLowerCase() === 'true',

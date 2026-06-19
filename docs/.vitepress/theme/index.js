@@ -1,20 +1,4 @@
-<script setup>
 import DefaultTheme from 'vitepress/theme'
+import './style.css'
 
 export default DefaultTheme
-</script>
-
-<style>
-:root {
-  --vp-c-brand-1: #165dff;
-  --vp-c-brand-2: #4080ff;
-  --vp-c-brand-3: #165dff;
-  --vp-c-brand-soft: rgba(22, 93, 255, 0.14);
-}
-
-.dark {
-  --vp-c-brand-1: #4080ff;
-  --vp-c-brand-2: #699cff;
-  --vp-c-brand-3: #4080ff;
-}
-</style>

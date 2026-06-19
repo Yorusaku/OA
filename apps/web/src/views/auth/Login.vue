@@ -90,6 +90,7 @@ async function onSubmit() {
       'system:operation-log:view',
       'workflow:view',
       'workflow:list',
+      'knowledge:view',
       'application:view',
       'application:list',
       'application:create',
@@ -180,6 +181,13 @@ async function onSubmit() {
         children: [
           { path: '/workflow/list', name: 'WorkflowList', title: '流程列表', permission: 'workflow:list' },
         ],
+      },
+      {
+        path: '/knowledge',
+        name: 'KnowledgeCenter',
+        title: '知识库管理',
+        icon: 'collection',
+        permission: 'knowledge:view',
       },
       {
         path: '/application',

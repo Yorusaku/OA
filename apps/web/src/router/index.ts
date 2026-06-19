@@ -33,6 +33,7 @@ const ApplicationDetail = () => import(/* webpackChunkName: "application-detail"
 const TemplateMarket = () => import(/* webpackChunkName: "template-market" */ '@/views/template/TemplateMarket.vue')
 const TemplateDetail = () => import(/* webpackChunkName: "template-detail" */ '@/views/template/TemplateDetail.vue')
 const MyTemplates = () => import(/* webpackChunkName: "template-my" */ '@/views/template/MyTemplates.vue')
+const KnowledgeCenter = () => import(/* webpackChunkName: "knowledge" */ '@/views/knowledge/index.vue')
 
 export const constantRoutes: RouteRecordRaw[] = [
   {
@@ -396,6 +397,17 @@ export const constantRoutes: RouteRecordRaw[] = [
             },
           },
         ],
+      },
+      {
+        path: 'knowledge',
+        name: 'KnowledgeCenter',
+        component: KnowledgeCenter,
+        meta: {
+          title: '知识库管理',
+          icon: 'collection',
+          requiresAuth: true,
+          permission: 'knowledge:view',
+        },
       },
     ],
   },

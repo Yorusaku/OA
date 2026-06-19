@@ -1,42 +1,25 @@
 # API 文档
 
-全景智能 OA 的 API 文档由 TypeDoc 自动生成。
+这里整理的是当前项目内与开发最相关的接口和模块说明，重点覆盖审批域、前端状态层和基础 HTTP 封装。
 
-## 模块分类
+## 文档入口
 
-### 核心模块
+- [Composables](/api/composables)
+- [Stores](/api/stores)
+- [HTTP 与 API](/api/http)
 
-| 模块 | 说明 |
-|------|------|
-| [Composables](/api-generated/modules/) | 组合式函数，封装业务逻辑 |
-| [Components](/api-generated/modules/) | Vue 组件 |
-| [Stores](/api-generated/modules/) | Pinia 状态管理 |
+## 当前新增的 AI / 知识库接口
 
-### API 模块
+后端新增：
 
-| 模块 | 说明 |
-|------|------|
-| HTTP | 统一的 HTTP 请求封装 |
-| 审批 API | 审批相关业务接口 |
-| 工作流 API | 工作流定义和实例接口 |
+- `POST /api/v1/ai/approval-suggestion`
+- `POST /api/v1/ai/approval-suggestion/stream`
+- `GET /api/v1/knowledge`
+- `POST /api/v1/knowledge`
+- `DELETE /api/v1/knowledge/:id`
+- `GET /api/v1/knowledge/:kbId/documents`
+- `POST /api/v1/knowledge/:kbId/documents`
+- `DELETE /api/v1/knowledge/:kbId/documents/:id`
+- `POST /api/v1/knowledge/:kbId/search`
 
-### 工具模块
-
-| 模块 | 说明 |
-|------|------|
-| Utils | 通用工具函数 |
-| Types | TypeScript 类型定义 |
-
-## 生成 API 文档
-
-```bash
-# 生成 API 文档
-pnpm docs:api
-
-# 预览文档
-pnpm docs:dev
-```
-
-## 文档结构
-
-API 文档使用 TypeDoc + typedoc-plugin-markdown 生成，输出到 `docs/api-generated` 目录。
+共享契约位于 `@oa/contracts`，前后端统一消费。

@@ -100,3 +100,96 @@ export interface SseApprovalEvent<TPayload = unknown> {
   timestamp: string
   payload: TPayload
 }
+
+export type AiSuggestionRiskLevel = 'low' | 'medium' | 'high'
+export type AiSuggestionDecision = 'approve' | 'reject' | 'manual_review'
+
+export interface AiApprovalSuggestionRequest {
+  approvalId: string
+}
+
+export interface AiApprovalSuggestionResponse {
+  suggestion: AiSuggestionDecision
+  confidence: number
+  riskLevel: AiSuggestionRiskLevel
+  reasoning: string
+  disclaimer: string
+  generatedAt: string
+  usage?: {
+    inputTokens?: number
+    outputTokens?: number
+    totalTokens?: number
+  }
+}
+
+export type AiSuggestionEvent =
+  | {
+      type: 'meta'
+      approvalId: string
+      generatedAt: string
+    }
+  | {
+      type: 'chunk'
+      content: string
+    }
+  | {
+      type: 'done'
+      response: AiApprovalSuggestionResponse
+    }
+  | {
+      type: 'error'
+      message: string
+    }
+
+export interface RagCitation {
+  documentId: string
+  filename: string
+  chunkId: string
+  score: number
+  content: string
+}
+
+export interface RagSearchRequest {
+  query: string
+  topK?: number
+}
+
+export interface RagSearchResponse {
+  answer: string
+  sources: RagCitation[]
+}
+
+export interface KnowledgeBaseItem {
+  id: string
+  name: string
+  description: string
+  chunkSize: number
+  chunkOverlap: number
+  createdAt: string
+}
+
+export interface KnowledgeDocumentItem {
+  id: string
+  kbId: string
+  filename: string
+  fileType: string
+  fileSize: number
+  chunkCount: number
+  status: 'processing' | 'ready' | 'error'
+  errorMessage?: string | null
+  createdAt: string
+}
+
+export interface CreateKnowledgeBaseRequest {
+  name: string
+  description?: string
+  chunkSize?: number
+  chunkOverlap?: number
+}
+
+export interface UploadKnowledgeDocumentRequest {
+  filename: string
+  fileType: string
+  fileSize?: number
+  content: string
+}

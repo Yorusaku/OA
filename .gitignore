@@ -8,6 +8,8 @@ builds
 .out
 .output
 apps/web/dist
+docs-dist
+apps/web/playwright-report/
 
 # Logs
 logs
@@ -17,6 +19,8 @@ yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
+.codex-run/
+.playwright-mcp/
 
 # Environment variables
 .env

@@ -1,26 +1,41 @@
 {
-    "name":  "panorama-oa-monorepo",
-    "type":  "module",
-    "private":  true,
-    "packageManager":  "pnpm@10.28.2",
-    "scripts":  {
-                    "dev":  "turbo run dev",
-                    "dev:bff":  "pnpm --filter panorama-oa-bff dev",
-                    "dev:hybrid":  "turbo run dev --filter=panorama-oa-bff --filter=panorama-oa-web",
-                    "build":  "turbo run build",
-                    "lint":  "turbo run lint",
-                    "typecheck":  "turbo run typecheck",
-                    "test":  "turbo run test",
-                    "verify:web":  "pnpm --filter panorama-oa-web verify:matrix",
-                    "lint:fix":  "eslint --fix .",
-                    "format":  "prettier --write .",
-                    "docs:dev":  "vitepress dev docs",
-                    "docs:build":  "vitepress build docs",
-                    "docs:preview":  "vitepress preview docs",
-                    "docs:api":  "typedoc --options typedoc.json"
-                },
-    "devDependencies":  {
-                            "turbo":  "^2.3.3",
-                            "@oa/config":  "workspace:*"
-                        }
+    "name": "panorama-oa-monorepo",
+    "type": "module",
+    "private": true,
+    "packageManager": "pnpm@10.28.2",
+    "scripts": {
+        "dev": "turbo run dev",
+        "dev:bff": "pnpm --filter panorama-oa-bff dev",
+        "dev:hybrid": "turbo run dev --filter=panorama-oa-bff --filter=panorama-oa-web",
+        "build": "turbo run build",
+        "lint": "turbo run lint",
+        "typecheck": "turbo run typecheck",
+        "test": "turbo run test",
+        "verify:web": "pnpm --filter panorama-oa-web verify:matrix",
+        "lint:fix": "eslint --fix .",
+        "format": "prettier --write .",
+        "docs:dev": "vitepress dev docs",
+        "docs:build": "vitepress build docs",
+        "docs:preview": "vitepress preview docs",
+        "docs:api": "typedoc --options typedoc.json"
+    },
+  "devDependencies": {
+    "@oa/config": "workspace:*",
+    "turbo": "^2.3.3",
+    "vite": "5.4.1",
+    "vitepress": "1.3.4"
+  },
+  "pnpm": {
+    "overrides": {
+      "vue": "3.5.38",
+      "@vue/compiler-core": "3.5.38",
+      "@vue/compiler-dom": "3.5.38",
+      "@vue/compiler-sfc": "3.5.38",
+      "@vue/reactivity": "3.5.38",
+      "@vue/runtime-core": "3.5.38",
+      "@vue/runtime-dom": "3.5.38",
+      "@vue/server-renderer": "3.5.38",
+      "@vue/shared": "3.5.38"
+    }
+  }
 }

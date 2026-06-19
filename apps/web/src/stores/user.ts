@@ -21,9 +21,28 @@ export interface MenuItem {
   children?: MenuItem[]
 }
 
+const userInfoSerializer = {
+  read(value: string): UserInfo | null {
+    if (!value || value === 'null' || value === '[object Object]')
+      return null
+
+    try {
+      return JSON.parse(value) as UserInfo
+    }
+    catch {
+      return null
+    }
+  },
+  write(value: UserInfo | null): string {
+    return JSON.stringify(value)
+  },
+}
+
 export const useUserStore = defineStore('user', () => {
   const token = useStorage('token', null as string | null)
-  const userInfo = useStorage('userInfo', null as UserInfo | null)
+  const userInfo = useStorage('userInfo', null as UserInfo | null, localStorage, {
+    serializer: userInfoSerializer,
+  })
 
   const permissions = ref<string[]>([
     'dashboard:view',
@@ -41,6 +60,7 @@ export const useUserStore = defineStore('user', () => {
     'system:approval-delegation:view',
     'workflow:view',
     'workflow:list',
+    'knowledge:view',
   ])
 
   const menus = ref<MenuItem[]>([
@@ -98,6 +118,13 @@ export const useUserStore = defineStore('user', () => {
         { path: '/system/roles', name: 'RoleList', title: '角色管理', permission: 'system:role:view' },
         { path: '/system/approval-delegation', name: 'ApprovalDelegationSettings', title: '代理审批设置', permission: 'system:approval-delegation:view' },
       ],
+    },
+    {
+      path: '/knowledge',
+      name: 'KnowledgeCenter',
+      title: '知识库管理',
+      icon: 'collection',
+      permission: 'knowledge:view',
     },
     {
       path: '/workflow',
@@ -160,6 +187,7 @@ export const useUserStore = defineStore('user', () => {
       RoleList: () => import('@/views/system/RoleList.vue'),
       ApprovalDelegationSettings: () => import('@/views/system/ApprovalDelegationSettings.vue'),
       WorkflowList: () => import('@/views/workflow/WorkflowList.vue'),
+      KnowledgeCenter: () => import('@/views/knowledge/index.vue'),
     }
 
     const routes: RouteRecordRaw[] = []

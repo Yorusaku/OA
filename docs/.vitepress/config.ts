@@ -2,51 +2,63 @@ import { defineConfig } from 'vitepress'
 
 export default defineConfig({
   title: '全景智能 OA',
-  description: '全景智能 OA 协同办公平台 API 文档',
+  description: '全景智能 OA 协同办公平台文档站',
   base: '/OA/',
   srcDir: './',
   outDir: '../docs-dist',
+  lang: 'zh-CN',
+  ignoreDeadLinks: [
+    'localhostLinks',
+    /^\/e:\//i,
+    /^http:\/\/localhost:5173(?:\/approval\/detail\/leave-001)?$/i,
+    /PROJECT_DOCUMENTATION/i,
+    /ADR-001-R001-refactor-results/i,
+    /\.\.\/\.\.\/README$/i,
+    /approval\/detail\/_______________/i,
+  ],
   themeConfig: {
     nav: [
-      { text: '指南', link: '/guide/' },
-      { text: 'API', link: '/api/' },
-      { text: '架构', link: '/architecture' }
+      { text: '首页', link: '/' },
+      { text: '开发指南', link: '/development' },
+      { text: '架构文档', link: '/architecture' },
+      { text: '说明', link: '/README' },
     ],
-    sidebar: {
-      '/guide/': [
-        {
-          text: '快速开始',
-          items: [
-            { text: '介绍', link: '/guide/' },
-            { text: '安装', link: '/guide/installation' }
-          ]
-        }
-      ],
-      '/api/': [
-        {
-          text: '核心模块',
-          items: [
-            { text: 'Composables', link: '/api/composables' },
-            { text: 'Stores', link: '/api/stores' }
-          ]
-        },
-        {
-          text: 'API 模块',
-          items: [
-            { text: 'HTTP 与 API', link: '/api/http' }
-          ]
-        }
-      ]
-    },
+    sidebar: [
+      {
+        text: '项目文档',
+        items: [
+          { text: '文档首页', link: '/' },
+          { text: '架构文档', link: '/architecture' },
+          { text: '开发指南', link: '/development' },
+          { text: '文档说明', link: '/README' },
+        ],
+      },
+      {
+        text: '指南',
+        items: [
+          { text: '介绍', link: '/guide/' },
+          { text: '安装指南', link: '/guide/installation' },
+        ],
+      },
+      {
+        text: 'API 说明',
+        items: [
+          { text: 'API 首页', link: '/api/' },
+          { text: 'Composables', link: '/api/composables' },
+          { text: 'Stores', link: '/api/stores' },
+          { text: 'HTTP', link: '/api/http' },
+        ],
+      },
+    ],
     socialLinks: [
-      { icon: 'github', link: 'https://github.com/your-org/oa' }
+      { icon: 'github', link: 'https://github.com/your-org/oa' },
     ],
     footer: {
-      message: 'MIT Licensed',
-      copyright: 'Copyright © 2024-present 全景智能 OA'
-    }
+      message: '仅用于学习、演示与项目说明',
+      copyright: 'Copyright © 2026 全景智能 OA',
+    },
   },
   markdown: {
-    lineNumbers: true
-  }
+    lineNumbers: true,
+  },
 })
