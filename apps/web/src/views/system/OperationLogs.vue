@@ -53,6 +53,9 @@ const actionOptions = [
   { label: '代理关闭', value: 'approval.delegate.disable' },
   { label: '流程发布', value: 'workflow.publish' },
   { label: '流程回滚', value: 'workflow.rollback' },
+  { label: 'AI 建议生成', value: 'ai.suggestion.generated' },
+  { label: 'AI 建议采纳', value: 'ai.suggestion.accepted' },
+  { label: 'AI 建议覆盖', value: 'ai.suggestion.overridden' },
 ]
 
 // 模块选项
@@ -61,6 +64,7 @@ const moduleOptions = [
   { label: '工作流', value: 'workflow' },
   { label: '认证', value: 'auth' },
   { label: '系统', value: 'system' },
+  { label: 'AI', value: 'ai' },
 ]
 
 // 结果选项
@@ -129,6 +133,9 @@ function formatAction(action: AuditAction): string {
     'approval.delegate.disable': '代理关闭',
     'workflow.publish': '流程发布',
     'workflow.rollback': '流程回滚',
+    'ai.suggestion.generated': 'AI 建议生成',
+    'ai.suggestion.accepted': '采纳 AI 建议',
+    'ai.suggestion.overridden': '覆盖 AI 建议',
   }
   return map[action] || action
 }
@@ -139,6 +146,7 @@ function formatModule(module: string): string {
     workflow: '工作流',
     auth: '认证',
     system: '系统',
+    ai: 'AI',
   }
   return map[module] || module
 }
@@ -147,6 +155,9 @@ function getActionTagType(action: AuditAction): 'primary' | 'success' | 'warning
   if (action === 'auth.login') return 'info'
   if (action.startsWith('approval')) return 'primary'
   if (action.startsWith('workflow')) return 'success'
+  if (action === 'ai.suggestion.generated') return 'primary'
+  if (action === 'ai.suggestion.accepted') return 'success'
+  if (action === 'ai.suggestion.overridden') return 'warning'
   return 'info'
 }
 
@@ -160,6 +171,9 @@ function navigateToTarget(link: { targetType: string, targetId: string, path?: s
   }
   else if (link.targetType === 'workflow') {
     router.push(`/workflow/editor/${link.targetId}`)
+  }
+  else if (link.targetType === 'ai') {
+    router.push('/system/ai-audit')
   }
 }
 </script>

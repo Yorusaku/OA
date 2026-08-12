@@ -1,24 +1,45 @@
 import type {
   AiApprovalSuggestionResponse,
+  AiAuditStats,
+  AiPolicy,
   AiSuggestionDecision,
   AiSuggestionEvent,
   AiSuggestionRiskLevel,
   CreateKnowledgeBaseRequest,
+  CreatePromptTemplateRequest,
   KnowledgeBaseItem,
   KnowledgeDocumentItem,
+  PageResult,
+  PromptTemplate,
+  PromptTemplateTestRequest,
+  PromptTemplateTestResponse,
   RagSearchRequest,
   RagSearchResponse,
+  UpdatePromptTemplateRequest,
   UploadKnowledgeDocumentRequest,
 } from '@oa/contracts'
 import {
+  remoteAcceptAiSuggestion,
+  remoteActivatePromptTemplate,
   remoteCreateKnowledgeBase,
+  remoteCreatePromptTemplate,
   remoteDeleteKnowledgeBase,
   remoteDeleteKnowledgeDocument,
+  remoteDeletePromptTemplate,
   remoteFetchAiApprovalSuggestion,
+  remoteFetchAiPolicy,
+  remoteGetAiAuditDetail,
+  remoteGetAiAuditLogs,
+  remoteGetAiAuditStats,
+  remoteGetPromptTemplate,
   remoteListKnowledgeBases,
   remoteListKnowledgeDocuments,
+  remoteListPromptTemplates,
+  remoteOverrideAiSuggestion,
   remoteSearchKnowledge,
   remoteStreamAiApprovalSuggestion,
+  remoteTestPromptTemplate,
+  remoteUpdatePromptTemplate,
   remoteUploadKnowledgeDocument,
   type AiSuggestionStreamHandlers,
 } from './ai.remote'
@@ -130,6 +151,29 @@ function pickMockPayload(approvalId: string): {
 
 function buildMockResponse(approvalId: string): AiApprovalSuggestionResponse {
   const payload = pickMockPayload(approvalId)
+  const segments = payload.suggestion === 'approve'
+    ? [
+        { content: '根据企业差旅报销制度，单日住宿标准为500元，市内交通补贴上限100元/天。本次申请住宿费450元，未超出企业标准。', source: 'knowledge_base' as const, confidence: 0.9, citation: { documentId: 'kb-mock-expense', detail: '企业差旅报销制度 v2.1' } },
+        { content: '表单中"住宿费"字段为450元，"出差天数"为3天，合计金额在预算范围内。', source: 'form_data' as const, confidence: 0.95, citation: { fieldName: '住宿费', detail: '住宿费=450元，出差天数=3天' } },
+        { content: '历史相似差旅审批中，同部门员工同类申请通过率为92%，处理时效约0.8天。', source: 'historical_data' as const, confidence: 0.8, citation: { approvalId: 'approval-travel-002', detail: '同类审批通过率92%' } },
+        { content: '综合以上分析，当前申请金额合理、材料齐全、符合企业制度，建议通过。', source: 'model_judgment' as const, confidence: 0.7 },
+      ]
+    : [
+        { content: '表单中"申请金额"为120000元，远超常规同类申请的平均金额（约15000元），需重点核实。', source: 'form_data' as const, confidence: 0.95, citation: { fieldName: '申请金额', detail: '金额=120000元，同类均值=15000元' } },
+        { content: '根据采购审批制度，超过100000元的采购需附三方比价材料。当前申请未包含比价附件。', source: 'knowledge_base' as const, confidence: 0.9, citation: { documentId: 'kb-mock-expense', detail: '采购审批制度 v1.5' } },
+        { content: '历史高金额审批中，缺少比价材料的申请驳回率为67%。', source: 'historical_data' as const, confidence: 0.8, citation: { approvalId: 'approval-risk-001', detail: '高金额缺材料驳回率67%' } },
+        { content: '由于关键比价材料缺失，且金额显著异常，当前建议转人工审核，不建议直接通过或驳回。', source: 'model_judgment' as const, confidence: 0.6 },
+      ]
+
+  const uncertainties = [
+    {
+      topic: '附件完整性',
+      level: 'medium' as const,
+      description: '当前审批未包含发票/收据扫描件，无法确认费用真实性。',
+      suggestedAction: '请申请人补充发票扫描件或电子发票链接',
+    },
+  ]
+
   return {
     ...payload,
     disclaimer: 'AI 建议仅供参考，最终以人工审批为准',
@@ -139,6 +183,8 @@ function buildMockResponse(approvalId: string): AiApprovalSuggestionResponse {
       outputTokens: 96,
       totalTokens: 224,
     },
+    reasoningSegments: segments,
+    uncertainties,
   }
 }
 
@@ -306,6 +352,10 @@ function dispatchMockEvent(event: AiSuggestionEvent, handlers: AiSuggestionStrea
     handlers.onMeta?.(event)
   else if (event.type === 'chunk')
     handlers.onChunk?.(event)
+  else if (event.type === 'segment')
+    handlers.onSegment?.(event)
+  else if (event.type === 'uncertainty')
+    handlers.onUncertainty?.(event)
   else if (event.type === 'done')
     handlers.onDone?.(event)
   else if (event.type === 'error')
@@ -332,6 +382,24 @@ async function mockStreamAiApprovalSuggestion(
     }, handlers)
   }
 
+  // 发送溯源 segments
+  if (response.reasoningSegments?.length) {
+    await sleep(40)
+    dispatchMockEvent({
+      type: 'segment',
+      segments: response.reasoningSegments,
+    }, handlers)
+  }
+
+  // 发送不确定性标注
+  if (response.uncertainties?.length) {
+    await sleep(40)
+    dispatchMockEvent({
+      type: 'uncertainty',
+      uncertainties: response.uncertainties,
+    }, handlers)
+  }
+
   await sleep(60)
   dispatchMockEvent({
     type: 'done',
@@ -339,6 +407,58 @@ async function mockStreamAiApprovalSuggestion(
   }, handlers)
 
   return response
+}
+
+const mockAiPolicy: AiPolicy = {
+  version: '1.0.0',
+  updatedAt: '2026-08-12T00:00:00.000Z',
+  rules: [
+    {
+      id: 'rule-escalated-block',
+      description: '已超时升级的审批单禁止 AI 生成建议',
+      scope: 'approval_suggestion',
+      effect: 'block',
+      priority: 100,
+      conditions: [{ field: 'escalatedAt', operator: 'exists' }],
+      message: '当前审批已超时升级，AI 建议不可用，请人工紧急处理',
+    },
+    {
+      id: 'rule-high-amount-warn',
+      description: '金额超过 50000 的审批单触发 AI 警告',
+      scope: 'approval_suggestion',
+      effect: 'warn',
+      priority: 90,
+      conditions: [{ field: 'amount', operator: 'gte', value: 50000 }],
+      message: '当前审批金额较高（≥50,000），AI 建议仅供有限参考，务必人工核对金额依据',
+    },
+    {
+      id: 'rule-delegation-warn',
+      description: '代理审批场景下 AI 建议附加警告',
+      scope: 'approval_suggestion',
+      effect: 'warn',
+      priority: 80,
+      conditions: [{ field: 'isDelegated', operator: 'eq', value: true }],
+      message: '当前为代理审批，AI 建议可能未考虑代理人与原审批人的权限差异，请审慎参考',
+    },
+    {
+      id: 'rule-high-remind-warn',
+      description: '催办超过 3 次的审批单降低 AI 置信度',
+      scope: 'approval_suggestion',
+      effect: 'warn',
+      priority: 70,
+      conditions: [{ field: 'remindCount', operator: 'gte', value: 3 }],
+      message: '当前审批已被多次催办（≥3 次），可能存在处理争议，AI 建议仅供参考',
+    },
+    {
+      id: 'rule-no-description-warn',
+      description: '缺少审批描述的审批单触发警告',
+      scope: 'approval_suggestion',
+      effect: 'warn',
+      priority: 60,
+      conditions: [{ field: 'description', operator: 'not_exists' }],
+      message: '当前审批缺少详细描述，AI 可能因信息不足而无法给出准确建议',
+    },
+  ],
 }
 
 export async function fetchAiApprovalSuggestion(
@@ -349,6 +469,14 @@ export async function fetchAiApprovalSuggestion(
 
   await sleep(MOCK_DELAY_MS)
   return buildMockResponse(approvalId)
+}
+
+export async function fetchAiPolicy(): Promise<AiPolicy> {
+  if (useRemoteApprovalApi())
+    return remoteFetchAiPolicy()
+
+  await sleep(120)
+  return { ...mockAiPolicy }
 }
 
 export async function streamAiApprovalSuggestion(
@@ -412,6 +540,154 @@ export async function searchKnowledge(
   if (useRemoteApprovalApi())
     return remoteSearchKnowledge(kbId, payload)
   return mockSearchKnowledge(kbId, payload)
+}
+
+// ==================== AI 审计 API ====================
+
+export interface AcceptAiSuggestionInput {
+  approvalId: string
+  auditEventId: string
+  comment?: string
+}
+
+export interface OverrideAiSuggestionInput {
+  approvalId: string
+  auditEventId: string
+  reason: string
+}
+
+export async function acceptAiSuggestion(
+  input: AcceptAiSuggestionInput,
+): Promise<{ auditEventId: string }> {
+  if (useRemoteApprovalApi())
+    return remoteAcceptAiSuggestion(input)
+  await sleep(160)
+  return { auditEventId: `audit-${Date.now()}-accept` }
+}
+
+export async function overrideAiSuggestion(
+  input: OverrideAiSuggestionInput,
+): Promise<{ auditEventId: string }> {
+  if (useRemoteApprovalApi())
+    return remoteOverrideAiSuggestion(input)
+  await sleep(160)
+  return { auditEventId: `audit-${Date.now()}-override` }
+}
+
+export async function getAiAuditStats(): Promise<AiAuditStats> {
+  if (useRemoteApprovalApi())
+    return remoteGetAiAuditStats()
+  await sleep(200)
+  return {
+    totalSuggestions: 12,
+    acceptedCount: 8,
+    overriddenCount: 4,
+    acceptedRate: 0.67,
+    confidenceDistribution: { low: 3, medium: 5, high: 4 },
+    riskDistribution: { low: 4, medium: 5, high: 3 },
+    avgLatencyMs: 850,
+  }
+}
+
+export async function getAiAuditLogs(
+  query: Record<string, unknown> = {},
+): Promise<PageResult<unknown>> {
+  if (useRemoteApprovalApi())
+    return remoteGetAiAuditLogs(query)
+  await sleep(260)
+  return {
+    list: [],
+    total: 12,
+    page: (query.page as number) || 1,
+    pageSize: (query.pageSize as number) || 20,
+  }
+}
+
+export async function getAiAuditDetail(
+  approvalId: string,
+): Promise<unknown[]> {
+  if (useRemoteApprovalApi())
+    return remoteGetAiAuditDetail(approvalId)
+  await sleep(180)
+  return []
+}
+
+// ==================== Prompt 模板 API ====================
+
+export async function listPromptTemplates(
+  query?: Record<string, unknown>,
+): Promise<PromptTemplate[]> {
+  if (useRemoteApprovalApi())
+    return remoteListPromptTemplates(query)
+  await sleep(200)
+  return []
+}
+
+export async function createPromptTemplate(
+  payload: CreatePromptTemplateRequest,
+): Promise<PromptTemplate> {
+  if (useRemoteApprovalApi())
+    return remoteCreatePromptTemplate(payload)
+  await sleep(260)
+  return {
+    id: createMockId('tmpl'),
+    name: payload.name,
+    description: payload.description,
+    scope: payload.scope,
+    status: 'draft',
+    systemPrompt: payload.systemPrompt,
+    userPrompt: payload.userPrompt,
+    variables: payload.variables || [],
+    modelConfig: payload.modelConfig || { temperature: 0.2, maxTokens: 512 },
+    version: 1,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    createdBy: 'admin',
+  }
+}
+
+export async function getPromptTemplate(id: string): Promise<PromptTemplate> {
+  if (useRemoteApprovalApi())
+    return remoteGetPromptTemplate(id)
+  await sleep(180)
+  throw new Error('prompt-template-not-found')
+}
+
+export async function updatePromptTemplate(
+  id: string,
+  payload: UpdatePromptTemplateRequest,
+): Promise<PromptTemplate> {
+  if (useRemoteApprovalApi())
+    return remoteUpdatePromptTemplate(id, payload)
+  await sleep(260)
+  throw new Error('prompt-template-not-found')
+}
+
+export async function deletePromptTemplate(id: string): Promise<{ success: true }> {
+  if (useRemoteApprovalApi())
+    return remoteDeletePromptTemplate(id)
+  await sleep(160)
+  return { success: true }
+}
+
+export async function activatePromptTemplate(id: string): Promise<PromptTemplate> {
+  if (useRemoteApprovalApi())
+    return remoteActivatePromptTemplate(id)
+  await sleep(200)
+  throw new Error('prompt-template-not-found')
+}
+
+export async function testPromptTemplate(
+  payload: PromptTemplateTestRequest,
+): Promise<PromptTemplateTestResponse> {
+  if (useRemoteApprovalApi())
+    return remoteTestPromptTemplate(payload)
+  await sleep(600)
+  return {
+    output: '{"suggestion":"approve","confidence":0.85,"riskLevel":"low","reasoning":"表单信息完整，金额与类型匹配，历史轨迹清晰，可参考通过建议。"}',
+    latencyMs: 620,
+    usage: { inputTokens: 245, outputTokens: 72, totalTokens: 317 },
+  }
 }
 
 export type { AiSuggestionStreamHandlers }

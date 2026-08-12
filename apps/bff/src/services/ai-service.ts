@@ -1,6 +1,8 @@
-import type { AiApprovalSuggestionResponse, AiSuggestionDecision, AiSuggestionRiskLevel } from '@oa/contracts'
+import type { AiApprovalSuggestionResponse, AiPolicyValidationResult, AiReasoningSegment, AiSuggestionDecision, AiSuggestionRiskLevel, AiUncertainty } from '@oa/contracts'
 import { createLLM } from '@oa/ai-utils'
 import { z } from 'zod'
+import { getActivePolicy, validateAiAction } from './ai-policy-service'
+import { getActiveTemplateForScope, renderPrompt, getPromptTemplateStore, ensureDefaultTemplate } from './prompt-template-service'
 
 const FALLBACK_DISCLAIMER = 'AI 建议仅供参考，最终以人工审批为准'
 
@@ -29,16 +31,54 @@ export interface ApprovalAiContext {
   formSummary: string
 }
 
-function buildSystemPrompt(ctx: ApprovalAiContext): string {
+function contextToVariables(ctx: ApprovalAiContext, policyWarnings?: string[]): Record<string, string> {
+  return {
+    approvalId: ctx.approvalId,
+    title: ctx.title,
+    type: ctx.type,
+    applicant: ctx.applicant,
+    amount: ctx.amount !== undefined ? String(ctx.amount) : '-',
+    description: ctx.description || '-',
+    currentNodeName: ctx.currentNodeName || '-',
+    deadlineAt: ctx.deadlineAt || '-',
+    escalatedAt: ctx.escalatedAt || '-',
+    remindCount: String(ctx.remindCount ?? 0),
+    latestComment: ctx.latestComment || '-',
+    latestAttachments: ctx.latestAttachments?.join('、') || '-',
+    workflowSummary: ctx.workflowSummary,
+    trailSummary: ctx.trailSummary,
+    formSummary: ctx.formSummary,
+    policyWarnings: policyWarnings?.length
+      ? policyWarnings.map(w => `- ${w}`).join('\n')
+      : '',
+  }
+}
+
+function buildSystemPrompt(ctx: ApprovalAiContext, policyWarnings?: string[]): string {
+  // 确保默认模板存在
+  ensureDefaultTemplate()
+  const store = getPromptTemplateStore()
+  const template = getActiveTemplateForScope(store, 'approval_suggestion')
+  const variables = contextToVariables(ctx, policyWarnings)
+
+  if (template) {
+    return renderPrompt(template.systemPrompt, variables)
+  }
+
+  // Fallback: 硬编码 prompt
+  const warningLines = policyWarnings?.length
+    ? [
+        '',
+        '【AI 策略警告 - 请降低建议置信度】',
+        ...policyWarnings.map(w => `- ${w}`),
+        '',
+      ].join('\n')
+    : ''
+
   return [
     '你是企业 OA 审批辅助助手，只能给出建议，不能替代人工审批。',
     '请基于审批单关键信息、表单摘要、流程节点、历史轨迹、SLA 与代理信息进行判断。',
-    '请遵循 Human-in-the-Loop 原则：信息不足、规则冲突、金额异常、升级/代理场景不清晰时，优先返回 manual_review。',
-    '你必须输出严格 JSON，字段仅包含 suggestion、confidence、riskLevel、reasoning。',
-    'suggestion 只能是 approve、reject、manual_review。',
-    'confidence 范围 0 到 1，riskLevel 只能是 low、medium、high。',
-    'reasoning 用中文，给出 2 到 4 条简明依据，并明确说明为什么建议人工判断或建议通过/驳回。',
-    '',
+    warningLines,
     `审批单号: ${ctx.approvalId}`,
     `标题: ${ctx.title}`,
     `类型: ${ctx.type}`,
@@ -55,15 +95,22 @@ function buildSystemPrompt(ctx: ApprovalAiContext): string {
     `轨迹摘要: ${ctx.trailSummary}`,
     `表单摘要: ${ctx.formSummary}`,
     '',
-    '最小判断规则：',
-    '1. 金额高、信息缺失、历史意见冲突时，提升 riskLevel，必要时 manual_review。',
-    '2. 若当前已超时升级或代理处理，除非依据非常充分，否则 confidence 不宜过高。',
-    '3. 若描述、金额、类型与表单摘要明显一致且历史处理轨迹清晰，可给 approve 或 reject。',
-    '4. 不得虚构制度条款，不得假设不存在的附件内容。',
-  ].join('\n')
+    '请根据以上上下文返回审批建议 JSON，不要输出 Markdown 或额外说明。',
+    '',
+    '【推理依据标注规则】在 reasoning 字段中，按以下格式标注每条推理的来源：',
+    '[source:knowledge_base]基于知识库策略的推理...[/source]',
+    '[source:form_data]基于表单数据的推理...[/source]',
+    '[source:historical_data]基于历史审批的推理...[/source]',
+    '[source:model_judgment]基于模型判断的推理...[/source]',
+    '如果存在不确定性，请标注：',
+    '[uncertainty:topic=不确定主题|level=low/medium/high|action=建议采取的行动]不确定内容描述...[/uncertainty]',
+  ].filter(Boolean).join('\n')
 }
 
 function buildUserPrompt(): string {
+  const template = getActiveTemplateForScope(getPromptTemplateStore(), 'approval_suggestion')
+  if (template)
+    return template.userPrompt
   return '请根据以上上下文返回审批建议 JSON，不要输出 Markdown 或额外说明。'
 }
 
@@ -71,14 +118,17 @@ function normalizeResponse(
   parsed: z.infer<typeof SuggestionSchema>,
   usage?: AiApprovalSuggestionResponse['usage'],
 ): AiApprovalSuggestionResponse {
+  const rawReasoning = parsed.reasoning.trim()
   return {
     suggestion: parsed.suggestion,
     confidence: parsed.confidence,
     riskLevel: parsed.riskLevel,
-    reasoning: parsed.reasoning.trim(),
+    reasoning: stripExplainabilityTags(rawReasoning),
     disclaimer: FALLBACK_DISCLAIMER,
     generatedAt: new Date().toISOString(),
     usage,
+    reasoningSegments: parseReasoningSegments(rawReasoning),
+    uncertainties: parseUncertainties(rawReasoning),
   }
 }
 
@@ -141,13 +191,102 @@ function splitReasoning(reasoning: string): string[] {
   return chunks?.length ? chunks : [normalized]
 }
 
+// ========== 可解释性：引用溯源解析 ==========
+
+const SOURCE_PATTERN = /\[source:(\w+)\]([\s\S]*?)\[\/source\]/g
+const UNCERTAINTY_PATTERN = /\[uncertainty:\s*topic=([^|\]]+)\|level=(\w+)\|action=([^\]]*)\]([\s\S]*?)\[\/uncertainty\]/g
+
+function getSourceConfidence(source: string): number {
+  switch (source) {
+    case 'knowledge_base': return 0.85
+    case 'historical_data': return 0.8
+    case 'form_data': return 0.95
+    case 'model_judgment': return 0.65
+    default: return 0.5
+  }
+}
+
+export function parseReasoningSegments(reasoning: string): AiReasoningSegment[] {
+  const segments: AiReasoningSegment[] = []
+  const matches = reasoning.matchAll(SOURCE_PATTERN)
+
+  for (const match of matches) {
+    const source = match[1] as AiReasoningSegment['source']
+    const content = match[2].trim()
+    if (!content)
+      continue
+
+    const segment: AiReasoningSegment = {
+      content,
+      source,
+      confidence: getSourceConfidence(source),
+    }
+
+    // 知识库来源尝试提取引用信息
+    if (source === 'knowledge_base') {
+      const docMatch = content.match(/文档[：:]\s*(.+?)(?:[，,.]|$)/)
+      if (docMatch) {
+        segment.citation = {
+          documentId: `doc-${docMatch[1].replace(/\s/g, '-')}`,
+          detail: docMatch[1],
+        }
+      }
+    }
+
+    if (source === 'form_data') {
+      const fieldMatch = content.match(/「(.+?)」|"(.+?)"/)
+      segment.citation = {
+        fieldName: fieldMatch?.[1] || fieldMatch?.[2],
+        detail: fieldMatch?.[1] || fieldMatch?.[2] || content.slice(0, 40),
+      }
+    }
+
+    if (source === 'historical_data') {
+      const approvalMatch = content.match(/审批[：:]\s*(.+?)(?:[，,.]|$)/i)
+      segment.citation = {
+        approvalId: approvalMatch ? `approval-${approvalMatch[1].replace(/\s/g, '-')}` : undefined,
+        detail: approvalMatch?.[1] || content.slice(0, 40),
+      }
+    }
+
+    segments.push(segment)
+  }
+
+  return segments
+}
+
+export function parseUncertainties(reasoning: string): AiUncertainty[] {
+  const uncertainties: AiUncertainty[] = []
+  const matches = reasoning.matchAll(UNCERTAINTY_PATTERN)
+
+  for (const match of matches) {
+    uncertainties.push({
+      topic: match[1].trim(),
+      level: match[2].trim() as AiUncertainty['level'],
+      suggestedAction: match[3].trim(),
+      description: match[4].trim(),
+    })
+  }
+
+  return uncertainties
+}
+
+export function stripExplainabilityTags(reasoning: string): string {
+  return reasoning
+    .replace(SOURCE_PATTERN, (_full, _source, content: string) => content)
+    .replace(UNCERTAINTY_PATTERN, (_full, _topic, _level, _action, content: string) => content)
+    .replace(/\n{3,}/g, '\n\n')
+    .trim()
+}
+
 export async function generateApprovalSuggestion(
   context: ApprovalAiContext,
+  policyWarnings?: string[],
 ): Promise<AiApprovalSuggestionResponse> {
   try {
     const llm = createLLM({ temperature: 0.2, maxTokens: 512 })
     const response = await llm.invoke([
-      { role: 'system', content: buildSystemPrompt(context) },
+      { role: 'system', content: buildSystemPrompt(context, policyWarnings) },
       { role: 'user', content: buildUserPrompt() },
     ])
 
@@ -170,9 +309,41 @@ export async function generateApprovalSuggestion(
 export async function streamApprovalSuggestion(
   context: ApprovalAiContext,
   onChunk: (chunk: string) => void,
+  onSegment?: (segments: AiReasoningSegment[]) => void,
+  onUncertainty?: (uncertainties: AiUncertainty[]) => void,
+  policyWarnings?: string[],
 ): Promise<AiApprovalSuggestionResponse> {
-  const result = await generateApprovalSuggestion(context)
+  const result = await generateApprovalSuggestion(context, policyWarnings)
   for (const chunk of splitReasoning(result.reasoning))
     onChunk(chunk)
+
+  // 发送溯源 segments
+  if (result.reasoningSegments?.length) {
+    onSegment?.(result.reasoningSegments)
+  }
+
+  // 发送不确定性标注
+  if (result.uncertainties?.length) {
+    onUncertainty?.(result.uncertainties)
+  }
+
   return result
+}
+
+/**
+ * 对审批建议场景执行 AI Policy 校验
+ * 返回 blocked 时调用方应直接返回 fallback 响应，不调用 LLM
+ */
+export function checkAiSuggestionPolicy(context: ApprovalAiContext): AiPolicyValidationResult {
+  const policy = getActivePolicy()
+
+  const policyContext: Record<string, unknown> = {
+    escalatedAt: context.escalatedAt,
+    amount: context.amount,
+    isDelegated: context.workflowSummary?.includes('delegate'),
+    remindCount: context.remindCount,
+    description: context.description,
+  }
+
+  return validateAiAction(policy, 'approval_suggestion', policyContext)
 }

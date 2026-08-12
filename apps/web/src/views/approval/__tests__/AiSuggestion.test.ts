@@ -7,14 +7,45 @@ const mockState = {
   status: ref<'idle' | 'loading' | 'streaming' | 'success' | 'error'>('idle'),
   suggestion: ref<any>(null),
   streamedReasoning: ref(''),
+  reasoningSegments: ref<any[]>([]),
+  uncertainties: ref<any[]>([]),
   errorMessage: ref(''),
   isGenerating: ref(false),
   generateSuggestion: vi.fn(),
   retry: vi.fn(),
 }
 
+const mockPolicyState = {
+  showWarningBanner: ref(false),
+  policyDisclaimer: ref(''),
+}
+
 vi.mock('@/composables/useAiSuggestion', () => ({
   useAiSuggestion: () => mockState,
+}))
+
+vi.mock('@/composables/useAiPolicy', () => ({
+  useAiPolicy: () => mockPolicyState,
+}))
+
+vi.mock('@/composables/useAiAudit', () => ({
+  useAiAuditStats: () => ({
+    stats: ref(undefined),
+    isLoading: ref(false),
+    error: ref(null),
+  }),
+  useAiAuditLogs: () => ({
+    data: ref(undefined),
+    isLoading: ref(false),
+  }),
+  useAcceptAiSuggestion: () => ({
+    mutate: vi.fn(),
+    isPending: ref(false),
+  }),
+  useOverrideAiSuggestion: () => ({
+    mutate: vi.fn(),
+    isPending: ref(false),
+  }),
 }))
 
 describe('AiSuggestion.vue', () => {

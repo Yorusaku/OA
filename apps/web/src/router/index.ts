@@ -21,6 +21,9 @@ const RoleList = () => import(/* webpackChunkName: "system-role" */ '@/views/sys
 const LoginLogs = () => import(/* webpackChunkName: "system-logs" */ '@/views/system/LoginLogs.vue')
 const OperationLogs = () => import(/* webpackChunkName: "system-logs" */ '@/views/system/OperationLogs.vue')
 const ApprovalDelegationSettings = () => import(/* webpackChunkName: "system-approval-delegation" */ '@/views/system/ApprovalDelegationSettings.vue')
+const AiAuditPanel = () => import(/* webpackChunkName: "system-ai-audit" */ '@/views/system/AiAuditPanel.vue')
+const PromptTemplateList = () => import(/* webpackChunkName: "system-prompt-templates" */ '@/views/system/PromptTemplateList.vue')
+const PromptTemplateDetail = () => import(/* webpackChunkName: "system-prompt-templates" */ '@/views/system/PromptTemplateDetail.vue')
 
 const WorkflowList = () => import(/* webpackChunkName: "workflow-list" */ '@/views/workflow/WorkflowList.vue')
 const WorkflowEditor = () => import(/* webpackChunkName: "workflow-editor" */ '@/views/workflow/WorkflowEditor.vue')
@@ -265,6 +268,37 @@ export const constantRoutes: RouteRecordRaw[] = [
               title: '代理审批设置',
               requiresAuth: true,
               permission: 'system:approval-delegation:view',
+            },
+          },
+          {
+            path: 'ai-audit',
+            name: 'AiAuditPanel',
+            component: AiAuditPanel,
+            meta: {
+              title: 'AI 决策审计',
+              requiresAuth: true,
+              permission: 'system:ai-audit:view',
+            },
+          },
+          {
+            path: 'prompt-templates',
+            name: 'PromptTemplateList',
+            component: PromptTemplateList,
+            meta: {
+              title: 'Prompt 模板管理',
+              requiresAuth: true,
+              permission: 'system:prompt-templates:view',
+            },
+          },
+          {
+            path: 'prompt-templates/:id',
+            name: 'PromptTemplateDetail',
+            component: PromptTemplateDetail,
+            meta: {
+              title: '模板详情',
+              requiresAuth: true,
+              permission: 'system:prompt-templates:view',
+              hidden: true,
             },
           },
         ],

@@ -1,4 +1,4 @@
-import type { AiApprovalSuggestionResponse } from '@oa/contracts'
+import type { AiApprovalSuggestionResponse, AiReasoningSegment, AiUncertainty } from '@oa/contracts'
 import { computed, ref, toValue, watch, type MaybeRefOrGetter } from 'vue'
 import { fetchAiApprovalSuggestion, streamAiApprovalSuggestion } from '@/api/ai'
 
@@ -8,6 +8,8 @@ export function useAiSuggestion(approvalId: MaybeRefOrGetter<string | undefined>
   const status = ref<AiSuggestionStatus>('idle')
   const suggestion = ref<AiApprovalSuggestionResponse | null>(null)
   const streamedReasoning = ref('')
+  const reasoningSegments = ref<AiReasoningSegment[]>([])
+  const uncertainties = ref<AiUncertainty[]>([])
   const errorMessage = ref('')
   const isGenerating = computed(() => status.value === 'loading' || status.value === 'streaming')
 
@@ -15,6 +17,8 @@ export function useAiSuggestion(approvalId: MaybeRefOrGetter<string | undefined>
     status.value = 'idle'
     suggestion.value = null
     streamedReasoning.value = ''
+    reasoningSegments.value = []
+    uncertainties.value = []
     errorMessage.value = ''
   }
 
@@ -30,6 +34,8 @@ export function useAiSuggestion(approvalId: MaybeRefOrGetter<string | undefined>
     status.value = 'loading'
     suggestion.value = null
     streamedReasoning.value = ''
+    reasoningSegments.value = []
+    uncertainties.value = []
     errorMessage.value = ''
 
     try {
@@ -41,10 +47,23 @@ export function useAiSuggestion(approvalId: MaybeRefOrGetter<string | undefined>
           status.value = 'streaming'
           streamedReasoning.value += event.content
         },
+        onSegment: (event) => {
+          reasoningSegments.value = event.segments
+        },
+        onUncertainty: (event) => {
+          uncertainties.value = event.uncertainties
+        },
         onDone: (event) => {
           suggestion.value = {
             ...event.response,
             reasoning: streamedReasoning.value || event.response.reasoning,
+          }
+          // 如果 SSE 没有发送 segment/uncertainty 事件（如 policy blocked），从 response 取值
+          if (!reasoningSegments.value.length && event.response.reasoningSegments?.length) {
+            reasoningSegments.value = event.response.reasoningSegments
+          }
+          if (!uncertainties.value.length && event.response.uncertainties?.length) {
+            uncertainties.value = event.response.uncertainties
           }
           status.value = 'success'
         },
@@ -58,6 +77,12 @@ export function useAiSuggestion(approvalId: MaybeRefOrGetter<string | undefined>
         suggestion.value = {
           ...result,
           reasoning: streamedReasoning.value || result.reasoning,
+        }
+        if (result.reasoningSegments?.length) {
+          reasoningSegments.value = result.reasoningSegments
+        }
+        if (result.uncertainties?.length) {
+          uncertainties.value = result.uncertainties
         }
       }
 
@@ -88,6 +113,8 @@ export function useAiSuggestion(approvalId: MaybeRefOrGetter<string | undefined>
       const result = await fetchAiApprovalSuggestion(currentId)
       suggestion.value = result
       streamedReasoning.value = result.reasoning
+      reasoningSegments.value = result.reasoningSegments || []
+      uncertainties.value = result.uncertainties || []
       status.value = 'success'
       return result
     }
@@ -113,6 +140,8 @@ export function useAiSuggestion(approvalId: MaybeRefOrGetter<string | undefined>
     status,
     suggestion,
     streamedReasoning,
+    reasoningSegments,
+    uncertainties,
     errorMessage,
     isGenerating,
     resetState,

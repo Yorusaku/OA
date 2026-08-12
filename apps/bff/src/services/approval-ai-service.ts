@@ -1,7 +1,8 @@
+import type { AiApprovalSuggestionResponse, AiReasoningSegment, AiUncertainty } from '@oa/contracts'
 import type { ApprovalRecord } from '../domain'
 import type { RuntimeStore } from '../store'
 import { getApprovalDetail } from './approval-service'
-import { generateApprovalSuggestion, type ApprovalAiContext, streamApprovalSuggestion } from './ai-service'
+import { generateApprovalSuggestion, type ApprovalAiContext, streamApprovalSuggestion, checkAiSuggestionPolicy } from './ai-service'
 
 export async function buildApprovalAiContext(
   store: RuntimeStore,
@@ -13,6 +14,17 @@ export async function buildApprovalAiContext(
     return null
 
   return toApprovalAiContext(record)
+}
+
+function buildPolicyBlockedFallback(blockingReason: string): AiApprovalSuggestionResponse {
+  return {
+    suggestion: 'manual_review',
+    confidence: 0,
+    riskLevel: 'high',
+    reasoning: `AI 策略已阻止自动建议：${blockingReason}`,
+    disclaimer: 'AI 建议不可用，请人工处理当前审批。',
+    generatedAt: new Date().toISOString(),
+  }
 }
 
 function toApprovalAiContext(record: ApprovalRecord): ApprovalAiContext {
@@ -99,17 +111,44 @@ export async function runApprovalSuggestion(
   if (!context)
     return null
 
-  return generateApprovalSuggestion(context)
+  const policyResult = checkAiSuggestionPolicy(context)
+  if (!policyResult.allowed) {
+    return buildPolicyBlockedFallback(
+      policyResult.blockingRules.map(r => r.message).join('；'),
+    )
+  }
+
+  const warnings = policyResult.warningRules.map(r => r.message)
+  return generateApprovalSuggestion(context, warnings.length > 0 ? warnings : undefined)
 }
 
 export async function runApprovalSuggestionStream(
   store: RuntimeStore,
   approvalId: string,
   onChunk: (chunk: string) => void,
+  onSegment?: (segments: AiReasoningSegment[]) => void,
+  onUncertainty?: (uncertainties: AiUncertainty[]) => void,
 ) {
   const context = await buildApprovalAiContext(store, approvalId)
   if (!context)
     return null
 
-  return streamApprovalSuggestion(context, onChunk)
+  const policyResult = checkAiSuggestionPolicy(context)
+  if (!policyResult.allowed) {
+    const blocked = buildPolicyBlockedFallback(
+      policyResult.blockingRules.map(r => r.message).join('；'),
+    )
+    for (const chunk of blocked.reasoning.match(/.{1,24}/gs) || [blocked.reasoning])
+      onChunk(chunk)
+    return blocked
+  }
+
+  const warnings = policyResult.warningRules.map(r => r.message)
+  return streamApprovalSuggestion(
+    context,
+    onChunk,
+    onSegment,
+    onUncertainty,
+    warnings.length > 0 ? warnings : undefined,
+  )
 }

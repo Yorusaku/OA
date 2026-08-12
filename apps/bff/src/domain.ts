@@ -228,11 +228,14 @@ export type AuditAction
     | 'approval.delegate.disable'
     | 'workflow.publish'
     | 'workflow.rollback'
+    | 'ai.suggestion.generated'
+    | 'ai.suggestion.accepted'
+    | 'ai.suggestion.overridden'
 
 export type AuditResult = 'success' | 'failed'
 
 export interface AuditSummaryLink {
-  targetType: 'approval' | 'workflow' | 'delegation' | 'auth'
+  targetType: 'approval' | 'workflow' | 'delegation' | 'auth' | 'ai'
   targetId: string
   title?: string
   path?: string
@@ -243,7 +246,7 @@ export interface AuditEvent {
   operatorId: string
   operatorName: string
   operatedAt: string
-  module: 'approval' | 'workflow' | 'system' | 'auth'
+  module: 'approval' | 'workflow' | 'system' | 'auth' | 'ai'
   action: AuditAction
   result: AuditResult
   targetType: string

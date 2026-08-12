@@ -43,6 +43,25 @@ import {
   runApprovalSuggestion,
   runApprovalSuggestionStream,
 } from './services/approval-ai-service'
+import { getActivePolicy } from './services/ai-policy-service'
+import {
+  getAiAccuracyStats,
+  getAiAuditEvents,
+  recordAiSuggestionAccepted,
+  recordAiSuggestionGenerated,
+  recordAiSuggestionOverridden,
+} from './services/ai-audit-service'
+import {
+  activatePromptTemplate,
+  createPromptTemplate,
+  deletePromptTemplate,
+  ensureDefaultTemplate,
+  getPromptTemplate,
+  getPromptTemplateStore,
+  listPromptTemplates,
+  testPromptTemplate,
+  updatePromptTemplate,
+} from './services/prompt-template-service'
 import {
   createKnowledgeBase,
   deleteKnowledgeBase,
@@ -281,7 +300,13 @@ export async function buildApp(config: BffConfig, injectedStore?: RuntimeStore) 
     sendOk(request, reply, result, '获取成功')
   })
 
+  app.get('/api/v1/ai/policy', async (request, reply) => {
+    const policy = getActivePolicy()
+    sendOk(request, reply, policy, '获取成功')
+  })
+
   app.post('/api/v1/ai/approval-suggestion', async (request, reply) => {
+    const aiStartAt = Date.now()
     const parsed = z.object({
       approvalId: z.string().min(1),
     }).safeParse(request.body)
@@ -298,10 +323,28 @@ export async function buildApp(config: BffConfig, injectedStore?: RuntimeStore) 
     if (!result)
       throw new AppError('审批单不存在', { statusCode: 404, businessCode: API_ERROR.NOT_FOUND })
 
+    // 记录 AI 审计
+    const aiMeta = readClientMeta(request)
+    const aiOp = resolveOperatorFromRequest(request)
+    const auditEvent = await store.runInTransaction((state) => {
+      return recordAiSuggestionGenerated(state, {
+        approvalId: parsed.data.approvalId,
+        operatorId: aiOp.id,
+        operatorName: aiOp.name,
+        response: result,
+        traceId: request.id,
+        ip: aiMeta.ip,
+        userAgent: aiMeta.userAgent,
+        durationMs: Date.now() - aiStartAt,
+      })
+    })
+    result.auditEventId = auditEvent.id
+
     sendOk(request, reply, result, '获取成功')
   })
 
   app.post('/api/v1/ai/approval-suggestion/stream', async (request, reply) => {
+    const aiStreamStartAt = Date.now()
     const parsed = z.object({
       approvalId: z.string().min(1),
     }).safeParse(request.body)
@@ -326,9 +369,19 @@ export async function buildApp(config: BffConfig, injectedStore?: RuntimeStore) 
       generatedAt: new Date().toISOString(),
     })}\n\n`)
 
-    const result = await runApprovalSuggestionStream(store, parsed.data.approvalId, (chunk) => {
-      reply.raw.write(`data: ${JSON.stringify({ type: 'chunk', content: chunk })}\n\n`)
-    })
+    const result = await runApprovalSuggestionStream(
+      store,
+      parsed.data.approvalId,
+      (chunk) => {
+        reply.raw.write(`data: ${JSON.stringify({ type: 'chunk', content: chunk })}\n\n`)
+      },
+      (segments) => {
+        reply.raw.write(`data: ${JSON.stringify({ type: 'segment', segments })}\n\n`)
+      },
+      (uncertainties) => {
+        reply.raw.write(`data: ${JSON.stringify({ type: 'uncertainty', uncertainties })}\n\n`)
+      },
+    )
 
     if (!result) {
       reply.raw.write(`data: ${JSON.stringify({
@@ -339,11 +392,278 @@ export async function buildApp(config: BffConfig, injectedStore?: RuntimeStore) 
       return
     }
 
+    // 记录 AI 审计
+    const aiStreamMeta = readClientMeta(request)
+    const aiStreamOp = resolveOperatorFromRequest(request)
+    const auditEvent = await store.runInTransaction((state) => {
+      return recordAiSuggestionGenerated(state, {
+        approvalId: parsed.data.approvalId,
+        operatorId: aiStreamOp.id,
+        operatorName: aiStreamOp.name,
+        response: result,
+        traceId: request.id,
+        ip: aiStreamMeta.ip,
+        userAgent: aiStreamMeta.userAgent,
+        durationMs: Date.now() - aiStreamStartAt,
+      })
+    })
+    result.auditEventId = auditEvent.id
+
     reply.raw.write(`data: ${JSON.stringify({
       type: 'done',
       response: result,
     })}\n\n`)
     reply.raw.end()
+  })
+
+  // ==================== AI 审计 API ====================
+
+  app.post('/api/v1/ai/audit/accept', async (request, reply) => {
+    const parsed = z.object({
+      approvalId: z.string().min(1),
+      auditEventId: z.string().min(1),
+      comment: z.string().optional(),
+    }).safeParse(request.body)
+
+    if (!parsed.success) {
+      throw new AppError('请求参数错误', {
+        statusCode: 400,
+        businessCode: API_ERROR.BAD_REQUEST,
+        details: parsed.error.flatten(),
+      })
+    }
+
+    const acceptMeta = readClientMeta(request)
+    const acceptOp = resolveOperatorFromRequest(request)
+    const event = await store.runInTransaction((state) => {
+      return recordAiSuggestionAccepted(state, {
+        approvalId: parsed.data.approvalId,
+        auditEventId: parsed.data.auditEventId,
+        operatorId: acceptOp.id,
+        operatorName: acceptOp.name,
+        comment: parsed.data.comment,
+        traceId: request.id,
+        ip: acceptMeta.ip,
+        userAgent: acceptMeta.userAgent,
+      })
+    })
+    sendOk(request, reply, { auditEventId: event.id }, '已记录采纳')
+  })
+
+  app.post('/api/v1/ai/audit/override', async (request, reply) => {
+    const parsed = z.object({
+      approvalId: z.string().min(1),
+      auditEventId: z.string().min(1),
+      reason: z.string().min(1),
+    }).safeParse(request.body)
+
+    if (!parsed.success) {
+      throw new AppError('请求参数错误', {
+        statusCode: 400,
+        businessCode: API_ERROR.BAD_REQUEST,
+        details: parsed.error.flatten(),
+      })
+    }
+
+    const overrideMeta = readClientMeta(request)
+    const overrideOp = resolveOperatorFromRequest(request)
+    const event = await store.runInTransaction((state) => {
+      return recordAiSuggestionOverridden(state, {
+        approvalId: parsed.data.approvalId,
+        auditEventId: parsed.data.auditEventId,
+        operatorId: overrideOp.id,
+        operatorName: overrideOp.name,
+        reason: parsed.data.reason,
+        traceId: request.id,
+        ip: overrideMeta.ip,
+        userAgent: overrideMeta.userAgent,
+      })
+    })
+    sendOk(request, reply, { auditEventId: event.id }, '已记录覆盖')
+  })
+
+  app.get('/api/v1/ai/audit/stats', async (request, reply) => {
+    const stats = await store.runInTransaction(state => getAiAccuracyStats(state))
+    sendOk(request, reply, stats, '获取成功')
+  })
+
+  app.get('/api/v1/ai/audit/logs', async (request, reply) => {
+    const query = request.query as Record<string, unknown>
+    const result = await store.runInTransaction(state => listAuditLogs(state, {
+      page: parseNumber(query.page, 1),
+      pageSize: parseNumber(query.pageSize, 20),
+      module: 'ai',
+      action: typeof query.action === 'string' ? query.action as any : undefined,
+      dateRange: toQueryDateRange(query.dateRange),
+    }))
+    sendOk(request, reply, result, '获取成功')
+  })
+
+  app.get('/api/v1/ai/audit/:approvalId', async (request, reply) => {
+    const { approvalId } = request.params as { approvalId: string }
+    const events = await store.runInTransaction(state => getAiAuditEvents(state, approvalId))
+    sendOk(request, reply, events, '获取成功')
+  })
+
+  // ==================== Prompt 模板管理 API ====================
+
+  app.get('/api/v1/ai/prompt-templates', async (request, reply) => {
+    const query = request.query as Record<string, unknown>
+    const store = getPromptTemplateStore()
+    ensureDefaultTemplate(store)
+    const list = listPromptTemplates(store, {
+      scope: typeof query.scope === 'string' ? query.scope as any : undefined,
+      status: typeof query.status === 'string' ? query.status as any : undefined,
+      keyword: typeof query.keyword === 'string' ? query.keyword : undefined,
+    })
+    sendOk(request, reply, list, '获取成功')
+  })
+
+  app.post('/api/v1/ai/prompt-templates', async (request, reply) => {
+    const schema = z.object({
+      name: z.string().min(1),
+      description: z.string().optional(),
+      scope: z.enum(['approval_suggestion']),
+      systemPrompt: z.string().min(1),
+      userPrompt: z.string().min(1),
+      variables: z.array(z.object({
+        name: z.string().min(1),
+        label: z.string().min(1),
+        required: z.boolean(),
+        defaultValue: z.string().optional(),
+        description: z.string().optional(),
+      })).optional(),
+      modelConfig: z.object({
+        temperature: z.number().min(0).max(2),
+        maxTokens: z.number().int().min(1).max(4096),
+      }).optional(),
+    })
+    const parsed = schema.safeParse(request.body)
+    if (!parsed.success) {
+      throw new AppError('请求参数错误', {
+        statusCode: 400,
+        businessCode: API_ERROR.BAD_REQUEST,
+        details: parsed.error.flatten(),
+      })
+    }
+
+    const op = resolveOperatorFromRequest(request)
+    const store = getPromptTemplateStore()
+    ensureDefaultTemplate(store)
+    const template = createPromptTemplate(store, parsed.data, op.name)
+    sendOk(request, reply, template, '创建成功')
+  })
+
+  app.get('/api/v1/ai/prompt-templates/:id', async (request, reply) => {
+    const { id } = request.params as { id: string }
+    const store = getPromptTemplateStore()
+    const template = getPromptTemplate(store, id)
+    if (!template)
+      throw new AppError('模板不存在', { statusCode: 404, businessCode: API_ERROR.NOT_FOUND })
+    sendOk(request, reply, template, '获取成功')
+  })
+
+  app.put('/api/v1/ai/prompt-templates/:id', async (request, reply) => {
+    const { id } = request.params as { id: string }
+    const schema = z.object({
+      name: z.string().min(1).optional(),
+      description: z.string().optional(),
+      systemPrompt: z.string().min(1).optional(),
+      userPrompt: z.string().min(1).optional(),
+      variables: z.array(z.object({
+        name: z.string().min(1),
+        label: z.string().min(1),
+        required: z.boolean(),
+        defaultValue: z.string().optional(),
+        description: z.string().optional(),
+      })).optional(),
+      modelConfig: z.object({
+        temperature: z.number().min(0).max(2),
+        maxTokens: z.number().int().min(1).max(4096),
+      }).optional(),
+    })
+    const parsed = schema.safeParse(request.body)
+    if (!parsed.success) {
+      throw new AppError('请求参数错误', {
+        statusCode: 400,
+        businessCode: API_ERROR.BAD_REQUEST,
+        details: parsed.error.flatten(),
+      })
+    }
+
+    try {
+      const store = getPromptTemplateStore()
+      const template = updatePromptTemplate(store, id, parsed.data)
+      sendOk(request, reply, template, '更新成功')
+    }
+    catch (error) {
+      if (error instanceof Error && error.message === 'prompt-template-not-found') {
+        throw new AppError('模板不存在', { statusCode: 404, businessCode: API_ERROR.NOT_FOUND })
+      }
+      throw error
+    }
+  })
+
+  app.delete('/api/v1/ai/prompt-templates/:id', async (request, reply) => {
+    const { id } = request.params as { id: string }
+    try {
+      const store = getPromptTemplateStore()
+      deletePromptTemplate(store, id)
+      sendOk(request, reply, { success: true }, '删除成功')
+    }
+    catch (error) {
+      if (error instanceof Error && error.message === 'prompt-template-not-found') {
+        throw new AppError('模板不存在', { statusCode: 404, businessCode: API_ERROR.NOT_FOUND })
+      }
+      throw error
+    }
+  })
+
+  app.post('/api/v1/ai/prompt-templates/:id/activate', async (request, reply) => {
+    const { id } = request.params as { id: string }
+    try {
+      const store = getPromptTemplateStore()
+      const template = activatePromptTemplate(store, id)
+      sendOk(request, reply, template, '激活成功')
+    }
+    catch (error) {
+      if (error instanceof Error && error.message === 'prompt-template-not-found') {
+        throw new AppError('模板不存在', { statusCode: 404, businessCode: API_ERROR.NOT_FOUND })
+      }
+      throw error
+    }
+  })
+
+  app.post('/api/v1/ai/prompt-templates/test', async (request, reply) => {
+    const schema = z.object({
+      systemPrompt: z.string().min(1),
+      userPrompt: z.string().min(1),
+      variables: z.record(z.string(), z.string()),
+      modelConfig: z.object({
+        temperature: z.number().min(0).max(2),
+        maxTokens: z.number().int().min(1).max(4096),
+      }).optional(),
+    })
+    const parsed = schema.safeParse(request.body)
+    if (!parsed.success) {
+      throw new AppError('请求参数错误', {
+        statusCode: 400,
+        businessCode: API_ERROR.BAD_REQUEST,
+        details: parsed.error.flatten(),
+      })
+    }
+
+    try {
+      const result = await testPromptTemplate(parsed.data)
+      sendOk(request, reply, result, '测试成功')
+    }
+    catch (error) {
+      const message = error instanceof Error ? error.message : '测试失败'
+      throw new AppError(`模板测试失败: ${message}`, {
+        statusCode: 500,
+        businessCode: API_ERROR.INTERNAL_ERROR,
+      })
+    }
   })
 
   app.get('/api/v1/knowledge', async (request, reply) => {

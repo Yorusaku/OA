@@ -151,6 +151,33 @@ vi.mock('@/composables/useApprovalDetail', () => ({
   }))
 }))
 
+vi.mock('@/composables/useAiPolicy', () => ({
+  useAiPolicy: () => ({
+    showWarningBanner: ref(false),
+    policyDisclaimer: ref(''),
+  }),
+}))
+
+vi.mock('@/composables/useAiAudit', () => ({
+  useAiAuditStats: () => ({
+    stats: ref(undefined),
+    isLoading: ref(false),
+    error: ref(null),
+  }),
+  useAiAuditLogs: () => ({
+    data: ref(undefined),
+    isLoading: ref(false),
+  }),
+  useAcceptAiSuggestion: () => ({
+    mutate: vi.fn(),
+    isPending: ref(false),
+  }),
+  useOverrideAiSuggestion: () => ({
+    mutate: vi.fn(),
+    isPending: ref(false),
+  }),
+}))
+
 vi.mock('@/views/approval/composables/useApprovalSubmit', () => ({
   useApprovalSubmit: vi.fn(() => ({
     isLoading: ref(false),

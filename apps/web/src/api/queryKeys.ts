@@ -58,4 +58,12 @@ export const queryKeys = {
     installRecords: (page?: number, pageSize?: number) => ['template', 'installRecords', page, pageSize],
     popularTags: () => ['template', 'popularTags'],
   },
+  ai: {
+    policy: ['ai', 'policy'],
+    auditStats: ['ai', 'audit', 'stats'],
+    auditLogs: (params?: any) => ['ai', 'audit', 'logs', params],
+    auditDetail: (approvalId: string) => ['ai', 'audit', 'detail', approvalId],
+    promptTemplates: (params?: any) => ['ai', 'prompt-templates', params],
+    promptTemplateDetail: (id: string) => ['ai', 'prompt-templates', id],
+  },
 }

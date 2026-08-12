@@ -1,6 +1,7 @@
 import type {
   AiApprovalSuggestionRequest,
   AiApprovalSuggestionResponse,
+  AiPolicy,
   AiSuggestionEvent,
   CreateKnowledgeBaseRequest,
   KnowledgeBaseItem,
@@ -9,12 +10,14 @@ import type {
   RagSearchResponse,
   UploadKnowledgeDocumentRequest,
 } from '@oa/contracts'
-import { del, get, post } from './http'
+import { del, get, post, put } from './http'
 
 interface StreamHandlers {
   onEvent?: (event: AiSuggestionEvent) => void
   onMeta?: (event: Extract<AiSuggestionEvent, { type: 'meta' }>) => void
   onChunk?: (event: Extract<AiSuggestionEvent, { type: 'chunk' }>) => void
+  onSegment?: (event: Extract<AiSuggestionEvent, { type: 'segment' }>) => void
+  onUncertainty?: (event: Extract<AiSuggestionEvent, { type: 'uncertainty' }>) => void
   onDone?: (event: Extract<AiSuggestionEvent, { type: 'done' }>) => void
   onError?: (event: Extract<AiSuggestionEvent, { type: 'error' }>) => void
 }
@@ -82,6 +85,10 @@ function dispatchEvent(event: AiSuggestionEvent, handlers: StreamHandlers): void
     handlers.onMeta?.(event)
   else if (event.type === 'chunk')
     handlers.onChunk?.(event)
+  else if (event.type === 'segment')
+    handlers.onSegment?.(event)
+  else if (event.type === 'uncertainty')
+    handlers.onUncertainty?.(event)
   else if (event.type === 'done')
     handlers.onDone?.(event)
   else if (event.type === 'error')
@@ -93,6 +100,10 @@ export function remoteFetchAiApprovalSuggestion(
 ): Promise<AiApprovalSuggestionResponse> {
   const payload: AiApprovalSuggestionRequest = { approvalId }
   return post('/v1/ai/approval-suggestion', payload)
+}
+
+export function remoteFetchAiPolicy(): Promise<AiPolicy> {
+  return get('/v1/ai/policy')
 }
 
 export function remoteListKnowledgeBases(): Promise<KnowledgeBaseItem[]> {
@@ -191,6 +202,74 @@ export async function remoteStreamAiApprovalSuggestion(
     throw new Error('ai-stream-incomplete')
 
   return doneResponse
+}
+
+// ==================== AI 审计 ====================
+
+export interface AiAuditAcceptInput {
+  approvalId: string
+  auditEventId: string
+  comment?: string
+}
+
+export interface AiAuditOverrideInput {
+  approvalId: string
+  auditEventId: string
+  reason: string
+}
+
+export function remoteAcceptAiSuggestion(
+  input: AiAuditAcceptInput,
+): Promise<{ auditEventId: string }> {
+  return post('/v1/ai/audit/accept', input)
+}
+
+export function remoteOverrideAiSuggestion(
+  input: AiAuditOverrideInput,
+): Promise<{ auditEventId: string }> {
+  return post('/v1/ai/audit/override', input)
+}
+
+export function remoteGetAiAuditStats(): Promise<import('@oa/contracts').AiAuditStats> {
+  return get('/v1/ai/audit/stats')
+}
+
+export function remoteGetAiAuditLogs(query: Record<string, unknown>): Promise<import('@oa/contracts').PageResult<unknown>> {
+  return get('/v1/ai/audit/logs', { params: query })
+}
+
+export function remoteGetAiAuditDetail(approvalId: string): Promise<unknown[]> {
+  return get(`/v1/ai/audit/${approvalId}`)
+}
+
+// ==================== Prompt 模板管理 ====================
+
+export function remoteListPromptTemplates(query?: Record<string, unknown>): Promise<import('@oa/contracts').PromptTemplate[]> {
+  return get('/v1/ai/prompt-templates', { params: query })
+}
+
+export function remoteCreatePromptTemplate(payload: import('@oa/contracts').CreatePromptTemplateRequest): Promise<import('@oa/contracts').PromptTemplate> {
+  return post('/v1/ai/prompt-templates', payload)
+}
+
+export function remoteGetPromptTemplate(id: string): Promise<import('@oa/contracts').PromptTemplate> {
+  return get(`/v1/ai/prompt-templates/${id}`)
+}
+
+export function remoteUpdatePromptTemplate(id: string, payload: import('@oa/contracts').UpdatePromptTemplateRequest): Promise<import('@oa/contracts').PromptTemplate> {
+  return put(`/v1/ai/prompt-templates/${id}`, payload)
+}
+
+export function remoteDeletePromptTemplate(id: string): Promise<{ success: true }> {
+  return del(`/v1/ai/prompt-templates/${id}`)
+}
+
+export function remoteActivatePromptTemplate(id: string): Promise<import('@oa/contracts').PromptTemplate> {
+  return post(`/v1/ai/prompt-templates/${id}/activate`)
+}
+
+export function remoteTestPromptTemplate(payload: import('@oa/contracts').PromptTemplateTestRequest): Promise<import('@oa/contracts').PromptTemplateTestResponse> {
+  return post('/v1/ai/prompt-templates/test', payload)
 }
 
 export type { StreamHandlers as AiSuggestionStreamHandlers }
