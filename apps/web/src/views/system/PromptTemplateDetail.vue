@@ -140,6 +140,10 @@ function getStatusLabel(status: string) {
   const map: Record<string, string> = { draft: '草稿', active: '使用中', archived: '已归档' }
   return map[status] || status
 }
+
+function formatTemplateVariable(name: string): string {
+  return `{{${name}}}`
+}
 </script>
 
 <template>
@@ -216,7 +220,7 @@ function getStatusLabel(status: string) {
           :key="v.name"
           class="variable-chip"
         >
-          <code>{{ '{{' + v.name + '}}' }}</code>
+          <code>{{ formatTemplateVariable(v.name) }}</code>
           <span class="variable-label">{{ v.label }}</span>
           <ElTag v-if="v.required" type="danger" size="small">必填</ElTag>
         </div>
