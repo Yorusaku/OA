@@ -1,4 +1,4 @@
-# CLAUDE.md — 全景智能 OA 协同办公平台
+# CLAUDE.md - 全景智能 OA 协同办公平台
 
 > 项目级指令，每次会话自动加载。全局约束已在用户级 CLAUDE.md 中定义，此处仅补充项目专属内容。
 
@@ -6,7 +6,7 @@
 
 全景智能 OA 是一套前端主导的引擎化协同审批平台原型，核心目标是把审批系统从"页面硬编码"演进为"协议驱动 + 引擎渲染 + 状态可追踪"的交付模式。
 
-- 当前阶段：审批主链路完整，AI 审批建议与知识库 P0/P1 已落地
+- 当前阶段：审批主链路完整，AI 审批建议与知识库 P0/P1 已落地，AI 治理 4 阶段（Policy-as-Code / 决策审计 4 维度 / Prompt 模板管理 / 可解释性溯源）已完成
 - 项目性质：简历 / Demo 项目，无真实生产流量
 - 目标叙事：从"前端审批系统"升级为"AI 增强的企业级智能审批平台"
 
@@ -35,15 +35,23 @@ OA/
 │   ├── web/                          # Vue 3.5 前端
 │   │   ├── src/api/                  # mock / real 双模式 API
 │   │   │   └── ai.ts                 # AI 建议与知识库 API
-│   │   ├── src/composables/          # 组合式逻辑层（核心）
-│   │   │   ├── useFormSchemaAdapter.ts   # Adapter：设计器规则 → 内部协议
+│   │   ├── src/composables/          # 组合式逻辑层（核心，共 33 个）
+│   │   │   ├── useFormSchemaAdapter.ts   # Adapter：设计器规则 -> 内部协议
 │   │   │   ├── useApprovalDetail.ts      # 审批详情派生
 │   │   │   ├── useNodePermissions.ts     # 节点权限管理
-│   │   │   ├── useAiSuggestion.ts        # AI 建议状态机
+│   │   │   ├── useAiSuggestion.ts        # AI 建议状态机（含溯源/不确定性）
+│   │   │   ├── useAiPolicy.ts            # AI 策略查询与警告展示（治理 P1）
+│   │   │   ├── useAiAudit.ts             # AI 决策审计统计与采纳/覆盖（治理 P2）
+│   │   │   ├── usePromptTemplate.ts      # Prompt 模板 CRUD 与测试（治理 P3）
 │   │   │   └── useApprovalSubmit.ts      # 审批动作提交
 │   │   ├── src/views/approval/      # 审批中心与详情
+│   │   │   └── components/ReasoningSegmentView.vue  # 推理溯源视图（治理 P4）
 │   │   ├── src/views/workflow/      # 流程设计器
 │   │   ├── src/views/knowledge/     # 知识库管理
+│   │   ├── src/views/system/        # 系统管理
+│   │   │   ├── AiAuditPanel.vue         # AI 审计看板（治理 P2）
+│   │   │   ├── PromptTemplateList.vue   # Prompt 模板列表（治理 P3）
+│   │   │   └── PromptTemplateDetail.vue # Prompt 模板详情/测试（治理 P3）
 │   │   ├── src/components/          # 引擎组件
 │   │   │   ├── document/            # 文档预览引擎
 │   │   │   └── ...                  # 表单/流程引擎组件
@@ -56,17 +64,20 @@ OA/
 │       ├── src/store.ts              # Postgres / 内存双存储实现
 │       ├── src/sse.ts                # SSE 实时推送 Hub
 │       └── src/services/
-│           ├── approval-service.ts   # 审批 CRUD
-│           ├── approval-ai-service.ts # 审批 AI 上下文组装
-│           ├── ai-service.ts         # LLM 调用 + 结构化解析
-│           ├── knowledge-service.ts  # 知识库完整链路
-│           ├── document-pipeline.ts  # 文档处理流水线
-│           ├── audit-service.ts      # 审计日志
-│           ├── metrics-service.ts    # 审批指标快照
-│           └── workflow-service.ts   # 流程版本治理
+│           ├── approval-service.ts      # 审批 CRUD
+│           ├── approval-ai-service.ts   # 审批 AI 上下文组装
+│           ├── ai-service.ts            # LLM 调用 + 结构化解析 + 引用溯源
+│           ├── ai-policy-service.ts     # AI 策略即代码（治理 P1）
+│           ├── ai-audit-service.ts      # AI 决策审计 4 维度（治理 P2）
+│           ├── prompt-template-service.ts # Prompt 模板管理与版本化（治理 P3）
+│           ├── knowledge-service.ts     # 知识库完整链路
+│           ├── document-pipeline.ts     # 文档处理流水线
+│           ├── audit-service.ts         # 审计日志
+│           ├── metrics-service.ts       # 审批指标快照
+│           └── workflow-service.ts      # 流程版本治理
 ├── packages/
 │   ├── contracts/                    # 前后端共享契约
-│   │   └── src/index.ts             # ApiEnvelope / AI / RAG / SSE 类型
+│   │   └── src/index.ts             # ApiEnvelope / AI / RAG / SSE / 审计 / Prompt 模板类型
 │   ├── ai-utils/                     # AI 基础能力封装
 │   │   └── src/
 │   │       ├── llm/                  # Ark LLM 调用
@@ -101,7 +112,10 @@ OA/
 | `useApprovalDetail` | 审批详情派生：表单/节点/权限/轨迹/时间线 |
 | `useNodePermissions` | 节点表单权限配置，150ms 防抖同步 |
 | `useApprovalSubmit` | 审批动作提交流程 |
-| `useAiSuggestion` | AI 建议状态机：idle → loading → streaming → success/error |
+| `useAiSuggestion` | AI 建议状态机：idle -> loading -> streaming -> success/error（含溯源/不确定性） |
+| `useAiPolicy` | AI 策略查询、警告横幅展示（治理 P1） |
+| `useAiAudit` | AI 决策审计统计、采纳/覆盖反馈闭环（治理 P2） |
+| `usePromptTemplate` | Prompt 模板列表/详情/CRUD/在线测试（治理 P3） |
 
 ### 3. 双模式 API
 
@@ -109,14 +123,24 @@ OA/
 - `VITE_API_MODE=real`：走 BFF 联调
 - AI 与知识库接口同样保持 mock / real 双实现
 
-### 4. AI 四层架构
+### 4. AI 分层架构
 
 ```
-packages/ai-utils          → 纯 AI 基础能力（LLM、Embedding、Qdrant、分块）
-packages/contracts          → AI / RAG / SSE 共享契约类型
-apps/bff/ai-service.ts     → 模型调用 + Zod 结构化解析 + 降级
-apps/bff/approval-ai-service.ts → 审批上下文组装 + 提示词裁剪
+packages/ai-utils                   -> 纯 AI 基础能力（LLM、Embedding、Qdrant、分块）
+packages/contracts                  -> AI / RAG / SSE / 审计 / Prompt 模板共享契约
+apps/bff/ai-service.ts              -> 模型调用 + Zod 结构化解析 + 引用溯源 + 降级
+apps/bff/approval-ai-service.ts     -> 审批上下文组装 + 提示词裁剪
+apps/bff/ai-policy-service.ts       -> Policy-as-Code：AI 能力边界声明（block/warn）
+apps/bff/ai-audit-service.ts        -> AI 决策审计 4 维度（输入/模型/人工/结果）
+apps/bff/prompt-template-service.ts -> Prompt 模板 CRUD + 版本 + 渲染 + 在线测试
 ```
+
+AI 治理四阶段（已全部落地）：
+
+1. **Policy-as-Code**：声明式规则定义 AI 能力边界，`block` 直接阻断、`warn` 降低置信度，规则可配置
+2. **决策审计 4 维度**：输入上下文 / 模型行为 / 人工干预 / 结果影响，全链路留痕可追溯
+3. **Prompt 模板管理**：模板版本化 + 变量渲染（`{{var}}` / `{{#cond}}...{{/cond}}`）+ 在线测试 + 默认 fallback
+4. **可解释性增强**：推理来源溯源（知识库 / 表单数据 / 历史数据 / 模型判断 4 类来源）+ 不确定性标注
 
 ### 5. Human-in-the-Loop 设计
 
@@ -126,13 +150,15 @@ apps/bff/approval-ai-service.ts → 审批上下文组装 + 提示词裁剪
   - `≥ 0.8` 高置信度（可直接采纳）
   - `0.5 - 0.8` 中置信度（建议参考）
   - `< 0.5` manual_review（人工判断）
-- 解析失败、模型异常、信息不足 → 统一降级 `manual_review`
+- 解析失败、模型异常、信息不足 -> 统一降级 `manual_review`
+- AI 建议可被人工采纳或忽略，决策回写审计（治理 P2 反馈闭环）
 
 ### 6. 降级与容错
 
 - 无 `ARK_API_KEY`：AI 建议自动 `manual_review`，知识库搜索走本地文本匹配
 - 向量链路失败：不阻塞文档元数据落库，记录 `vector-index-skipped`，搜索继续可用
-- 上传内容超 10MB → 统一返回 413
+- 上传内容超 10MB -> 统一返回 413
+- Prompt 模板缺失或渲染失败 -> 回退硬编码默认 prompt（治理 P3 fallback）
 
 ### 7. 审批域设计
 
@@ -140,7 +166,7 @@ apps/bff/approval-ai-service.ts → 审批上下文组装 + 提示词裁剪
 - 2 种节点策略：会签 `and` / 或签 `or`
 - SLA 自动升级 + 全局代理审批
 - owner/handler 双层身份拆分
-- 流程版本治理：发布 → 编辑 → 回滚 → 影响分析
+- 流程版本治理：发布 -> 编辑 -> 回滚 -> 影响分析
 - 审计日志：AuditEvent 模型，before/after 快照 + TraceId + IP + UA
 
 ## 常用命令
@@ -216,9 +242,10 @@ pnpm --filter panorama-oa-web dev
 - AI 只能提供建议，不能直接驱动真实审批动作
 - 不要破坏 approve / reject / transfer / addSign / remind / withdraw / cancel 主链路
 - 非当前处理人的动作边界不能被 AI 功能绕开
-- 不要为每类审批单据单独写页面——必须通过引擎渲染
+- 不要为每类审批单据单独写页面--必须通过引擎渲染
 - 不要在 AI 功能中假设可以绕过 Schema 校验
 - 首版不宣称支持 Word 原生直传
+- 不要让 AI 生成逻辑越过 Schema 直接写数据
 
 ### 测试要求
 
@@ -256,25 +283,38 @@ pnpm --filter panorama-oa-web dev
 - 来源引用展示
 - 无 API Key 时的全链路降级
 
+### AI 治理 ✅
+
+- **Policy-as-Code（P1）**：声明式规则定义 AI 能力边界，`block` 阻断 / `warn` 降置信，规则可配置
+- **决策审计 4 维度（P2）**：输入上下文 / 模型行为 / 人工干预 / 结果影响，全链路留痕可追溯
+- **采纳/覆盖反馈闭环（P2）**：AI 建议可被采纳或忽略，人工决策回写审计
+- **Prompt 模板管理（P3）**：模板 CRUD + 版本化 + 变量渲染（`{{var}}` / `{{#cond}}`）+ 在线测试 + 默认 fallback
+- **可解释性增强（P4）**：推理来源溯源（知识库 / 表单数据 / 历史数据 / 模型判断 4 类来源）+ 不确定性标注面板
+- **AI 审计看板（P2）**：统计看板（采纳率 / 置信度分布 / 风险分布 / 平均延迟）+ 日志查询
+
 ## 阅读顺序建议
 
 如果要完整理解项目，按这个顺序读：
 
-1. `AGENTS.md` / `CLAUDE.md` — 项目概览与约定
-2. `packages/contracts/src/index.ts` — 共享类型契约（API/AI/RAG/SSE）
-3. `apps/bff/src/domain.ts` — 领域模型定义
-4. `apps/bff/src/store.ts` — 存储抽象（Postgres/内存双实现）
-5. `apps/web/src/composables/` — 组合式逻辑层（核心）
-6. `apps/web/src/views/approval/` — 审批业务视图
-7. `apps/bff/src/services/` — BFF 服务层
+1. `AGENTS.md` / `CLAUDE.md` - 项目概览与约定
+2. `packages/contracts/src/index.ts` - 共享类型契约（API/AI/RAG/SSE/审计/Prompt 模板）
+3. `apps/bff/src/domain.ts` - 领域模型定义
+4. `apps/bff/src/store.ts` - 存储抽象（Postgres/内存双实现）
+5. `apps/bff/src/services/ai-*.ts` + `prompt-template-service.ts` - AI 治理链路
+6. `apps/web/src/composables/` - 组合式逻辑层（核心）
+7. `apps/web/src/views/approval/` - 审批业务视图
+8. `apps/bff/src/services/` - BFF 服务层
 
 ## 面试防御要点
 
-- AI 始终是辅助层，不越过审批边界 → Human-in-the-Loop
+- AI 始终是辅助层，不越过审批边界 -> Human-in-the-Loop
 - 动态表单不是"用了 form-create"，而是"通过 Adapter 层隔离第三方依赖"
-- 流程编排不是"画了个图"，而是"可编辑模型 → 可执行模型的双向映射"
+- 流程编排不是"画了个图"，而是"可编辑模型 -> 可执行模型的双向映射"
 - 审批治理不是"做了审批流"，而是"owner/handler 拆分 + SLA 升级 + 代理接管 + 会签或签"
 - 版本治理不是"存了个快照"，而是"全快照 + 发布/回滚 + 影响分析 + 审计追踪"
 - SSE 选择 POST + fetch + ReadableStream：请求体需要 approvalId，EventSource 只支持 GET
 - PDF 文本提取放前端 Worker：复用审批附件预览链路，减少主线程阻塞
-- 降级策略是设计出来的，不是报错后补的：无 API Key / 向量失败 / 模型异常都有fallback
+- 降级策略是设计出来的，不是报错后补的：无 API Key / 向量失败 / 模型异常 / Prompt 模板缺失都有 fallback
+- AI 治理不是"做了 AI 建议"，而是"Policy-as-Code 声明边界 + 4 维度审计留痕 + Prompt 模板版本化 + 推理溯源可解释"
+- Prompt 工程不是"写死在代码里"，而是"模板化 + 版本化 + 变量渲染 + 在线测试 + 默认 fallback"
+- 可解释性不是"输出一段理由"，而是"4 类来源溯源（知识库/表单/历史/模型判断）+ 不确定性标注 + 置信度分级"

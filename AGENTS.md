@@ -1,4 +1,4 @@
-# AGENTS.md — 全景智能 OA 协同办公平台
+# AGENTS.md - 全景智能 OA 协同办公平台
 
 > 面向 AI Agent 的项目速查手册。接手任务前先读这份文件。
 
@@ -6,7 +6,7 @@
 
 全景智能 OA 是一套前端主导的引擎化协同审批平台原型，核心目标是把审批系统从“页面硬编码”演进为“协议驱动 + 引擎渲染 + 状态可追踪”的交付模式。
 
-- 当前阶段：审批主链路已完整，AI 审批建议与知识库 P0/P1 已落地
+- 当前阶段：审批主链路已完整，AI 审批建议与知识库 P0/P1 已落地，AI 治理 4 阶段（Policy-as-Code / 决策审计 4 维度 / Prompt 模板管理 / 可解释性溯源）已完成
 - 项目性质：简历 / Demo 项目，无真实生产流量
 - 目标叙事：从“前端审批系统”升级为“AI 增强的企业级智能审批平台”
 
@@ -32,6 +32,15 @@
 - Qdrant 向量检索
 - 模型缺失时的 fallback 降级
 
+### AI 治理
+
+- **Policy-as-Code（P1）**：声明式规则定义 AI 能力边界，`block` 阻断 / `warn` 降置信
+- **决策审计 4 维度（P2）**：输入上下文 / 模型行为 / 人工干预 / 结果影响，全链路留痕
+- **采纳/覆盖反馈闭环（P2）**：AI 建议可被采纳或忽略，人工决策回写审计
+- **Prompt 模板管理（P3）**：模板 CRUD + 版本化 + 变量渲染 + 在线测试 + 默认 fallback
+- **可解释性增强（P4）**：推理来源溯源（知识库 / 表单数据 / 历史数据 / 模型判断）+ 不确定性标注
+- **AI 审计看板（P2）**：统计看板（采纳率 / 置信度分布 / 风险分布 / 平均延迟）+ 日志查询
+
 ## 3. 技术栈速览
 
 | 分类 | 选型 | 用途 |
@@ -56,9 +65,18 @@ OA/
 ├── apps/
 │   ├── web/
 │   │   ├── src/api/                 # mock / real 双模式 API
-│   │   ├── src/composables/         # 组合式逻辑层
+│   │   ├── src/composables/         # 组合式逻辑层（33 个）
+│   │   │   ├── useAiSuggestion.ts       # AI 建议状态机（含溯源/不确定性）
+│   │   │   ├── useAiPolicy.ts           # AI 策略查询与警告（治理 P1）
+│   │   │   ├── useAiAudit.ts            # AI 审计统计与采纳/覆盖（治理 P2）
+│   │   │   └── usePromptTemplate.ts     # Prompt 模板 CRUD 与测试（治理 P3）
 │   │   ├── src/views/approval/      # 审批中心与详情
+│   │   │   └── components/ReasoningSegmentView.vue # 推理溯源视图（治理 P4）
 │   │   ├── src/views/knowledge/     # 知识库管理
+│   │   ├── src/views/system/        # 系统管理
+│   │   │   ├── AiAuditPanel.vue         # AI 审计看板（治理 P2）
+│   │   │   ├── PromptTemplateList.vue   # Prompt 模板列表（治理 P3）
+│   │   │   └── PromptTemplateDetail.vue # Prompt 模板详情/测试（治理 P3）
 │   │   └── src/services/            # PDF 等文档服务
 │   └── bff/
 │       ├── src/app.ts               # Fastify 路由入口
@@ -66,12 +84,15 @@ OA/
 │       └── src/services/
 │           ├── approval-service.ts
 │           ├── approval-ai-service.ts
-│           ├── ai-service.ts
+│           ├── ai-service.ts            # LLM 调用 + 引用溯源解析
+│           ├── ai-policy-service.ts     # AI 策略即代码（治理 P1）
+│           ├── ai-audit-service.ts      # AI 决策审计 4 维度（治理 P2）
+│           ├── prompt-template-service.ts # Prompt 模板管理与版本化（治理 P3）
 │           ├── knowledge-service.ts
 │           └── document-pipeline.ts
 ├── packages/
 │   ├── ai-utils/                    # Ark / Embedding / Qdrant / chunking
-│   ├── contracts/                   # 前后端共享契约
+│   ├── contracts/                   # 前后端共享契约（含审计 / Prompt 模板类型）
 │   ├── config/
 │   └── utils/
 ├── docs/                            # VitePress 文档站
@@ -97,7 +118,10 @@ OA/
 - `useApprovalDetail`
 - `useNodePermissions`
 - `useApprovalSubmit`
-- `useAiSuggestion`
+- `useAiSuggestion`（含溯源/不确定性）
+- `useAiPolicy`（治理 P1）
+- `useAiAudit`（治理 P2）
+- `usePromptTemplate`（治理 P3）
 
 ### 5.3 双模式 API
 
@@ -108,9 +132,12 @@ OA/
 ### 5.4 AI 分层
 
 - `packages/ai-utils`：纯 AI 基础能力
-- `packages/contracts`：AI / RAG / SSE 契约
-- `apps/bff/src/services/ai-service.ts`：模型调用与结构化解析
+- `packages/contracts`：AI / RAG / SSE / 审计 / Prompt 模板契约
+- `apps/bff/src/services/ai-service.ts`：模型调用、结构化解析、引用溯源
 - `apps/bff/src/services/approval-ai-service.ts`：审批上下文组装
+- `apps/bff/src/services/ai-policy-service.ts`：Policy-as-Code 能力边界声明（治理 P1）
+- `apps/bff/src/services/ai-audit-service.ts`：AI 决策审计 4 维度（治理 P2）
+- `apps/bff/src/services/prompt-template-service.ts`：Prompt 模板 CRUD / 版本 / 渲染 / 测试（治理 P3）
 - `apps/bff/src/services/knowledge-service.ts`：知识库上传、索引、检索
 
 ## 6. 当前 AI 设计要点
@@ -124,6 +151,8 @@ OA/
   - `confidence`
   - `riskLevel`
   - `reasoning`
+  - `reasoningSegments`（治理 P4：推理来源溯源）
+  - `uncertainties`（治理 P4：不确定性标注）
   - `disclaimer`
   - `generatedAt`
 - 解析失败、模型异常、信息不足时统一降级 `manual_review`
@@ -135,6 +164,13 @@ OA/
 - `PDF` 文本提取在前端完成
 - 首版上传接口使用 JSON 文本提交，不是 multipart
 - 向量链路失败不阻塞文档元数据落库
+
+### AI 治理（P1-P4）
+
+- **Policy-as-Code（P1）**：`ai-policy-service` 声明式规则，`block` 直接阻断 AI 建议、`warn` 降低置信度，规则可配置
+- **决策审计 4 维度（P2）**：`ai-audit-service` 记录输入上下文 / 模型行为 / 人工干预 / 结果影响，采纳/覆盖回写审计
+- **Prompt 模板管理（P3）**：`prompt-template-service` 模板版本化 + `{{var}}` / `{{#cond}}` 变量渲染 + 在线测试 + 默认 fallback
+- **可解释性增强（P4）**：`ai-service` 解析 `[source:xxx]...[/source]` 标签为 4 类来源 segment，`[uncertainty:...]` 标签为不确定性标注
 
 ## 7. 环境与运行
 
@@ -228,7 +264,16 @@ pnpm docs:build
 - 向量链路失败时要允许 fallback
 - 首版不宣称支持 Word 原生直传
 
-### 9.5 测试要求
+### 9.5 AI 治理注意事项
+
+- `block` 规则命中时必须直接返回 fallback，不调用 LLM
+- `warn` 规则命中时降低置信度，但仍可返回建议
+- AI 审计事件必须与建议生命周期绑定（生成 / 采纳 / 覆盖三节点）
+- Prompt 模板改动走 CRUD + 激活机制，不要直接改硬编码 fallback
+- 引用溯源 segment 的 source 必须是 4 类之一：`knowledge_base` / `form_data` / `historical_data` / `model_judgment`
+- 不确定性标注只用于提示人工重点核对，不影响建议本身
+
+### 9.6 测试要求
 
 - 审批域与 AI 接入改动必须有对应单测
 - 新增 composable 需要 Vitest
@@ -244,4 +289,3 @@ pnpm docs:build
 - [AI 集成规划](plan/ai-integration-plan.md)
 - [架构文档](docs/architecture.md)
 - [开发指南](docs/development.md)
-
