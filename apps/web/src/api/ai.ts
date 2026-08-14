@@ -173,11 +173,80 @@ function buildMockResponse(approvalId: string): AiApprovalSuggestionResponse {
       suggestedAction: '请申请人补充发票扫描件或电子发票链接',
     },
   ]
+  const reviewSummary = payload.suggestion === 'approve'
+    ? {
+        title: '差旅报销申请',
+        applicant: '张三',
+        approvalType: 'expense',
+        amount: 1350,
+        currentNodeName: '财务审批',
+        timeline: [
+          '申请人 张三 发起「差旅报销申请」',
+          '当前流转至 财务审批',
+          '最近处理意见：直属主管已确认出差必要性',
+        ],
+      }
+    : {
+        title: '高金额采购申请',
+        applicant: '李四',
+        approvalType: 'purchase',
+        amount: 120000,
+        currentNodeName: '采购部审批',
+        timeline: [
+          '申请人 李四 发起「高金额采购申请」',
+          '当前流转至 采购部审批',
+          '已催办 3 次',
+        ],
+      }
+  const riskPoints = payload.suggestion === 'approve'
+    ? [
+        {
+          level: 'low' as const,
+          title: '未发现明显规则风险',
+          detail: '金额、附件和当前节点职责较匹配，未命中高金额、超时升级或多次催办风险。',
+          source: 'model' as const,
+        },
+      ]
+    : [
+        {
+          level: 'high' as const,
+          title: '高金额审批',
+          detail: '当前申请金额为 120000，超过高金额复核阈值，需要重点核对预算、合同和三方比价材料。',
+          source: 'policy' as const,
+        },
+        {
+          level: 'medium' as const,
+          title: '附件材料待核对',
+          detail: '当前审批缺少关键比价附件，建议人工确认材料完整性后再处理。',
+          source: 'form' as const,
+        },
+        {
+          level: 'medium' as const,
+          title: '多次催办',
+          detail: '当前审批已多次催办，可能存在业务紧急度或处理争议。',
+          source: 'workflow' as const,
+        },
+      ]
+  const evidenceSourceText = {
+    knowledge_base: '制度知识库',
+    form_data: '表单数据',
+    historical_data: '历史数据',
+    model_judgment: '模型判断',
+  }
+  const evidenceItems = segments.map((segment, index) => ({
+    title: `${index + 1}. ${evidenceSourceText[segment.source]}`,
+    detail: segment.citation?.detail
+      ? `${segment.content}（${segment.citation.detail}）`
+      : segment.content,
+    source: segment.source,
+    confidence: segment.confidence,
+  }))
 
   return {
     ...payload,
     disclaimer: 'AI 建议仅供参考，最终以人工审批为准',
     generatedAt: new Date().toISOString(),
+    auditEventId: `mock-ai-audit-${approvalId}`,
     usage: {
       inputTokens: 128,
       outputTokens: 96,
@@ -185,6 +254,9 @@ function buildMockResponse(approvalId: string): AiApprovalSuggestionResponse {
     },
     reasoningSegments: segments,
     uncertainties,
+    reviewSummary,
+    riskPoints,
+    evidenceItems,
   }
 }
 

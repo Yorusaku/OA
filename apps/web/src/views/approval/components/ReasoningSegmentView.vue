@@ -43,9 +43,17 @@ function toggleCitation(id: string) {
         v-for="legend in sourceLegend"
         :key="legend.label"
         class="legend-item"
-        :style="{ color: legend.color, borderColor: legend.color }"
       >
-        <ElTag :color="legend.color" size="small" effect="plain">
+        <ElTag
+          class="legend-tag"
+          size="small"
+          effect="plain"
+          :style="{
+            color: legend.color,
+            borderColor: legend.color,
+            backgroundColor: legend.bg,
+          }"
+        >
           {{ legend.label }}
         </ElTag>
       </span>
@@ -65,9 +73,18 @@ function toggleCitation(id: string) {
         @click="segment.citation ? toggleCitation(`seg-${index}`) : undefined"
       >
         <div class="segment-header">
-          <ElTag :type="segment.source === 'knowledge_base' ? 'success' : segment.source === 'form_data' ? 'info' : segment.source === 'historical_data' ? 'primary' : 'warning'" size="small" effect="light">
-            <component :is="sourceConfig(segment.source).icon" style="margin-right: 4px;" />
-            {{ sourceConfig(segment.source).label }}
+          <ElTag
+            class="segment-source-tag"
+            :type="segment.source === 'knowledge_base' ? 'success' : segment.source === 'form_data' ? 'info' : segment.source === 'historical_data' ? 'primary' : 'warning'"
+            size="small"
+            effect="light"
+          >
+            <component
+              :is="sourceConfig(segment.source).icon"
+              class="segment-source-icon"
+              aria-hidden="true"
+            />
+            <span>{{ sourceConfig(segment.source).label }}</span>
           </ElTag>
           <span
             class="segment-confidence"
@@ -148,6 +165,11 @@ function toggleCitation(id: string) {
 }
 
 .legend-item {
+  display: inline-flex;
+  font-size: 12px;
+}
+
+.legend-tag {
   font-size: 12px;
 }
 
@@ -176,10 +198,31 @@ function toggleCitation(id: string) {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 12px;
+  min-height: 24px;
   margin-bottom: 6px;
 }
 
+.segment-source-tag {
+  flex-shrink: 0;
+}
+
+.segment-source-tag :deep(.el-tag__content) {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.segment-source-icon {
+  flex: 0 0 14px;
+  width: 14px;
+  height: 14px;
+}
+
 .segment-confidence {
+  flex-shrink: 0;
   font-size: 12px;
   font-weight: 600;
 }
@@ -188,6 +231,7 @@ function toggleCitation(id: string) {
   font-size: 13px;
   line-height: 1.7;
   color: #303133;
+  overflow-wrap: anywhere;
 }
 
 .citation-trigger {

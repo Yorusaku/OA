@@ -73,7 +73,7 @@ const helperText = computed(() => {
     return 'AI 策略已阻止此审批的 AI 建议生成，请人工处理。'
 
   if (!suggestion.value)
-    return '点击按钮生成 AI 建议，AI 仅作为审批辅助信息。'
+    return '点击按钮生成 Copilot 审查，AI 仅作为审批辅助信息。'
 
   if (confidence.value >= 0.8)
     return '高置信度建议，可作为审批参考。'
@@ -93,6 +93,58 @@ const tagType = computed<'success' | 'warning' | 'info' | 'danger'>(() => {
 })
 
 const confidenceText = computed(() => `${Math.round(confidence.value * 100)}%`)
+const reviewSummary = computed(() => suggestion.value?.reviewSummary)
+const riskPoints = computed(() => suggestion.value?.riskPoints || [])
+const evidenceItems = computed(() => suggestion.value?.evidenceItems || [])
+
+function formatAmount(amount?: number): string {
+  if (amount === undefined)
+    return '-'
+  return `￥${amount.toLocaleString('zh-CN')}`
+}
+
+function riskPointType(level: 'low' | 'medium' | 'high'): 'success' | 'warning' | 'danger' {
+  if (level === 'high')
+    return 'danger'
+  if (level === 'medium')
+    return 'warning'
+  return 'success'
+}
+
+function riskLevelText(level: 'low' | 'medium' | 'high'): string {
+  if (level === 'high')
+    return '高风险'
+  if (level === 'medium')
+    return '中风险'
+  return '低风险'
+}
+
+function riskSourceText(source: 'policy' | 'form' | 'workflow' | 'history' | 'model'): string {
+  const map = {
+    policy: '策略规则',
+    form: '表单数据',
+    workflow: '流程上下文',
+    history: '历史轨迹',
+    model: '模型判断',
+  }
+  return map[source]
+}
+
+function evidenceSourceText(source: 'knowledge_base' | 'historical_data' | 'form_data' | 'model_judgment'): string {
+  const map = {
+    knowledge_base: '制度知识库',
+    historical_data: '历史数据',
+    form_data: '表单数据',
+    model_judgment: '模型判断',
+  }
+  return map[source]
+}
+
+function evidenceConfidenceText(confidence?: number): string {
+  if (confidence === undefined)
+    return '-'
+  return `${Math.round(confidence * 100)}%`
+}
 
 function handleGenerate(): void {
   const task = generateSuggestion()
@@ -159,7 +211,7 @@ function cancelOverride(): void {
     <template #header>
       <div class="ai-suggestion-card__header">
         <div>
-          <div class="ai-suggestion-card__title">AI 审批建议</div>
+          <div class="ai-suggestion-card__title">审批 Copilot</div>
           <div class="ai-suggestion-card__subtitle">{{ helperText }}</div>
         </div>
         <ElTag v-if="suggestion" :type="tagType" effect="light">
@@ -182,9 +234,9 @@ function cancelOverride(): void {
     </ElAlert>
 
     <div v-if="status === 'idle' && !isPolicyBlocked" class="ai-suggestion-card__empty">
-      <p>AI 不会自动消耗 token，点击后再生成审批建议。</p>
+      <p>AI 不会自动消耗 token，点击后再生成审批审查建议。</p>
       <ElButton type="primary" :loading="isGenerating" @click="handleGenerate">
-        生成 AI 建议
+        生成 Copilot 审查
       </ElButton>
     </div>
 
@@ -225,7 +277,76 @@ function cancelOverride(): void {
         </div>
         <div class="ai-suggestion-card__metric">
           <span class="label">风险等级</span>
-          <span class="value">{{ suggestion.riskLevel }}</span>
+          <span class="value">{{ riskLevelText(suggestion.riskLevel) }}</span>
+        </div>
+      </div>
+
+      <div v-if="reviewSummary" class="ai-copilot-section">
+        <div class="ai-copilot-section__title">审查摘要</div>
+        <div class="ai-copilot-summary">
+          <div class="ai-copilot-summary__item">
+            <span class="label">标题</span>
+            <span class="value">{{ reviewSummary.title }}</span>
+          </div>
+          <div class="ai-copilot-summary__item">
+            <span class="label">申请人</span>
+            <span class="value">{{ reviewSummary.applicant }}</span>
+          </div>
+          <div class="ai-copilot-summary__item">
+            <span class="label">类型</span>
+            <span class="value">{{ reviewSummary.approvalType }}</span>
+          </div>
+          <div class="ai-copilot-summary__item">
+            <span class="label">金额</span>
+            <span class="value">{{ formatAmount(reviewSummary.amount) }}</span>
+          </div>
+          <div class="ai-copilot-summary__item">
+            <span class="label">当前节点</span>
+            <span class="value">{{ reviewSummary.currentNodeName || '-' }}</span>
+          </div>
+        </div>
+        <ul v-if="reviewSummary.timeline.length" class="ai-copilot-timeline">
+          <li v-for="(item, index) in reviewSummary.timeline" :key="index">{{ item }}</li>
+        </ul>
+      </div>
+
+      <div v-if="riskPoints.length" class="ai-copilot-section">
+        <div class="ai-copilot-section__title">风险点</div>
+        <div class="ai-copilot-risk-list">
+          <div
+            v-for="(item, index) in riskPoints"
+            :key="`${item.title}-${index}`"
+            class="ai-copilot-risk"
+          >
+            <div class="ai-copilot-risk__header">
+              <span class="ai-copilot-risk__title">{{ item.title }}</span>
+              <ElTag :type="riskPointType(item.level)" size="small" effect="light">
+                {{ riskLevelText(item.level) }}
+              </ElTag>
+            </div>
+            <p class="ai-copilot-risk__detail">{{ item.detail }}</p>
+            <span class="ai-copilot-risk__source">来源：{{ riskSourceText(item.source) }}</span>
+          </div>
+        </div>
+      </div>
+
+      <div v-if="evidenceItems.length" class="ai-copilot-section">
+        <div class="ai-copilot-section__title">依据来源</div>
+        <div class="ai-copilot-evidence-list">
+          <div
+            v-for="(item, index) in evidenceItems"
+            :key="`${item.title}-${index}`"
+            class="ai-copilot-evidence"
+          >
+            <div class="ai-copilot-evidence__header">
+              <span class="ai-copilot-evidence__title">{{ item.title }}</span>
+              <div class="ai-copilot-evidence__meta">
+                <ElTag size="small" effect="plain">{{ evidenceSourceText(item.source) }}</ElTag>
+                <span class="ai-copilot-evidence__confidence">{{ evidenceConfidenceText(item.confidence) }}</span>
+              </div>
+            </div>
+            <p class="ai-copilot-evidence__detail">{{ item.detail }}</p>
+          </div>
         </div>
       </div>
 
@@ -242,8 +363,8 @@ function cancelOverride(): void {
           <ElCollapseItem name="uncertainties">
             <template #title>
               <div class="uncertainty-panel__header">
-                <ElTag type="danger" size="small" effect="dark">
-                  <WarningFilled style="margin-right: 4px;" />
+                <ElTag class="uncertainty-panel__tag" type="danger" size="small" effect="dark">
+                  <WarningFilled class="uncertainty-panel__icon" aria-hidden="true" />
                   {{ uncertainties.length }} 个不确定性
                 </ElTag>
                 <span class="uncertainty-panel__hint">点击展开查看详情</span>
@@ -429,6 +550,118 @@ function cancelOverride(): void {
   color: #303133;
 }
 
+.ai-copilot-section {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-top: 2px;
+}
+
+.ai-copilot-section__title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #303133;
+}
+
+.ai-copilot-summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(132px, 1fr));
+  gap: 8px;
+}
+
+.ai-copilot-summary__item {
+  min-width: 0;
+  padding: 10px 12px;
+  border: 1px solid #ebeef5;
+  border-radius: 8px;
+  background: #fcfcfd;
+}
+
+.ai-copilot-summary__item .label {
+  display: block;
+  font-size: 12px;
+  color: #909399;
+}
+
+.ai-copilot-summary__item .value {
+  display: block;
+  margin-top: 6px;
+  overflow-wrap: anywhere;
+  font-size: 14px;
+  font-weight: 600;
+  color: #303133;
+}
+
+.ai-copilot-timeline {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding-left: 18px;
+  color: #606266;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.ai-copilot-risk-list,
+.ai-copilot-evidence-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.ai-copilot-risk,
+.ai-copilot-evidence {
+  padding: 10px 12px;
+  border: 1px solid #ebeef5;
+  border-radius: 8px;
+  background: #fff;
+}
+
+.ai-copilot-risk__header,
+.ai-copilot-evidence__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.ai-copilot-risk__title,
+.ai-copilot-evidence__title {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-size: 14px;
+  font-weight: 600;
+  color: #303133;
+}
+
+.ai-copilot-risk__detail,
+.ai-copilot-evidence__detail {
+  margin: 8px 0 0;
+  color: #606266;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.ai-copilot-risk__source {
+  display: inline-block;
+  margin-top: 6px;
+  color: #909399;
+  font-size: 12px;
+}
+
+.ai-copilot-evidence__meta {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  gap: 8px;
+}
+
+.ai-copilot-evidence__confidence {
+  color: #909399;
+  font-size: 12px;
+}
+
 .ai-suggestion-card__reasoning {
   min-height: 96px;
   padding: 14px 16px;
@@ -503,6 +736,20 @@ function cancelOverride(): void {
   display: flex;
   align-items: center;
   gap: 8px;
+}
+
+.uncertainty-panel__tag :deep(.el-tag__content) {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.uncertainty-panel__icon {
+  flex: 0 0 14px;
+  width: 14px;
+  height: 14px;
 }
 
 .uncertainty-panel__hint {

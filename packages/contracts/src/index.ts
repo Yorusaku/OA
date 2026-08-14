@@ -103,6 +103,31 @@ export interface SseApprovalEvent<TPayload = unknown> {
 
 export type AiSuggestionRiskLevel = 'low' | 'medium' | 'high'
 export type AiSuggestionDecision = 'approve' | 'reject' | 'manual_review'
+export type AiRiskPointSource = 'policy' | 'form' | 'workflow' | 'history' | 'model'
+export type AiEvidenceSource = 'knowledge_base' | 'historical_data' | 'form_data' | 'model_judgment'
+
+export interface AiApprovalReviewSummary {
+  title: string
+  applicant: string
+  approvalType: string
+  amount?: number
+  currentNodeName?: string
+  timeline: string[]
+}
+
+export interface AiApprovalRiskPoint {
+  level: AiSuggestionRiskLevel
+  title: string
+  detail: string
+  source: AiRiskPointSource
+}
+
+export interface AiApprovalEvidenceItem {
+  title: string
+  detail: string
+  source: AiEvidenceSource
+  confidence?: number
+}
 
 // ========== AI Policy-as-Code ==========
 
@@ -160,6 +185,9 @@ export interface AiApprovalSuggestionResponse {
   }
   reasoningSegments?: AiReasoningSegment[]
   uncertainties?: AiUncertainty[]
+  reviewSummary?: AiApprovalReviewSummary
+  riskPoints?: AiApprovalRiskPoint[]
+  evidenceItems?: AiApprovalEvidenceItem[]
 }
 
 export type AiSuggestionEvent =
@@ -191,7 +219,7 @@ export type AiSuggestionEvent =
 
 // ========== AI 可解释性（引用溯源）==========
 
-export type ReasoningSource = 'knowledge_base' | 'historical_data' | 'form_data' | 'model_judgment'
+export type ReasoningSource = AiEvidenceSource
 
 export interface AiReasoningSegment {
   content: string
@@ -328,7 +356,7 @@ export interface AiSuggestionOverrideRequest {
 
 export type PromptTemplateStatus = 'draft' | 'active' | 'archived'
 
-export type PromptTemplateScope = 'approval_suggestion'
+export type PromptTemplateScope = 'approval_suggestion' | 'approval_summary' | 'compliance_check' | 'approval_triage' | 'form_assist'
 
 export interface PromptTemplateVariable {
   name: string
