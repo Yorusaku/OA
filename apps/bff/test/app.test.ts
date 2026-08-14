@@ -304,6 +304,44 @@ describe('oa bff', () => {
     expect(body.data.suggestion).toBe('manual_review')
     expect(body.data.confidence).toBeLessThanOrEqual(0.5)
     expect(body.data.disclaimer).toContain('人工审批')
+    expect(body.data.reviewSummary.title).toBe('张三请假申请')
+    expect(body.data.riskPoints.some((item: any) => item.title === '描述信息不足')).toBe(true)
+    expect(body.data.riskPoints.some((item: any) => item.title === '附件材料待核对')).toBe(true)
+    expect(body.data.evidenceItems.length).toBeGreaterThan(0)
+  })
+
+  it('returns deterministic copilot risk points for high amount approvals', async () => {
+    const createRes = await app.inject({
+      method: 'POST',
+      url: '/api/v1/approval',
+      payload: {
+        title: '高金额采购审批',
+        type: 'purchase',
+        applicant: '王五',
+        amount: 80000,
+        description: '采购核心设备',
+        latestAttachments: ['quote-a.pdf'],
+        formData: {
+          amount: 80000,
+          vendor: '深圳供应商A',
+        },
+      },
+    })
+    expect(createRes.statusCode).toBe(200)
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/api/v1/ai/approval-suggestion',
+      payload: {
+        approvalId: createRes.json().data.id,
+      },
+    })
+
+    expect(response.statusCode).toBe(200)
+    const body = response.json()
+    expect(body.data.reviewSummary.amount).toBe(80000)
+    expect(body.data.riskPoints.some((item: any) => item.title === '高金额审批' && item.level === 'high')).toBe(true)
+    expect(body.data.evidenceItems.length).toBeGreaterThan(0)
   })
 
   it('returns 404 when ai approval suggestion target does not exist', async () => {
@@ -331,6 +369,9 @@ describe('oa bff', () => {
     expect(response.headers['content-type']).toContain('text/event-stream')
     expect(response.body).toContain('"type":"meta"')
     expect(response.body).toContain('"type":"done"')
+    expect(response.body).toContain('"reviewSummary"')
+    expect(response.body).toContain('"riskPoints"')
+    expect(response.body).toContain('"evidenceItems"')
   })
 
   it('supports knowledge base CRUD and search in inmemory mode', async () => {
