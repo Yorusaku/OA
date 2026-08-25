@@ -6,7 +6,7 @@
 
 全景智能 OA 是一套前端主导的引擎化协同审批平台原型，核心目标是把审批系统从"页面硬编码"演进为"协议驱动 + 引擎渲染 + 状态可追踪"的交付模式。
 
-- 当前阶段：审批主链路完整，AI 审批建议与知识库 P0/P1 已落地，AI 治理 4 阶段（Policy-as-Code / 决策审计 4 维度 / Prompt 模板管理 / 可解释性溯源）已完成
+- 当前阶段：审批主链路完整，AI 审批建议、知识库管理、知识库对话与 AI 治理 4 阶段均已落地
 - 项目性质：简历 / Demo 项目，无真实生产流量
 - 目标叙事：从"前端审批系统"升级为"AI 增强的企业级智能审批平台"
 
@@ -48,6 +48,10 @@ OA/
 │   │   │   └── components/ReasoningSegmentView.vue  # 推理溯源视图（治理 P4）
 │   │   ├── src/views/workflow/      # 流程设计器
 │   │   ├── src/views/knowledge/     # 知识库管理
+│   │   │   ├── index.vue                 # 知识库列表与文档管理
+│   │   │   └── chat.vue                  # 知识库对话页（流式、多会话、来源引用）
+│   │   ├── src/components/chat/      # Markdown 消息渲染
+│   │   ├── src/stores/knowledgeChat.ts   # 对话会话与流式状态
 │   │   ├── src/views/system/        # 系统管理
 │   │   │   ├── AiAuditPanel.vue         # AI 审计看板（治理 P2）
 │   │   │   ├── PromptTemplateList.vue   # Prompt 模板列表（治理 P3）
@@ -71,6 +75,7 @@ OA/
 │           ├── ai-audit-service.ts      # AI 决策审计 4 维度（治理 P2）
 │           ├── prompt-template-service.ts # Prompt 模板管理与版本化（治理 P3）
 │           ├── knowledge-service.ts     # 知识库完整链路
+│           ├── knowledge-chat-service.ts # 知识库对话、检索与 SSE 流
 │           ├── document-pipeline.ts     # 文档处理流水线
 │           ├── audit-service.ts         # 审计日志
 │           ├── metrics-service.ts       # 审批指标快照
@@ -133,6 +138,7 @@ apps/bff/approval-ai-service.ts     -> 审批上下文组装 + 提示词裁剪
 apps/bff/ai-policy-service.ts       -> Policy-as-Code：AI 能力边界声明（block/warn）
 apps/bff/ai-audit-service.ts        -> AI 决策审计 4 维度（输入/模型/人工/结果）
 apps/bff/prompt-template-service.ts -> Prompt 模板 CRUD + 版本 + 渲染 + 在线测试
+apps/bff/knowledge-chat-service.ts  -> 知识库会话 CRUD + RAG 检索 + SSE 对话
 ```
 
 AI 治理四阶段（已全部落地）：
@@ -169,6 +175,16 @@ AI 治理四阶段（已全部落地）：
 - 流程版本治理：发布 -> 编辑 -> 回滚 -> 影响分析
 - 审计日志：AuditEvent 模型，before/after 快照 + TraceId + IP + UA
 
+### 8. 知识库对话设计
+
+- 路由：`/knowledge/:kbId/chat`，独立隐藏路由，不挂载主菜单
+- 前端：`useKnowledgeChat` + `useKnowledgeChatStore` 管理会话、消息、流式内容、中断与重试
+- BFF：`/api/v1/knowledge/:kbId/chat` 提供会话 CRUD、历史消息和 `POST /stream` SSE 接口
+- 消息链路：保存用户消息 -> 检索知识库 -> 组装上下文 -> 流式生成 -> 保存 assistant 消息
+- 降级策略：无 `ARK_API_KEY` 时使用本地文本匹配和分片模拟流式，向量链路失败不阻塞元数据落库
+- 消息渲染：`ChatMarkdown.vue` 使用 `marked` + `highlight.js`，并过滤脚本、事件属性和危险链接
+- 对话只能提供制度检索与解释，不直接驱动审批动作
+
 ## 常用命令
 
 ```bash
@@ -189,8 +205,15 @@ pnpm verify:web             # Web 端全量验证矩阵
 pnpm --filter panorama-oa-web dev
 pnpm --filter panorama-oa-web typecheck
 pnpm --filter panorama-oa-web test
+pnpm --filter panorama-oa-web build
 pnpm --filter panorama-oa-web test:coverage
 pnpm --filter panorama-oa-web test:smoke
+
+# 知识库对话走查
+$env:VITE_USE_MOCK='true'
+$env:VITE_API_MODE='mock'
+$env:E2E_BASE='http://localhost:5175'
+node apps/web/e2e-walkthrough-chat.mjs
 
 # BFF 端
 pnpm --filter panorama-oa-bff dev
@@ -282,6 +305,7 @@ pnpm --filter panorama-oa-web dev
 - Qdrant 向量检索 + LLM 合成回答
 - 来源引用展示
 - 无 API Key 时的全链路降级
+- 知识库对话：多会话、流式输出、中断、重试、重命名、删除、Markdown 渲染与移动端布局
 
 ### AI 治理 ✅
 
@@ -304,6 +328,7 @@ pnpm --filter panorama-oa-web dev
 6. `apps/web/src/composables/` - 组合式逻辑层（核心）
 7. `apps/web/src/views/approval/` - 审批业务视图
 8. `apps/bff/src/services/` - BFF 服务层
+9. `plan/knowledge-chat-plan.md` - 知识库对话实现记录与验证结果
 
 ## 面试防御要点
 

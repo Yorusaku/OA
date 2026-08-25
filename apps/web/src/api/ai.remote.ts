@@ -3,6 +3,10 @@ import type {
   AiApprovalSuggestionResponse,
   AiPolicy,
   AiSuggestionEvent,
+  ChatStreamEvent,
+  CreateChatSessionRequest,
+  KnowledgeChatMessage,
+  KnowledgeChatSession,
   CreateKnowledgeBaseRequest,
   KnowledgeBaseItem,
   KnowledgeDocumentItem,
@@ -20,6 +24,19 @@ interface StreamHandlers {
   onUncertainty?: (event: Extract<AiSuggestionEvent, { type: 'uncertainty' }>) => void
   onDone?: (event: Extract<AiSuggestionEvent, { type: 'done' }>) => void
   onError?: (event: Extract<AiSuggestionEvent, { type: 'error' }>) => void
+}
+
+export interface KnowledgeChatStreamHandlers {
+  onEvent?: (event: ChatStreamEvent) => void
+  onMeta?: (event: Extract<ChatStreamEvent, { type: 'meta' }>) => void
+  onChunk?: (event: Extract<ChatStreamEvent, { type: 'chunk' }>) => void
+  onSources?: (event: Extract<ChatStreamEvent, { type: 'sources' }>) => void
+  onDone?: (event: Extract<ChatStreamEvent, { type: 'done' }>) => void
+  onError?: (event: Extract<ChatStreamEvent, { type: 'error' }>) => void
+}
+
+export interface AiSuggestionStreamOptions {
+  signal?: AbortSignal
 }
 
 function resolveApiBaseUrl(): string {
@@ -138,6 +155,13 @@ export function remoteDeleteKnowledgeDocument(
   return del(`/v1/knowledge/${kbId}/documents/${id}`)
 }
 
+export function remoteReindexKnowledgeDocument(
+  kbId: string,
+  id: string,
+): Promise<KnowledgeDocumentItem> {
+  return post(`/v1/knowledge/${kbId}/documents/${id}/reindex`)
+}
+
 export function remoteSearchKnowledge(
   kbId: string,
   payload: RagSearchRequest,
@@ -145,15 +169,117 @@ export function remoteSearchKnowledge(
   return post(`/v1/knowledge/${kbId}/search`, payload)
 }
 
+export function remoteListKnowledgeChatSessions(kbId: string): Promise<KnowledgeChatSession[]> {
+  return get(`/v1/knowledge/${kbId}/chat/sessions`)
+}
+
+export function remoteCreateKnowledgeChatSession(
+  kbId: string,
+  payload: CreateChatSessionRequest,
+): Promise<KnowledgeChatSession> {
+  return post(`/v1/knowledge/${kbId}/chat/sessions`, payload)
+}
+
+export function remoteRenameKnowledgeChatSession(
+  kbId: string,
+  sessionId: string,
+  title: string,
+): Promise<KnowledgeChatSession> {
+  return put(`/v1/knowledge/${kbId}/chat/sessions/${sessionId}`, { title })
+}
+
+export function remoteDeleteKnowledgeChatSession(
+  kbId: string,
+  sessionId: string,
+): Promise<{ success: true }> {
+  return del(`/v1/knowledge/${kbId}/chat/sessions/${sessionId}`)
+}
+
+export function remoteListKnowledgeChatMessages(kbId: string, sessionId: string): Promise<KnowledgeChatMessage[]> {
+  return get(`/v1/knowledge/${kbId}/chat/sessions/${sessionId}/messages`)
+}
+
+export async function remoteStreamKnowledgeChat(
+  kbId: string,
+  sessionId: string,
+  message: string,
+  handlers: KnowledgeChatStreamHandlers = {},
+  options: AiSuggestionStreamOptions = {},
+): Promise<KnowledgeChatMessage> {
+  const response = await fetch(`${resolveApiBaseUrl()}/v1/knowledge/${kbId}/chat/sessions/${sessionId}/stream`, {
+    method: 'POST',
+    headers: resolveHeaders(),
+    body: JSON.stringify({ message }),
+    signal: options.signal,
+  })
+  if (!response.ok)
+    throw new Error(`knowledge-chat-stream-http-${response.status}`)
+  if (!response.body)
+    throw new Error('knowledge-chat-stream-body-missing')
+
+  const reader = response.body.getReader()
+  const decoder = new TextDecoder('utf-8')
+  let buffer = ''
+  let result: KnowledgeChatMessage | null = null
+  const dispatch = (event: ChatStreamEvent) => {
+    handlers.onEvent?.(event)
+    if (event.type === 'meta')
+      handlers.onMeta?.(event)
+    else if (event.type === 'chunk')
+      handlers.onChunk?.(event)
+    else if (event.type === 'sources')
+      handlers.onSources?.(event)
+    else if (event.type === 'done') {
+      result = event.message
+      handlers.onDone?.(event)
+    }
+    else if (event.type === 'error') {
+      handlers.onError?.(event)
+      throw new Error(event.message)
+    }
+  }
+
+  const consume = (input: string): void => {
+    const parts = input.split('\n\n')
+    buffer = parts.pop() ?? ''
+    for (const part of parts) {
+      const line = part.split('\n').map(item => item.trim()).find(item => item.startsWith('data:'))
+      if (!line)
+        continue
+      try {
+        dispatch(JSON.parse(line.slice(5).trim()) as ChatStreamEvent)
+      }
+      catch {
+        // Ignore malformed SSE frames and wait for the next complete frame.
+      }
+    }
+  }
+
+  while (true) {
+    const { value, done } = await reader.read()
+    if (done)
+      break
+    buffer += decoder.decode(value, { stream: true })
+    consume(buffer)
+  }
+  if (buffer.trim())
+    consume(`${buffer}\n\n`)
+  if (!result)
+    throw new Error('knowledge-chat-stream-incomplete')
+  return result
+}
+
 export async function remoteStreamAiApprovalSuggestion(
   approvalId: string,
   handlers: StreamHandlers = {},
+  options: AiSuggestionStreamOptions = {},
 ): Promise<AiApprovalSuggestionResponse> {
   const payload: AiApprovalSuggestionRequest = { approvalId }
   const response = await fetch(`${resolveApiBaseUrl()}/v1/ai/approval-suggestion/stream`, {
     method: 'POST',
     headers: resolveHeaders(),
     body: JSON.stringify(payload),
+    signal: options.signal,
   })
 
   if (!response.ok) {

@@ -436,3 +436,46 @@ export interface UploadKnowledgeDocumentRequest {
   fileSize?: number
   content: string
 }
+
+// ========== 知识库聊天 ==========
+
+export interface AiUsage {
+  inputTokens?: number
+  outputTokens?: number
+  totalTokens?: number
+}
+
+export interface KnowledgeChatSession {
+  id: string
+  kbId: string
+  title: string
+  createdAt: string
+  updatedAt: string
+}
+
+export interface KnowledgeChatMessage {
+  id: string
+  sessionId: string
+  role: 'user' | 'assistant'
+  content: string
+  sources?: RagCitation[]
+  usage?: AiUsage
+  createdAt: string
+}
+
+export type ChatStreamEvent =
+  | { type: 'meta'; sessionId: string; messageId: string }
+  | { type: 'chunk'; content: string }
+  | { type: 'sources'; sources: RagCitation[] }
+  | { type: 'done'; message: KnowledgeChatMessage }
+  | { type: 'error'; message: string }
+
+export interface CreateChatSessionRequest {
+  title?: string
+  firstMessage: string
+}
+
+export interface ChatStreamRequest {
+  sessionId?: string
+  message: string
+}

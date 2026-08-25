@@ -37,6 +37,8 @@ const inMemoryState = {
   chunks: [] as InMemoryKnowledgeChunk[],
 }
 
+export const __knowledgeState = inMemoryState
+
 export function __resetKnowledgeRuntimeState(): void {
   inMemoryState.bases = []
   inMemoryState.documents = []
@@ -381,6 +383,100 @@ export async function uploadDocument(
   return mapKnowledgeDocument(docResult.rows[0])
 }
 
+export async function reindexKnowledgeDocument(
+  store: RuntimeStore,
+  config: BffConfig,
+  kbId: string,
+  id: string,
+): Promise<KnowledgeDocumentItem> {
+  if (!hasSqlStore(store)) {
+    const document = inMemoryState.documents.find(item => item.id === id && item.kbId === kbId)
+    const base = inMemoryState.bases.find(item => item.id === kbId)
+    if (!document || !base)
+      throw new Error('knowledge-document-not-found')
+
+    inMemoryState.chunks = inMemoryState.chunks.filter(item => item.documentId !== id)
+    const splitter = createTextSplitter({ chunkSize: base.chunkSize, chunkOverlap: base.chunkOverlap })
+    const chunks = splitter.split(document.content)
+    document.chunkCount = chunks.length
+    document.status = 'ready'
+    document.errorMessage = null
+    inMemoryState.chunks.push(...chunks.map(chunk => ({
+      id: `${document.id}_chunk_${chunk.index}`,
+      documentId: document.id,
+      knowledgeBaseId: document.kbId,
+      filename: document.filename,
+      content: chunk.content,
+      scoreSeed: chunk.index,
+    })))
+    return document
+  }
+
+  const result = await store.query<{
+    id: string
+    kb_id: string
+    filename: string
+    file_type: string
+    file_size: number
+    content: string
+    chunk_size: number
+    chunk_overlap: number
+  }>(
+    `SELECT d.*, k.chunk_size, k.chunk_overlap
+     FROM knowledge_documents d
+     JOIN knowledge_bases k ON k.id = d.kb_id
+     WHERE d.id = $1 AND d.kb_id = $2`,
+    [id, kbId],
+  )
+  if (result.rowCount === 0)
+    throw new Error('knowledge-document-not-found')
+
+  const document = result.rows[0]
+  const fallbackChunkCount = countChunks(document.content, Number(document.chunk_size), Number(document.chunk_overlap))
+  await store.query(
+    `UPDATE knowledge_documents SET status = 'processing', error_message = NULL WHERE id = $1`,
+    [id],
+  )
+
+  if (!canUseVectorPipeline()) {
+    await store.query(
+      `UPDATE knowledge_documents SET chunk_count = $2, status = 'ready', error_message = NULL WHERE id = $1`,
+      [id, fallbackChunkCount],
+    )
+  }
+  else {
+    try {
+      const qdrantStore = qdrantStoreFor(config)
+      await qdrantStore.deleteByDocumentId(id)
+      await qdrantStore.ensureCollection(config.knowledge.embeddingDimensions)
+      const chunkCount = await processDocument(
+        { embeddingService: createEmbeddingService(), qdrantStore },
+        {
+          docId: id,
+          kbId,
+          filename: document.filename,
+          content: document.content,
+          chunkSize: Number(document.chunk_size),
+          chunkOverlap: Number(document.chunk_overlap),
+        },
+      )
+      await store.query(
+        `UPDATE knowledge_documents SET chunk_count = $2, status = 'ready', error_message = NULL WHERE id = $1`,
+        [id, chunkCount],
+      )
+    }
+    catch (error) {
+      await store.query(
+        `UPDATE knowledge_documents SET chunk_count = $2, status = 'ready', error_message = $3 WHERE id = $1`,
+        [id, fallbackChunkCount, error instanceof Error ? `vector-index-skipped: ${error.message}` : 'vector-index-skipped'],
+      )
+    }
+  }
+
+  const updated = await store.query('SELECT * FROM knowledge_documents WHERE id = $1', [id])
+  return mapKnowledgeDocument(updated.rows[0])
+}
+
 export async function deleteKnowledgeDocument(
   store: RuntimeStore,
   config: BffConfig,
@@ -411,6 +507,18 @@ export async function searchKnowledge(
   config: BffConfig,
   payload: { kbId: string, query: string, topK?: number },
 ): Promise<RagSearchResponse> {
+  const sources = await retrieveKnowledgeSources(store, config, payload)
+  return {
+    answer: await synthesizeAnswer(payload.query, sources),
+    sources,
+  }
+}
+
+export async function retrieveKnowledgeSources(
+  store: RuntimeStore,
+  config: BffConfig,
+  payload: { kbId: string, query: string, topK?: number },
+): Promise<RagSearchResponse['sources']> {
   if (!hasSqlStore(store)) {
     const hits = inMemoryState.chunks
       .filter(item => item.knowledgeBaseId === payload.kbId)
@@ -425,10 +533,7 @@ export async function searchKnowledge(
       .sort((a, b) => b.score - a.score)
       .slice(0, payload.topK ?? 5)
 
-    return {
-      answer: await synthesizeAnswer(payload.query, hits),
-      sources: hits,
-    }
+    return hits
   }
 
   const kbResult = await store.query('SELECT id FROM knowledge_bases WHERE id = $1', [payload.kbId])
@@ -453,10 +558,7 @@ export async function searchKnowledge(
       content: hit.payload.content,
     }))
 
-    return {
-      answer: await synthesizeAnswer(payload.query, sources),
-      sources,
-    }
+    return sources
   }
   catch {
     const fallbackDocs = await store.query<{
@@ -493,9 +595,6 @@ export async function searchKnowledge(
       .sort((a, b) => b.score - a.score)
       .slice(0, topK)
 
-    return {
-      answer: await synthesizeAnswer(payload.query, sources),
-      sources,
-    }
+    return sources
   }
 }

@@ -2,6 +2,7 @@ import type { AiApprovalSuggestionResponse, AiAuditStats } from '@oa/contracts'
 import type { AuditEvent, RuntimeState } from '../domain'
 import { uid } from '../utils'
 import { writeAuditLog, type AuditWriteInput } from './audit-service'
+import { ensureDefaultTemplate, getActiveTemplateForScope, getPromptTemplateStore } from './prompt-template-service'
 
 // ========== AI 审计事件写入 ==========
 
@@ -23,6 +24,10 @@ export function recordAiSuggestionGenerated(
   state: RuntimeState,
   input: AiAuditGenerateInput,
 ): AuditEvent {
+  const promptTemplate = getActiveTemplateForScope(
+    getPromptTemplateStore(),
+    'approval_suggestion',
+  ) || ensureDefaultTemplate()
   const event = writeAuditLog(state, {
     operatorId: input.operatorId || 'system',
     operatorName: input.operatorName || 'AI Assistant',
@@ -51,6 +56,11 @@ export function recordAiSuggestionGenerated(
       aiReasoning: input.response.reasoning,
       inputTokens: input.response.usage?.inputTokens,
       outputTokens: input.response.usage?.outputTokens,
+      promptTemplateId: promptTemplate.id,
+      promptTemplateVersion: promptTemplate.version,
+      latencyMs: input.durationMs,
+      knowledgeBaseHits: input.response.evidenceItems?.filter(item => item.source === 'knowledge_base').length || 0,
+      fallbackReason: input.response.suggestion === 'manual_review' ? input.response.reasoning : undefined,
     },
   })
   return event

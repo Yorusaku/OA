@@ -25,13 +25,16 @@ import {
   ElTableColumn,
   ElTag,
 } from 'element-plus'
+import { ChatDotRound } from '@element-plus/icons-vue'
 import { computed, onMounted, reactive, ref, watch } from 'vue'
+import { useRouter } from 'vue-router'
 import {
   createKnowledgeBase,
   deleteKnowledgeBase,
   deleteKnowledgeDocument,
   listKnowledgeBases,
   listKnowledgeDocuments,
+  reindexKnowledgeDocument,
   searchKnowledge,
   uploadKnowledgeDocument,
 } from '@/api/ai'
@@ -64,6 +67,7 @@ const searchForm = reactive({
   topK: 5,
 })
 const searchResult = ref<RagSearchResponse | null>(null)
+const router = useRouter()
 
 function formatFileSize(size: number): string {
   if (size < 1024)
@@ -278,6 +282,17 @@ async function handleDeleteDocument(item: KnowledgeDocumentItem): Promise<void> 
   }
 }
 
+async function handleReindexDocument(item: KnowledgeDocumentItem): Promise<void> {
+  try {
+    await reindexKnowledgeDocument(item.kbId, item.id)
+    await loadDocuments()
+    ElMessage.success('文档索引已重建')
+  }
+  catch {
+    ElMessage.error('索引重建失败，请稍后重试')
+  }
+}
+
 async function handleSearch(): Promise<void> {
   if (!selectedKbId.value) {
     ElMessage.warning('请先选择知识库')
@@ -305,6 +320,10 @@ async function handleSearch(): Promise<void> {
 
 function sourceScoreText(source: RagCitation): string {
   return `${(source.score * 100).toFixed(1)}%`
+}
+
+function enterKnowledgeChat(item: KnowledgeBaseItem): void {
+  router.push({ name: 'KnowledgeChat', params: { kbId: item.id } })
 }
 
 watch(selectedKbId, async () => {
@@ -363,9 +382,14 @@ onMounted(async () => {
                 分块 {{ item.chunkSize }} / 重叠 {{ item.chunkOverlap }}
               </div>
             </div>
-            <ElButton text type="danger" @click.stop="handleDeleteBase(item)">
-              删除
-            </ElButton>
+            <div class="knowledge-base-item__actions" @click.stop>
+              <ElButton text :icon="ChatDotRound" title="进入对话" @click="enterKnowledgeChat(item)">
+                对话
+              </ElButton>
+              <ElButton text type="danger" @click="handleDeleteBase(item)">
+                删除
+              </ElButton>
+            </div>
           </button>
         </ElScrollbar>
       </ElCard>
@@ -442,6 +466,14 @@ onMounted(async () => {
               </ElTableColumn>
               <ElTableColumn label="操作" width="100" fixed="right">
                 <template #default="{ row }">
+                  <ElButton
+                    v-if="row.status === 'ready' && row.errorMessage"
+                    text
+                    type="warning"
+                    @click="handleReindexDocument(row)"
+                  >
+                    重试索引
+                  </ElButton>
                   <ElButton text type="danger" @click="handleDeleteDocument(row)">
                     删除
                   </ElButton>
@@ -642,6 +674,12 @@ onMounted(async () => {
 
 .knowledge-base-item__main {
   min-width: 0;
+}
+
+.knowledge-base-item__actions {
+  display: flex;
+  flex: none;
+  align-items: center;
 }
 
 .knowledge-base-item__name {

@@ -5,14 +5,19 @@ import type {
   AiSuggestionDecision,
   AiSuggestionEvent,
   AiSuggestionRiskLevel,
+  ChatStreamEvent,
   CreateKnowledgeBaseRequest,
+  CreateChatSessionRequest,
   CreatePromptTemplateRequest,
   KnowledgeBaseItem,
   KnowledgeDocumentItem,
+  KnowledgeChatMessage,
+  KnowledgeChatSession,
   PageResult,
   PromptTemplate,
   PromptTemplateTestRequest,
   PromptTemplateTestResponse,
+  RagCitation,
   RagSearchRequest,
   RagSearchResponse,
   UpdatePromptTemplateRequest,
@@ -34,14 +39,23 @@ import {
   remoteGetPromptTemplate,
   remoteListKnowledgeBases,
   remoteListKnowledgeDocuments,
+  remoteListKnowledgeChatMessages,
+  remoteListKnowledgeChatSessions,
   remoteListPromptTemplates,
   remoteOverrideAiSuggestion,
+  remoteReindexKnowledgeDocument,
   remoteSearchKnowledge,
+  remoteCreateKnowledgeChatSession,
+  remoteDeleteKnowledgeChatSession,
+  remoteRenameKnowledgeChatSession,
+  remoteStreamKnowledgeChat,
   remoteStreamAiApprovalSuggestion,
+  type AiSuggestionStreamOptions,
   remoteTestPromptTemplate,
   remoteUpdatePromptTemplate,
   remoteUploadKnowledgeDocument,
   type AiSuggestionStreamHandlers,
+  type KnowledgeChatStreamHandlers,
 } from './ai.remote'
 import { useRemoteApprovalApi } from './runtime'
 
@@ -106,6 +120,9 @@ const mockKnowledgeChunks: MockKnowledgeChunkRecord[] = [
     content: '差旅交通费用需提供行程单与发票，超预算申请必须补充业务必要性说明并由上级复核。',
   },
 ]
+
+const mockChatSessions: KnowledgeChatSession[] = []
+const mockChatMessages: KnowledgeChatMessage[] = []
 
 function sleep(ms: number): Promise<void> {
   return new Promise(resolve => setTimeout(resolve, ms))
@@ -287,7 +304,20 @@ function splitKnowledgeContent(content: string, chunkSize = 500, chunkOverlap = 
 }
 
 function scoreKnowledgeChunk(query: string, content: string): number {
-  const keywords = query.toLowerCase().split(/\s+/).filter(Boolean)
+  const normalizedQuery = query.toLowerCase().replace(/[，。！？、；：""''（）()【】[\]]/g, ' ')
+  const keywords = normalizedQuery
+    .split(/\s+/)
+    .filter(Boolean)
+    .flatMap((keyword) => {
+      if (!/[\u4e00-\u9fff]/.test(keyword))
+        return [keyword]
+      const terms = new Set<string>()
+      for (let size = 2; size <= 4; size++) {
+        for (let index = 0; index <= keyword.length - size; index++)
+          terms.add(keyword.slice(index, index + size))
+      }
+      return [...terms]
+    })
   if (!keywords.length)
     return 0
 
@@ -389,6 +419,29 @@ async function mockDeleteKnowledgeDocument(
   return { success: true }
 }
 
+async function mockReindexKnowledgeDocument(kbId: string, id: string): Promise<KnowledgeDocumentItem> {
+  await sleep(MOCK_DELAY_MS)
+  const document = mockKnowledgeDocuments.find(item => item.kbId === kbId && item.id === id)
+  const base = mockKnowledgeBases.find(item => item.id === kbId)
+  if (!document || !base)
+    throw new Error('knowledge-document-not-found')
+
+  const chunks = splitKnowledgeContent(document.content, base.chunkSize, base.chunkOverlap)
+  const nextChunks = mockKnowledgeChunks.filter(item => item.documentId !== id)
+  mockKnowledgeChunks.splice(0, mockKnowledgeChunks.length, ...nextChunks, ...chunks.map((chunk, index) => ({
+    id: `${document.id}_chunk_${index}`,
+    kbId,
+    documentId: document.id,
+    filename: document.filename,
+    content: chunk,
+  })))
+  document.chunkCount = chunks.length
+  document.status = 'ready'
+  document.errorMessage = null
+  const { content: _content, ...rest } = document
+  return rest
+}
+
 async function mockSearchKnowledge(
   kbId: string,
   payload: RagSearchRequest,
@@ -434,12 +487,152 @@ function dispatchMockEvent(event: AiSuggestionEvent, handlers: AiSuggestionStrea
     handlers.onError?.(event)
 }
 
+function dispatchMockChatEvent(event: ChatStreamEvent, handlers: KnowledgeChatStreamHandlers): void {
+  handlers.onEvent?.(event)
+  if (event.type === 'meta')
+    handlers.onMeta?.(event)
+  else if (event.type === 'chunk')
+    handlers.onChunk?.(event)
+  else if (event.type === 'sources')
+    handlers.onSources?.(event)
+  else if (event.type === 'done')
+    handlers.onDone?.(event)
+  else if (event.type === 'error')
+    handlers.onError?.(event)
+}
+
+function buildMockChatAnswer(query: string, sources: RagCitation[]): string {
+  if (!sources.length)
+    return `暂未从当前知识库检索到与“${query}”直接相关的制度片段。建议补充更具体的业务关键词，或由制度管理员确认后再处理。`
+  return `根据知识库检索结果，关于“${query}”可以优先参考《${sources[0].filename}》中的相关条款。当前命中 ${sources.length} 条依据，具体适用范围仍建议结合业务上下文和原始制度人工确认。`
+}
+
+async function mockListKnowledgeChatSessions(kbId: string): Promise<KnowledgeChatSession[]> {
+  await sleep(MOCK_DELAY_MS)
+  if (!mockKnowledgeBases.some(item => item.id === kbId))
+    throw new Error('knowledge-base-not-found')
+  return mockChatSessions.filter(item => item.kbId === kbId).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
+}
+
+async function mockCreateKnowledgeChatSession(
+  kbId: string,
+  payload: CreateChatSessionRequest,
+): Promise<KnowledgeChatSession> {
+  await sleep(MOCK_DELAY_MS)
+  if (!mockKnowledgeBases.some(item => item.id === kbId))
+    throw new Error('knowledge-base-not-found')
+  const now = new Date().toISOString()
+  const title = payload.title?.trim() || payload.firstMessage.trim().slice(0, 24) || '新对话'
+  const session: KnowledgeChatSession = {
+    id: createMockId('chat'),
+    kbId,
+    title,
+    createdAt: now,
+    updatedAt: now,
+  }
+  mockChatSessions.unshift(session)
+  return session
+}
+
+async function mockRenameKnowledgeChatSession(
+  kbId: string,
+  sessionId: string,
+  title: string,
+): Promise<KnowledgeChatSession> {
+  await sleep(MOCK_DELAY_MS)
+  const session = mockChatSessions.find(item => item.id === sessionId && item.kbId === kbId)
+  if (!session)
+    throw new Error('chat-session-not-found')
+  if (!title.trim())
+    throw new Error('chat-title-empty')
+  session.title = title.trim()
+  session.updatedAt = new Date().toISOString()
+  return session
+}
+
+async function mockDeleteKnowledgeChatSession(kbId: string, sessionId: string): Promise<{ success: true }> {
+  await sleep(MOCK_DELAY_MS)
+  const session = mockChatSessions.find(item => item.id === sessionId && item.kbId === kbId)
+  if (!session)
+    throw new Error('chat-session-not-found')
+  mockChatSessions.splice(mockChatSessions.indexOf(session), 1)
+  for (let index = mockChatMessages.length - 1; index >= 0; index--) {
+    if (mockChatMessages[index].sessionId === sessionId)
+      mockChatMessages.splice(index, 1)
+  }
+  return { success: true }
+}
+
+async function mockListKnowledgeChatMessages(kbId: string, sessionId: string): Promise<KnowledgeChatMessage[]> {
+  await sleep(MOCK_DELAY_MS)
+  if (!mockChatSessions.some(item => item.id === sessionId && item.kbId === kbId))
+    throw new Error('chat-session-not-found')
+  return mockChatMessages.filter(item => item.sessionId === sessionId)
+}
+
+async function mockStreamKnowledgeChat(
+  kbId: string,
+  sessionId: string,
+  message: string,
+  handlers: KnowledgeChatStreamHandlers = {},
+  options: { signal?: AbortSignal } = {},
+): Promise<KnowledgeChatMessage> {
+  const session = mockChatSessions.find(item => item.id === sessionId && item.kbId === kbId)
+  if (!session)
+    throw new Error('chat-session-not-found')
+  const query = message.trim()
+  if (!query)
+    throw new Error('chat-message-empty')
+  const throwIfAborted = () => {
+    if (options.signal?.aborted)
+      throw new DOMException('The operation was aborted.', 'AbortError')
+  }
+  const userMessage: KnowledgeChatMessage = {
+    id: createMockId('msg'),
+    sessionId,
+    role: 'user',
+    content: query,
+    createdAt: new Date().toISOString(),
+  }
+  mockChatMessages.push(userMessage)
+  session.updatedAt = userMessage.createdAt
+  const result = await mockSearchKnowledge(kbId, { query, topK: 5 })
+  const assistant: KnowledgeChatMessage = {
+    id: createMockId('msg'),
+    sessionId,
+    role: 'assistant',
+    content: buildMockChatAnswer(query, result.sources),
+    sources: result.sources,
+    usage: { inputTokens: 80, outputTokens: 48, totalTokens: 128 },
+    createdAt: new Date().toISOString(),
+  }
+  dispatchMockChatEvent({ type: 'meta', sessionId, messageId: assistant.id }, handlers)
+  if (result.sources.length)
+    dispatchMockChatEvent({ type: 'sources', sources: result.sources }, handlers)
+  for (const chunk of assistant.content.match(/.{1,18}/gs) || [assistant.content]) {
+    await sleep(70)
+    throwIfAborted()
+    dispatchMockChatEvent({ type: 'chunk', content: chunk }, handlers)
+  }
+  mockChatMessages.push(assistant)
+  session.updatedAt = assistant.createdAt
+  dispatchMockChatEvent({ type: 'done', message: assistant }, handlers)
+  return assistant
+}
+
 async function mockStreamAiApprovalSuggestion(
   approvalId: string,
   handlers: AiSuggestionStreamHandlers = {},
+  options: AiSuggestionStreamOptions = {},
 ): Promise<AiApprovalSuggestionResponse> {
   const response = buildMockResponse(approvalId)
+  const signal = options.signal
+  const throwIfAborted = () => {
+    if (signal?.aborted)
+      throw new DOMException('The operation was aborted.', 'AbortError')
+  }
 
+  throwIfAborted()
   dispatchMockEvent({
     type: 'meta',
     approvalId,
@@ -448,6 +641,7 @@ async function mockStreamAiApprovalSuggestion(
 
   for (const chunk of splitReasoning(response.reasoning)) {
     await sleep(90)
+    throwIfAborted()
     dispatchMockEvent({
       type: 'chunk',
       content: chunk,
@@ -457,6 +651,7 @@ async function mockStreamAiApprovalSuggestion(
   // 发送溯源 segments
   if (response.reasoningSegments?.length) {
     await sleep(40)
+    throwIfAborted()
     dispatchMockEvent({
       type: 'segment',
       segments: response.reasoningSegments,
@@ -466,6 +661,7 @@ async function mockStreamAiApprovalSuggestion(
   // 发送不确定性标注
   if (response.uncertainties?.length) {
     await sleep(40)
+    throwIfAborted()
     dispatchMockEvent({
       type: 'uncertainty',
       uncertainties: response.uncertainties,
@@ -473,6 +669,7 @@ async function mockStreamAiApprovalSuggestion(
   }
 
   await sleep(60)
+  throwIfAborted()
   dispatchMockEvent({
     type: 'done',
     response,
@@ -554,11 +751,12 @@ export async function fetchAiPolicy(): Promise<AiPolicy> {
 export async function streamAiApprovalSuggestion(
   approvalId: string,
   handlers: AiSuggestionStreamHandlers = {},
+  options: AiSuggestionStreamOptions = {},
 ): Promise<AiApprovalSuggestionResponse> {
   if (useRemoteApprovalApi())
-    return remoteStreamAiApprovalSuggestion(approvalId, handlers)
+    return remoteStreamAiApprovalSuggestion(approvalId, handlers, options)
 
-  return mockStreamAiApprovalSuggestion(approvalId, handlers)
+  return mockStreamAiApprovalSuggestion(approvalId, handlers, options)
 }
 
 export async function listKnowledgeBases(): Promise<KnowledgeBaseItem[]> {
@@ -602,7 +800,16 @@ export async function deleteKnowledgeDocument(
 ): Promise<{ success: true }> {
   if (useRemoteApprovalApi())
     return remoteDeleteKnowledgeDocument(kbId, id)
-  return mockDeleteKnowledgeDocument(kbId, id)
+    return mockDeleteKnowledgeDocument(kbId, id)
+}
+
+export async function reindexKnowledgeDocument(
+  kbId: string,
+  id: string,
+): Promise<KnowledgeDocumentItem> {
+  if (useRemoteApprovalApi())
+    return remoteReindexKnowledgeDocument(kbId, id)
+  return mockReindexKnowledgeDocument(kbId, id)
 }
 
 export async function searchKnowledge(
@@ -612,6 +819,61 @@ export async function searchKnowledge(
   if (useRemoteApprovalApi())
     return remoteSearchKnowledge(kbId, payload)
   return mockSearchKnowledge(kbId, payload)
+}
+
+export async function listKnowledgeChatSessions(kbId: string): Promise<KnowledgeChatSession[]> {
+  if (useRemoteApprovalApi())
+    return remoteListKnowledgeChatSessions(kbId)
+  return mockListKnowledgeChatSessions(kbId)
+}
+
+export async function createKnowledgeChatSession(
+  kbId: string,
+  payload: CreateChatSessionRequest,
+): Promise<KnowledgeChatSession> {
+  if (useRemoteApprovalApi())
+    return remoteCreateKnowledgeChatSession(kbId, payload)
+  return mockCreateKnowledgeChatSession(kbId, payload)
+}
+
+export async function renameKnowledgeChatSession(
+  kbId: string,
+  sessionId: string,
+  title: string,
+): Promise<KnowledgeChatSession> {
+  if (useRemoteApprovalApi())
+    return remoteRenameKnowledgeChatSession(kbId, sessionId, title)
+  return mockRenameKnowledgeChatSession(kbId, sessionId, title)
+}
+
+export async function deleteKnowledgeChatSession(
+  kbId: string,
+  sessionId: string,
+): Promise<{ success: true }> {
+  if (useRemoteApprovalApi())
+    return remoteDeleteKnowledgeChatSession(kbId, sessionId)
+  return mockDeleteKnowledgeChatSession(kbId, sessionId)
+}
+
+export async function listKnowledgeChatMessages(
+  kbId: string,
+  sessionId: string,
+): Promise<KnowledgeChatMessage[]> {
+  if (useRemoteApprovalApi())
+    return remoteListKnowledgeChatMessages(kbId, sessionId)
+  return mockListKnowledgeChatMessages(kbId, sessionId)
+}
+
+export async function streamKnowledgeChat(
+  kbId: string,
+  sessionId: string,
+  message: string,
+  handlers: KnowledgeChatStreamHandlers = {},
+  options: { signal?: AbortSignal } = {},
+): Promise<KnowledgeChatMessage> {
+  if (useRemoteApprovalApi())
+    return remoteStreamKnowledgeChat(kbId, sessionId, message, handlers, options)
+  return mockStreamKnowledgeChat(kbId, sessionId, message, handlers, options)
 }
 
 // ==================== AI 审计 API ====================
@@ -762,4 +1024,4 @@ export async function testPromptTemplate(
   }
 }
 
-export type { AiSuggestionStreamHandlers }
+export type { AiSuggestionStreamHandlers, AiSuggestionStreamOptions, KnowledgeChatStreamHandlers }

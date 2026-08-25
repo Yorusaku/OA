@@ -68,9 +68,18 @@ import {
   deleteKnowledgeDocument,
   listKnowledgeBases,
   listKnowledgeDocuments,
+  reindexKnowledgeDocument,
   searchKnowledge,
   uploadDocument,
 } from './services/knowledge-service'
+import {
+  createChatSession,
+  deleteChatSession,
+  listChatMessages,
+  listChatSessions,
+  renameChatSession,
+  streamChat,
+} from './services/knowledge-chat-service'
 import { buildApprovalMetricSnapshot } from './services/metrics-service'
 import {
   analyzeWorkflowImpact,
@@ -363,25 +372,45 @@ export async function buildApp(config: BffConfig, injectedStore?: RuntimeStore) 
     reply.raw.setHeader('X-Accel-Buffering', 'no')
     reply.hijack()
 
-    reply.raw.write(`data: ${JSON.stringify({
+    let clientDisconnected = false
+    let responseFinished = false
+    const markClientDisconnected = () => {
+      if (!responseFinished)
+        clientDisconnected = true
+    }
+    request.raw.once('aborted', markClientDisconnected)
+    reply.raw.once('close', markClientDisconnected)
+
+    const writeStreamEvent = (event: unknown): void => {
+      if (clientDisconnected || reply.raw.destroyed || reply.raw.writableEnded)
+        return
+      reply.raw.write(`data: ${JSON.stringify(event)}\n\n`)
+    }
+
+    writeStreamEvent({
       type: 'meta',
       approvalId: parsed.data.approvalId,
       generatedAt: new Date().toISOString(),
-    })}\n\n`)
+    })
 
     const result = await runApprovalSuggestionStream(
       store,
       parsed.data.approvalId,
       (chunk) => {
-        reply.raw.write(`data: ${JSON.stringify({ type: 'chunk', content: chunk })}\n\n`)
+        writeStreamEvent({ type: 'chunk', content: chunk })
       },
       (segments) => {
-        reply.raw.write(`data: ${JSON.stringify({ type: 'segment', segments })}\n\n`)
+        writeStreamEvent({ type: 'segment', segments })
       },
       (uncertainties) => {
-        reply.raw.write(`data: ${JSON.stringify({ type: 'uncertainty', uncertainties })}\n\n`)
+        writeStreamEvent({ type: 'uncertainty', uncertainties })
       },
     )
+
+    if (clientDisconnected || reply.raw.destroyed || reply.raw.writableEnded) {
+      responseFinished = true
+      return
+    }
 
     if (!result) {
       reply.raw.write(`data: ${JSON.stringify({
@@ -409,10 +438,11 @@ export async function buildApp(config: BffConfig, injectedStore?: RuntimeStore) 
     })
     result.auditEventId = auditEvent.id
 
-    reply.raw.write(`data: ${JSON.stringify({
+    writeStreamEvent({
       type: 'done',
       response: result,
-    })}\n\n`)
+    })
+    responseFinished = true
     reply.raw.end()
   })
 
@@ -746,6 +776,23 @@ export async function buildApp(config: BffConfig, injectedStore?: RuntimeStore) 
     sendOk(request, reply, { success: true }, '删除成功')
   })
 
+  app.post('/api/v1/knowledge/:kbId/documents/:id/reindex', async (request, reply) => {
+    const { kbId, id } = request.params as { kbId: string, id: string }
+    try {
+      const result = await reindexKnowledgeDocument(store, config, kbId, id)
+      sendOk(request, reply, result, 'knowledge-reindex-success')
+    }
+    catch (error) {
+      if (error instanceof Error && error.message === 'knowledge-document-not-found') {
+        throw new AppError('knowledge-document-not-found', {
+          statusCode: 404,
+          businessCode: API_ERROR.NOT_FOUND,
+        })
+      }
+      throw error
+    }
+  })
+
   app.post('/api/v1/knowledge/:kbId/search', async (request, reply) => {
     const { kbId } = request.params as { kbId: string }
     const parsed = z.object({
@@ -777,6 +824,153 @@ export async function buildApp(config: BffConfig, injectedStore?: RuntimeStore) 
         })
       }
       throw error
+    }
+  })
+
+  app.post('/api/v1/knowledge/:kbId/chat/sessions', async (request, reply) => {
+    const { kbId } = request.params as { kbId: string }
+    const parsed = z.object({
+      title: z.string().trim().max(80).optional(),
+      firstMessage: z.string().trim().min(1).max(2000),
+    }).safeParse(request.body)
+
+    if (!parsed.success) {
+      throw new AppError('请求参数错误', {
+        statusCode: 400,
+        businessCode: API_ERROR.BAD_REQUEST,
+        details: parsed.error.flatten(),
+      })
+    }
+
+    try {
+      const result = await createChatSession(store, kbId, parsed.data.firstMessage, parsed.data.title)
+      sendOk(request, reply, result, '创建成功')
+    }
+    catch (error) {
+      if (error instanceof Error && error.message === 'knowledge-base-not-found') {
+        throw new AppError('知识库不存在', {
+          statusCode: 404,
+          businessCode: API_ERROR.NOT_FOUND,
+        })
+      }
+      throw error
+    }
+  })
+
+  app.get('/api/v1/knowledge/:kbId/chat/sessions', async (request, reply) => {
+    const { kbId } = request.params as { kbId: string }
+    try {
+      const result = await listChatSessions(store, kbId)
+      sendOk(request, reply, result, '获取成功')
+    }
+    catch (error) {
+      if (error instanceof Error && error.message === 'knowledge-base-not-found') {
+        throw new AppError('知识库不存在', {
+          statusCode: 404,
+          businessCode: API_ERROR.NOT_FOUND,
+        })
+      }
+      throw error
+    }
+  })
+
+  app.put('/api/v1/knowledge/:kbId/chat/sessions/:sessionId', async (request, reply) => {
+    const { sessionId } = request.params as { kbId: string, sessionId: string }
+    const parsed = z.object({
+      title: z.string().trim().min(1).max(80),
+    }).safeParse(request.body)
+
+    if (!parsed.success) {
+      throw new AppError('请求参数错误', {
+        statusCode: 400,
+        businessCode: API_ERROR.BAD_REQUEST,
+        details: parsed.error.flatten(),
+      })
+    }
+
+    try {
+      const result = await renameChatSession(store, sessionId, parsed.data.title)
+      sendOk(request, reply, result, '更新成功')
+    }
+    catch (error) {
+      if (error instanceof Error && error.message === 'chat-session-not-found') {
+        throw new AppError('会话不存在', {
+          statusCode: 404,
+          businessCode: API_ERROR.NOT_FOUND,
+        })
+      }
+      throw error
+    }
+  })
+
+  app.delete('/api/v1/knowledge/:kbId/chat/sessions/:sessionId', async (request, reply) => {
+    const { sessionId } = request.params as { kbId: string, sessionId: string }
+    await deleteChatSession(store, sessionId)
+    sendOk(request, reply, { success: true }, '删除成功')
+  })
+
+  app.get('/api/v1/knowledge/:kbId/chat/sessions/:sessionId/messages', async (request, reply) => {
+    const { sessionId } = request.params as { kbId: string, sessionId: string }
+    sendOk(request, reply, await listChatMessages(store, sessionId), '获取成功')
+  })
+
+  app.post('/api/v1/knowledge/:kbId/chat/sessions/:sessionId/stream', async (request, reply) => {
+    const { sessionId } = request.params as { kbId: string, sessionId: string }
+    const parsed = z.object({
+      message: z.string().trim().min(1).max(8000),
+    }).safeParse(request.body)
+
+    if (!parsed.success) {
+      throw new AppError('请求参数错误', {
+        statusCode: 400,
+        businessCode: API_ERROR.BAD_REQUEST,
+        details: parsed.error.flatten(),
+      })
+    }
+
+    reply.raw.setHeader('Content-Type', 'text/event-stream')
+    reply.raw.setHeader('Cache-Control', 'no-cache, no-transform')
+    reply.raw.setHeader('Connection', 'keep-alive')
+    reply.raw.setHeader('X-Accel-Buffering', 'no')
+    reply.hijack()
+
+    let clientDisconnected = false
+    let responseFinished = false
+    const markClientDisconnected = () => {
+      if (!responseFinished)
+        clientDisconnected = true
+    }
+    request.raw.once('aborted', markClientDisconnected)
+    reply.raw.once('close', markClientDisconnected)
+    const writeEvent = (event: unknown): void => {
+      if (clientDisconnected || reply.raw.destroyed || reply.raw.writableEnded)
+        return
+      reply.raw.write(`data: ${JSON.stringify(event)}\n\n`)
+    }
+
+    try {
+      await streamChat(
+        store,
+        config,
+        { sessionId, message: parsed.data.message },
+        writeEvent,
+        () => clientDisconnected || reply.raw.destroyed || reply.raw.writableEnded,
+      )
+    }
+    catch (error) {
+      if (!clientDisconnected && !reply.raw.destroyed && !reply.raw.writableEnded) {
+        const message = error instanceof Error && error.message === 'chat-session-not-found'
+          ? '会话不存在'
+          : error instanceof Error && error.message === 'knowledge-base-not-found'
+            ? '知识库不存在'
+            : error instanceof Error ? error.message : '知识库对话失败'
+        writeEvent({ type: 'error', message })
+      }
+    }
+    finally {
+      responseFinished = true
+      if (!reply.raw.destroyed && !reply.raw.writableEnded)
+        reply.raw.end()
     }
   })
 

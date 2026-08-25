@@ -103,3 +103,138 @@ export function createLLM(options: AiChatOptions = {}) {
     },
   }
 }
+
+export interface StreamingLLM {
+  stream(messages: AiChatMessage[]): AsyncIterable<{ content: string; usage?: AiUsage }>
+}
+
+export function createStreamingLLM(options: AiChatOptions = {}): StreamingLLM {
+  const apiKey = readEnv('ARK_API_KEY')
+  if (!apiKey)
+    throw new Error('缺少 ARK_API_KEY 环境变量')
+
+  return {
+    async *stream(messages: AiChatMessage[]): AsyncIterable<{ content: string; usage?: AiUsage }> {
+      const controller = new AbortController()
+      const timer = setTimeout(() => controller.abort(), resolveTimeout())
+
+      try {
+        const response = await fetch(`${resolveBaseUrl()}/chat/completions`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${apiKey}`,
+          },
+          body: JSON.stringify({
+            model: resolveModel(),
+            messages: messages.map(message => ({
+              role: message.role,
+              content: message.content,
+            }) satisfies ArkChatMessage),
+            temperature: options.temperature ?? 0.7,
+            max_tokens: options.maxTokens,
+            stream: true,
+          }),
+          signal: controller.signal,
+        })
+
+        if (!response.ok) {
+          const text = await response.text()
+          throw new Error(`Ark 流式请求失败(${response.status}): ${text}`)
+        }
+
+        if (!response.body)
+          throw new Error('Ark 流式响应缺少 body')
+
+        const reader = response.body.getReader()
+        const decoder = new TextDecoder('utf-8')
+        let buffer = ''
+        let finalUsage: AiUsage | undefined
+
+        while (true) {
+          const { value, done } = await reader.read()
+          if (done)
+            break
+
+          buffer += decoder.decode(value, { stream: true })
+          const lines = buffer.split('\n')
+          // 最后一个可能是不完整的行，保留在 buffer 中
+          buffer = lines.pop() ?? ''
+
+          for (const line of lines) {
+            const trimmed = line.trim()
+            if (!trimmed || !trimmed.startsWith('data: '))
+              continue
+
+            const jsonText = trimmed.slice(6)
+            if (jsonText === '[DONE]')
+              continue
+
+            try {
+              const parsed = JSON.parse(jsonText) as {
+                choices?: Array<{
+                  delta?: { content?: string }
+                  finish_reason?: string | null
+                }>
+                usage?: {
+                  prompt_tokens?: number
+                  completion_tokens?: number
+                  total_tokens?: number
+                }
+              }
+
+              const content = parsed.choices?.[0]?.delta?.content
+              if (content) {
+                yield { content }
+              }
+
+              if (parsed.usage) {
+                finalUsage = {
+                  inputTokens: parsed.usage.prompt_tokens,
+                  outputTokens: parsed.usage.completion_tokens,
+                  totalTokens: parsed.usage.total_tokens,
+                }
+              }
+            }
+            catch {
+              // 跳过无法解析的行
+            }
+          }
+        }
+
+        // 处理 buffer 中可能残留的最后一行
+        if (buffer.trim().startsWith('data: ')) {
+          const jsonText = buffer.trim().slice(6)
+          if (jsonText !== '[DONE]') {
+            try {
+              const parsed = JSON.parse(jsonText) as {
+                usage?: {
+                  prompt_tokens?: number
+                  completion_tokens?: number
+                  total_tokens?: number
+                }
+              }
+              if (parsed.usage) {
+                finalUsage = {
+                  inputTokens: parsed.usage.prompt_tokens,
+                  outputTokens: parsed.usage.completion_tokens,
+                  totalTokens: parsed.usage.total_tokens,
+                }
+              }
+            }
+            catch {
+              // 跳过
+            }
+          }
+        }
+
+        if (finalUsage) {
+          yield { content: '', usage: finalUsage }
+        }
+      }
+      finally {
+        clearTimeout(timer)
+      }
+    },
+  }
+}

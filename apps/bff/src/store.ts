@@ -91,6 +91,36 @@ class PostgresStore implements RuntimeStore {
       );
     `)
 
+    await this.pool.query(`
+      CREATE TABLE IF NOT EXISTS knowledge_chat_sessions (
+        id TEXT PRIMARY KEY,
+        kb_id TEXT NOT NULL,
+        title TEXT NOT NULL DEFAULT '新对话',
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        CONSTRAINT fk_chat_sessions_kb
+          FOREIGN KEY (kb_id)
+          REFERENCES knowledge_bases(id)
+          ON DELETE CASCADE
+      );
+    `)
+
+    await this.pool.query(`
+      CREATE TABLE IF NOT EXISTS knowledge_chat_messages (
+        id TEXT PRIMARY KEY,
+        session_id TEXT NOT NULL,
+        role TEXT NOT NULL CHECK (role IN ('user', 'assistant')),
+        content TEXT NOT NULL,
+        sources JSONB,
+        usage JSONB,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        CONSTRAINT fk_chat_messages_session
+          FOREIGN KEY (session_id)
+          REFERENCES knowledge_chat_sessions(id)
+          ON DELETE CASCADE
+      );
+    `)
+
     const existing = await this.pool.query<{ state_key: string }>(
       'SELECT state_key FROM runtime_state WHERE state_key = $1',
       [this.stateKey],

@@ -15,6 +15,7 @@ declare module 'vue' {
     ApprovalComment: typeof import('./components/approval/ApprovalComment.vue')['default']
     ApprovalConfig: typeof import('./components/workflow/configs/ApprovalConfig.vue')['default']
     BaseConfig: typeof import('./components/workflow/configs/BaseConfig.vue')['default']
+    ChatMarkdown: typeof import('./components/chat/ChatMarkdown.vue')['default']
     ConditionConfig: typeof import('./components/workflow/configs/ConditionConfig.vue')['default']
     DocumentPreview: typeof import('./components/document/common/DocumentPreview.vue')['default']
     DocumentUploader: typeof import('./components/document/common/DocumentUploader.vue')['default']

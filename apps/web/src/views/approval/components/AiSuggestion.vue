@@ -21,6 +21,7 @@ const {
   isGenerating,
   generateSuggestion,
   retry,
+  stop,
 } = useAiSuggestion(() => props.approvalId)
 
 const { showWarningBanner, policyDisclaimer } = useAiPolicy()
@@ -69,6 +70,9 @@ const cardTitle = computed(() => {
 })
 
 const helperText = computed(() => {
+  if (status.value === 'cancelled')
+    return '本次 AI 审阅已取消，不会保存为成功建议，可按需重新生成。'
+
   if (isPolicyBlocked.value)
     return 'AI 策略已阻止此审批的 AI 建议生成，请人工处理。'
 
@@ -157,6 +161,10 @@ function handleRetry(): void {
   const task = retry()
   if (task && typeof task.catch === 'function')
     void task.catch(() => {})
+}
+
+function handleStop(): void {
+  stop()
 }
 
 function handleAccept(): void {
@@ -249,10 +257,20 @@ function cancelOverride(): void {
 
     <div v-else-if="status === 'loading' || status === 'streaming'" class="ai-suggestion-card__body">
       <div class="ai-suggestion-card__actions">
+        <ElButton type="danger" plain @click="handleStop">停止审阅</ElButton>
         <ElButton type="primary" :loading="true">生成中...</ElButton>
       </div>
       <div class="ai-suggestion-card__reasoning ai-suggestion-card__reasoning--streaming">
         {{ displayReasoning || 'AI 正在分析审批上下文，请稍候...' }}
+      </div>
+    </div>
+
+    <div v-else-if="status === 'cancelled'" class="ai-suggestion-card__body">
+      <p class="ai-suggestion-card__cancelled">本次审阅已取消，已生成的片段不会作为建议保存。</p>
+      <div class="ai-suggestion-card__actions">
+        <ElButton type="primary" plain @click="handleRetry">
+          重新生成
+        </ElButton>
       </div>
     </div>
 

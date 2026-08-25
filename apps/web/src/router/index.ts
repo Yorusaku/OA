@@ -37,6 +37,7 @@ const TemplateMarket = () => import(/* webpackChunkName: "template-market" */ '@
 const TemplateDetail = () => import(/* webpackChunkName: "template-detail" */ '@/views/template/TemplateDetail.vue')
 const MyTemplates = () => import(/* webpackChunkName: "template-my" */ '@/views/template/MyTemplates.vue')
 const KnowledgeCenter = () => import(/* webpackChunkName: "knowledge" */ '@/views/knowledge/index.vue')
+const KnowledgeChat = () => import(/* webpackChunkName: "knowledge-chat" */ '@/views/knowledge/chat.vue')
 
 export const constantRoutes: RouteRecordRaw[] = [
   {
@@ -431,6 +432,17 @@ export const constantRoutes: RouteRecordRaw[] = [
             },
           },
         ],
+      },
+      {
+        path: 'knowledge/:kbId/chat',
+        name: 'KnowledgeChat',
+        component: KnowledgeChat,
+        meta: {
+          title: '知识库对话',
+          requiresAuth: true,
+          permission: 'knowledge:view',
+          hidden: true,
+        },
       },
       {
         path: 'knowledge',

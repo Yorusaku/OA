@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
-import { ElCard, ElCol, ElEmpty, ElProgress, ElRow, ElStatistic, ElTable, ElTableColumn, ElTag } from 'element-plus'
+import { ElCard, ElCol, ElDrawer, ElEmpty, ElProgress, ElRow, ElStatistic, ElTable, ElTableColumn, ElTag } from 'element-plus'
 import { useAiAuditStats, useAiAuditLogs } from '@/composables/useAiAudit'
+import { getAiAuditDetail } from '@/api/ai'
 import type { AiAuditStats } from '@oa/contracts'
 
 // 统计数据
@@ -10,6 +11,30 @@ const { stats, isLoading: statsLoading } = useAiAuditStats()
 // 审计日志列表
 const logQuery = ref<Record<string, unknown>>({ page: 1, pageSize: 20 })
 const { data: logsData, isLoading: logsLoading } = useAiAuditLogs(logQuery)
+const detailVisible = ref(false)
+const detailLoading = ref(false)
+const detailApprovalId = ref('')
+const detailEvents = ref<unknown[]>([])
+
+async function handleRowClick(row: any): Promise<void> {
+  detailApprovalId.value = row.targetId || ''
+  detailVisible.value = true
+  detailLoading.value = true
+  try {
+    detailEvents.value = await getAiAuditDetail(detailApprovalId.value) as unknown[]
+  }
+  finally {
+    detailLoading.value = false
+  }
+}
+
+function formatDetail(value: unknown): string {
+  if (value === undefined || value === null || value === '')
+    return '-'
+  if (typeof value === 'string')
+    return value
+  return JSON.stringify(value, null, 2)
+}
 
 const acceptanceRatePercent = computed(() => {
   if (!stats.value)
@@ -148,6 +173,7 @@ function getActionTagType(action: string): 'primary' | 'success' | 'warning' | '
         v-loading="logsLoading"
         :data="(logsData?.list as any[]) || []"
         style="width: 100%"
+        @row-click="handleRowClick"
         empty-text="暂无 AI 审计记录"
       >
         <ElTableColumn prop="operatorName" label="操作人" width="120" />
@@ -168,6 +194,21 @@ function getActionTagType(action: string): 'primary' | 'success' | 'warning' | '
         <ElTableColumn prop="operatedAt" label="时间" width="180" />
       </ElTable>
     </ElCard>
+
+    <ElDrawer v-model="detailVisible" title="AI 审计详情" size="520px">
+      <div v-loading="detailLoading" class="audit-detail">
+        <p class="audit-detail__hint">审批单：{{ detailApprovalId || '-' }}</p>
+        <div v-for="(event, index) in detailEvents as any[]" :key="event.id || index" class="audit-detail__event">
+          <div class="audit-detail__event-head">
+            <ElTag size="small">{{ formatAction(event.action) }}</ElTag>
+            <span>{{ event.operatedAt }}</span>
+          </div>
+          <p>{{ event.summary }}</p>
+          <pre>{{ formatDetail(event.metadata) }}</pre>
+        </div>
+        <ElEmpty v-if="!detailLoading && !detailEvents.length" description="暂无审计详情" />
+      </div>
+    </ElDrawer>
   </div>
 </template>
 
@@ -225,5 +266,43 @@ function getActionTagType(action: string): 'primary' | 'success' | 'warning' | '
 
 .audit-table-card {
   margin-top: 16px;
+}
+
+.audit-detail__hint {
+  margin: 0 0 16px;
+  color: #606266;
+  font-size: 13px;
+}
+
+.audit-detail__event {
+  padding: 14px 0;
+  border-bottom: 1px solid #ebeef5;
+}
+
+.audit-detail__event-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  color: #909399;
+  font-size: 12px;
+}
+
+.audit-detail__event p {
+  margin: 10px 0;
+  color: #303133;
+  line-height: 1.6;
+}
+
+.audit-detail__event pre {
+  margin: 0;
+  padding: 10px;
+  overflow: auto;
+  border-radius: 6px;
+  background: #f7f8fa;
+  color: #606266;
+  font: 12px/1.6 ui-monospace, SFMono-Regular, Consolas, monospace;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
 </style>
