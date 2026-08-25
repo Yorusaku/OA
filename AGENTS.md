@@ -30,6 +30,7 @@
 - 知识库管理页
 - 文档上传、分块、检索、引用来源展示
 - Qdrant 向量检索
+- 知识库对话：多会话、流式输出、中断/重试、重命名/删除、Markdown 渲染、来源引用
 - 模型缺失时的 fallback 降级
 
 ### AI 治理
@@ -73,6 +74,8 @@ OA/
 │   │   ├── src/views/approval/      # 审批中心与详情
 │   │   │   └── components/ReasoningSegmentView.vue # 推理溯源视图（治理 P4）
 │   │   ├── src/views/knowledge/     # 知识库管理
+│   │   │   ├── index.vue            # 知识库列表与文档管理
+│   │   │   └── chat.vue             # 知识库对话页（流式、多会话、来源引用）
 │   │   ├── src/views/system/        # 系统管理
 │   │   │   ├── AiAuditPanel.vue         # AI 审计看板（治理 P2）
 │   │   │   ├── PromptTemplateList.vue   # Prompt 模板列表（治理 P3）
@@ -263,6 +266,7 @@ pnpm docs:build
 - 当前 BFF 默认优先 PostgreSQL 存储，不再只是纯内存
 - 向量链路失败时要允许 fallback
 - 首版不宣称支持 Word 原生直传
+- 知识库对话只能提供制度检索与解释，不直接驱动审批动作
 
 ### 9.5 AI 治理注意事项
 
@@ -285,7 +289,7 @@ pnpm docs:build
 ## 10. 延伸阅读
 
 - [README](README.md)
-- [项目综合文档](plan/project-doc.md)
-- [AI 集成规划](plan/ai-integration-plan.md)
+- [知识库对话实现记录](plan/knowledge-chat-plan.md)
+- [审批 Copilot 审查卡规划](plan/approval-copilot-review-card-plan.md)
 - [架构文档](docs/architecture.md)
 - [开发指南](docs/development.md)
