@@ -6,10 +6,10 @@ import type {
   AiReasoningSegment,
   AiUncertainty,
 } from '@oa/contracts'
-import type { ApprovalRecord } from '../domain'
-import type { RuntimeStore } from '../store'
-import { getApprovalDetail } from './approval-service'
-import { generateApprovalSuggestion, type ApprovalAiContext, streamApprovalSuggestion, checkAiSuggestionPolicy } from './ai-service'
+import type { ApprovalRecord } from '../domain.js'
+import type { RuntimeStore } from '../store.js'
+import { getApprovalDetail } from './approval-service.js'
+import { generateApprovalSuggestion, type ApprovalAiContext, streamApprovalSuggestion, checkAiSuggestionPolicy } from './ai-service.js'
 
 export async function buildApprovalAiContext(
   store: RuntimeStore,

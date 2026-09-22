@@ -1,6 +1,6 @@
 import type { ApprovalMetricSnapshot } from '@oa/contracts'
-import type { RuntimeState } from '../domain'
-import { parseTime } from '../utils'
+import type { RuntimeState } from '../domain.js'
+import { parseTime } from '../utils.js'
 
 function percentile(values: number[], p: number): number {
   if (!values.length)

@@ -9,7 +9,7 @@ import type {
   UpdatePromptTemplateRequest,
 } from '@oa/contracts'
 import { createLLM } from '@oa/ai-utils'
-import { nowText, uid } from '../utils'
+import { nowText, uid } from '../utils.js'
 
 // ========== 默认模板 ==========
 

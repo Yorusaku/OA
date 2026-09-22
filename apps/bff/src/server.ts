@@ -1,7 +1,7 @@
-import { buildApp } from './app'
-import { loadBffConfig } from './config'
-import { loadLocalEnv } from './env'
-import { initializeKnowledgeInfrastructure } from './services/knowledge-service'
+import { buildApp } from './app.js'
+import { loadBffConfig } from './config.js'
+import { loadLocalEnv } from './env.js'
+import { initializeKnowledgeInfrastructure } from './services/knowledge-service.js'
 
 async function bootstrap() {
   loadLocalEnv()

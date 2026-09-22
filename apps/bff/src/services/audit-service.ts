@@ -1,5 +1,5 @@
-import type { AuditAction, AuditEvent, AuditResult, AuditSummaryLink, RuntimeState } from '../domain'
-import { nowText, parseTime, uid } from '../utils'
+import type { AuditAction, AuditEvent, AuditResult, AuditSummaryLink, RuntimeState } from '../domain.js'
+import { nowText, parseTime, uid } from '../utils.js'
 
 export interface AuditWriteInput {
   operatorId?: string

@@ -7,7 +7,7 @@
     "prepare:workspace": "pnpm --filter @oa/contracts build && pnpm --filter @oa/ai-utils build",
     "dev": "pnpm run prepare:workspace && tsx watch src/server.ts",
     "build": "pnpm run prepare:workspace && tsc -p tsconfig.build.json",
-    "start": "node --experimental-specifier-resolution=node dist/server.js",
+    "start": "node dist/server.js",
     "typecheck": "pnpm run prepare:workspace && tsc --noEmit",
     "test": "pnpm run prepare:workspace && vitest"
   },

@@ -1,6 +1,6 @@
 import type { ServerResponse } from 'node:http'
 import type { SseApprovalEvent, SseTopic } from '@oa/contracts'
-import { uid } from './utils'
+import { uid } from './utils.js'
 
 interface Client {
   id: string

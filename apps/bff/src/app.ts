@@ -4,14 +4,15 @@ import { API_ERROR } from '@oa/contracts'
 import cors from '@fastify/cors'
 import Fastify from 'fastify'
 import { z } from 'zod'
-import type { BffConfig } from './config'
-import type { ApprovalDelegationRule, AuditAction, AuditEvent } from './domain'
-import { createStore, type RuntimeStore } from './store'
-import { RealtimeHub } from './sse'
+import type { BffConfig } from './config.js'
+import type { ApprovalDelegationRule, AuditAction, AuditEvent } from './domain.js'
+import { createStore, type RuntimeStore } from './store.js'
+import { RealtimeHub } from './sse.js'
 import {
   batchDeleteMessages,
   batchMarkAsRead,
   batchMarkCCAsRead,
+  batchProcessApprovals,
   cleanupIdempotency,
   deleteMessage,
   disableApprovalDelegation,
@@ -32,25 +33,26 @@ import {
   saveIdempotentResponse,
   submitApproval,
   upsertApprovalDelegation,
-} from './services/approval-service'
+} from './services/approval-service.js'
+import { createDraft, listDrafts, removeDraft } from './services/draft-service.js'
 import {
   exportAuditLogsCsv,
   getAuditLogDetail,
   listAuditLogs,
   writeAuditLog,
-} from './services/audit-service'
+} from './services/audit-service.js'
 import {
   runApprovalSuggestion,
   runApprovalSuggestionStream,
-} from './services/approval-ai-service'
-import { getActivePolicy } from './services/ai-policy-service'
+} from './services/approval-ai-service.js'
+import { getActivePolicy } from './services/ai-policy-service.js'
 import {
   getAiAccuracyStats,
   getAiAuditEvents,
   recordAiSuggestionAccepted,
   recordAiSuggestionGenerated,
   recordAiSuggestionOverridden,
-} from './services/ai-audit-service'
+} from './services/ai-audit-service.js'
 import {
   activatePromptTemplate,
   createPromptTemplate,
@@ -61,7 +63,7 @@ import {
   listPromptTemplates,
   testPromptTemplate,
   updatePromptTemplate,
-} from './services/prompt-template-service'
+} from './services/prompt-template-service.js'
 import {
   createKnowledgeBase,
   deleteKnowledgeBase,
@@ -71,7 +73,7 @@ import {
   reindexKnowledgeDocument,
   searchKnowledge,
   uploadDocument,
-} from './services/knowledge-service'
+} from './services/knowledge-service.js'
 import {
   createChatSession,
   deleteChatSession,
@@ -79,8 +81,8 @@ import {
   listChatSessions,
   renameChatSession,
   streamChat,
-} from './services/knowledge-chat-service'
-import { buildApprovalMetricSnapshot } from './services/metrics-service'
+} from './services/knowledge-chat-service.js'
+import { buildApprovalMetricSnapshot } from './services/metrics-service.js'
 import {
   analyzeWorkflowImpact,
   createWorkflowDefinition,
@@ -93,7 +95,7 @@ import {
   rollbackWorkflow,
   listWorkflowVersions,
   updateWorkflowDefinition,
-} from './services/workflow-service'
+} from './services/workflow-service.js'
 
 class AppError extends Error {
   readonly statusCode: number
@@ -1085,6 +1087,81 @@ export async function buildApp(config: BffConfig, injectedStore?: RuntimeStore) 
   app.get('/api/v1/approval/stats', async (request, reply) => {
     const result = await store.runInTransaction(state => getWorkbenchStats(state))
     sendOk(request, reply, result, '获取成功')
+  })
+  app.post('/api/v1/approval/batch-action', async (request, reply) => {
+    const schema = z.object({
+      ids: z.array(z.string().min(1)).min(1).max(50),
+      action: z.enum(['approve', 'reject']),
+      commentText: z.string().optional(),
+      operatorId: z.string().optional(),
+      operatorName: z.string().optional(),
+    })
+    const parsed = schema.safeParse(request.body)
+    if (!parsed.success)
+      throw new AppError('请求参数错误', { statusCode: 400, businessCode: API_ERROR.BAD_REQUEST, details: parsed.error.flatten() })
+
+    const batchStartAt = Date.now()
+    const result = await runWriteWithIdempotency(request, '/api/v1/approval/batch-action', state => batchProcessApprovals(state, parsed.data))
+    realtimeHub.publish('approval.todo.changed', { batch: true, succeeded: result.succeeded, failed: result.failed })
+    for (const item of result.results) {
+      if (item.success)
+        realtimeHub.publish('approval.updated', { approvalId: item.id, status: item.status })
+    }
+    const batchMeta = readClientMeta(request)
+    const batchOp = resolveOperatorFromRequest(request)
+    await store.runInTransaction((state) => {
+      writeAuditLog(state, {
+        operatorId: parsed.data.operatorId || batchOp.id,
+        operatorName: parsed.data.operatorName || batchOp.name,
+        module: 'approval',
+        action: 'approval.process',
+        result: 'success',
+        targetType: 'approval',
+        targetId: result.results[0]?.id || 'batch',
+        summary: `批量${parsed.data.action === 'approve' ? '通过' : '驳回'} ${result.succeeded}/${result.results.length} 条审批`,
+        traceId: request.id,
+        ip: batchMeta.ip,
+        userAgent: batchMeta.userAgent,
+        durationMs: Date.now() - batchStartAt,
+        metadata: { batch: true, succeeded: result.succeeded, failed: result.failed },
+      })
+    })
+    sendOk(request, reply, result, '批量处理完成')
+  })
+
+  app.get('/api/v1/drafts', async (request, reply) => {
+    const query = request.query as Record<string, unknown>
+    const result = await store.runInTransaction(state => listDrafts(state, query.keyword as string | undefined))
+    sendOk(request, reply, result, '获取成功')
+  })
+
+  app.post('/api/v1/drafts', async (request, reply) => {
+    const schema = z.object({
+      workflowId: z.string().optional(),
+      workflowType: z.string().optional(),
+      title: z.string().optional(),
+      applicant: z.string().optional(),
+      applicantAvatar: z.string().optional(),
+      formData: z.record(z.string(), z.unknown()).optional(),
+      description: z.string().optional(),
+      amount: z.number().optional(),
+      isUrgent: z.boolean().optional(),
+    })
+    const parsed = schema.safeParse(request.body)
+    if (!parsed.success)
+      throw new AppError('请求参数错误', { statusCode: 400, businessCode: API_ERROR.BAD_REQUEST, details: parsed.error.flatten() })
+    const draftOp = resolveOperatorFromRequest(request)
+    const draft = await runWriteWithIdempotency(request, '/api/v1/drafts', state => createDraft(state, parsed.data, draftOp))
+    sendOk(request, reply, draft, '草稿已保存')
+  })
+
+  app.delete('/api/v1/drafts/:id', async (request, reply) => {
+    const { id } = request.params as { id: string }
+    await runWriteWithIdempotency(request, '/api/v1/drafts/:id', (state) => {
+      removeDraft(state, id)
+      return { success: true }
+    })
+    sendOk(request, reply, { success: true }, '草稿已删除')
   })
 
   app.get('/api/v1/approval/notifications', async (request, reply) => {

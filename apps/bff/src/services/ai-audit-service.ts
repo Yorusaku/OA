@@ -1,8 +1,8 @@
 import type { AiApprovalSuggestionResponse, AiAuditStats } from '@oa/contracts'
-import type { AuditEvent, RuntimeState } from '../domain'
-import { uid } from '../utils'
-import { writeAuditLog, type AuditWriteInput } from './audit-service'
-import { ensureDefaultTemplate, getActiveTemplateForScope, getPromptTemplateStore } from './prompt-template-service'
+import type { AuditEvent, RuntimeState } from '../domain.js'
+import { uid } from '../utils.js'
+import { writeAuditLog, type AuditWriteInput } from './audit-service.js'
+import { ensureDefaultTemplate, getActiveTemplateForScope, getPromptTemplateStore } from './prompt-template-service.js'
 
 // ========== AI 审计事件写入 ==========
 

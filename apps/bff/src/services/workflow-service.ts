@@ -1,6 +1,6 @@
 import type { RuleTrace, WorkflowVersion } from '@oa/contracts'
-import type { RuntimeState, WorkflowDefinition, WorkflowNode } from '../domain'
-import { nowText, parseTime, uid } from '../utils'
+import type { RuntimeState, WorkflowDefinition, WorkflowNode } from '../domain.js'
+import { nowText, parseTime, uid } from '../utils.js'
 
 export interface WorkflowListQuery {
   page: number
@@ -191,7 +191,7 @@ export function analyzeWorkflowImpact(state: RuntimeState, workflowId: string) {
   }
 }
 
-function evaluateCondition(
+export function evaluateCondition(
   operator: string,
   fieldValue: unknown,
   expectValue: unknown,

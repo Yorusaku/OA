@@ -6,10 +6,10 @@ import type {
   RagCitation,
 } from '@oa/contracts'
 import { createStreamingLLM } from '@oa/ai-utils'
-import type { BffConfig } from '../config'
-import type { RuntimeStore } from '../store'
-import { uid } from '../utils'
-import { __knowledgeState, retrieveKnowledgeSources } from './knowledge-service'
+import type { BffConfig } from '../config.js'
+import type { RuntimeStore } from '../store.js'
+import { uid } from '../utils.js'
+import { __knowledgeState, retrieveKnowledgeSources } from './knowledge-service.js'
 
 interface ChatSessionRecord extends KnowledgeChatSession {}
 interface ChatMessageRecord extends KnowledgeChatMessage {}

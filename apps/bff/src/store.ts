@@ -1,8 +1,8 @@
 import type { PoolClient, QueryResultRow } from 'pg'
 import { Pool } from 'pg'
-import type { RuntimeState } from './domain'
-import { createInitialState } from './state'
-import { deepClone } from './utils'
+import type { RuntimeState } from './domain.js'
+import { createInitialState } from './state.js'
+import { deepClone } from './utils.js'
 
 export interface RuntimeStore {
   storage: 'postgres' | 'inmemory'

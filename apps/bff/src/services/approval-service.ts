@@ -10,8 +10,11 @@ import type {
   MessageType,
   RuntimeState,
   WorkbenchStats,
-} from '../domain'
-import { nowText, parseTime, toDateRange, uid } from '../utils'
+  WorkflowDefinition,
+  WorkflowNode,
+} from '../domain.js'
+import { nowText, parseTime, toDateRange, uid } from '../utils.js'
+import { evaluateCondition } from './workflow-service.js'
 
 const DEFAULT_SLA_HOURS = 48
 const ESCALATION_ASSIGNEE_MAP: Record<string, { id: string, name: string }> = {
@@ -133,6 +136,185 @@ function resolveApprovalNode(workflow?: RuntimeState['workflows'][number], nodeI
       return target
   }
   return workflow.nodes.find(item => item.type === 'approval')
+}
+
+function outgoingTargets(workflow: WorkflowDefinition, fromNodeId?: string): string[] {
+  if (!fromNodeId)
+    return []
+  return workflow.edges
+    .filter(edge => edge.source === fromNodeId)
+    .map(edge => edge.target)
+}
+
+function nodeConditionsMet(node: WorkflowNode, formData?: Record<string, unknown>): boolean {
+  const conditions = node.conditions || []
+  if (conditions.length === 0)
+    return true
+  return conditions.every((condition) => {
+    const fieldKey = condition.field || ''
+    const fieldValue = fieldKey ? formData?.[fieldKey] : undefined
+    return evaluateCondition(condition.operator, fieldValue, condition.value)
+  })
+}
+
+/**
+ * 从当前节点沿流程定义出边路由，穿过 condition / cc 中间节点，返回下一个审批节点。
+ * condition 节点语义：命中（AND）走第一条出边；未命中走第二条出边（默认分支）；
+ * 单出边时不区分命中直接通过。途经 cc 节点记录但不阻塞。
+ */
+function resolveNodeRoute(
+  workflow: WorkflowDefinition,
+  fromNodeId: string | undefined,
+  formData?: Record<string, unknown>,
+): { nextApprovalNodeId?: string, ccNodeIds: string[], notes: string[] } {
+  const notes: string[] = []
+  const ccNodeIds: string[] = []
+  let cursor = fromNodeId
+  for (let guard = 0; guard < 50; guard += 1) {
+    const targets = outgoingTargets(workflow, cursor)
+    if (targets.length === 0)
+      return { ccNodeIds, notes }
+    const cursorNode = workflow.nodes.find(item => item.id === cursor)
+    let targetId = targets[0]
+    if (cursorNode?.type === 'condition') {
+      const met = nodeConditionsMet(cursorNode, formData)
+      if (!met && targets.length > 1) {
+        targetId = targets[1]
+        notes.push(`条件未命中「${cursorNode.name}」，走默认分支`)
+      }
+      else {
+        notes.push(`条件${met ? '命中' : '未命中（无默认分支，按主分支继续）'}「${cursorNode.name}」`)
+      }
+    }
+    const targetNode = workflow.nodes.find(item => item.id === targetId)
+    if (!targetNode)
+      return { ccNodeIds, notes }
+    if (targetNode.type === 'approval')
+      return { nextApprovalNodeId: targetNode.id, ccNodeIds, notes }
+    if (targetNode.type === 'cc') {
+      ccNodeIds.push(targetNode.id)
+      cursor = targetNode.id
+      continue
+    }
+    if (targetNode.type === 'end')
+      return { ccNodeIds, notes }
+    cursor = targetNode.id
+  }
+  return { ccNodeIds, notes }
+}
+
+function resolveStartApprovalNodeId(workflow: WorkflowDefinition, formData?: Record<string, unknown>): string | undefined {
+  const startNode = workflow.nodes.find(item => item.type === 'start')
+  if (!startNode)
+    return undefined
+  return resolveNodeRoute(workflow, startNode.id, formData).nextApprovalNodeId
+}
+
+function createCcRecordForNode(state: RuntimeState, record: ApprovalRecord, ccNode: WorkflowNode, operatedAt: string): void {
+  const ccUsers = normalizeAssignees(ccNode.handler?.assignees)
+  for (const user of ccUsers) {
+    state.ccRecords.unshift({
+      id: uid('cc'),
+      approvalId: record.id,
+      title: record.title,
+      type: record.type,
+      status: record.status,
+      applicant: record.applicant,
+      applicantAvatar: record.applicantAvatar,
+      ccTime: operatedAt,
+      ccNodeName: ccNode.name,
+      read: false,
+      amount: record.amount,
+      description: record.description,
+    })
+    pushMessage(state, {
+      title: '审批抄送',
+      content: `《${record.title}》已抄送至「${ccNode.name}」节点。`,
+      type: 'cc',
+      relatedId: record.id,
+    })
+  }
+}
+
+function advanceWorkflow(state: RuntimeState, record: ApprovalRecord, operator: { id?: string, name: string }, operatedAt: string, depth = 0): boolean {
+  const workflow = resolveWorkflowByType(state, record.type)
+  const instance = record.workflowInstance
+  if (!workflow || !workflow.nodes?.length || !instance || depth > 50)
+    return false
+  const route = resolveNodeRoute(workflow, instance.currentNodeId, record.formData)
+  for (const ccNodeId of route.ccNodeIds) {
+    const ccNode = workflow.nodes.find(item => item.id === ccNodeId)
+    if (ccNode)
+      createCcRecordForNode(state, record, ccNode, operatedAt)
+  }
+  if (!route.nextApprovalNodeId) {
+    record.status = 'approved'
+    record.currentNodeName = '审批完成'
+    appendTrail(record, {
+      id: uid('trail'),
+      action: 'advance',
+      status: 'approved',
+      operatorId: 'system',
+      operatorName: '流程引擎',
+      operatedAt,
+      comment: route.notes.length ? `流程到达终点（${route.notes.join('；')}）` : '流程已到达终点',
+    })
+    return true
+  }
+  const nextNode = workflow.nodes.find(item => item.id === route.nextApprovalNodeId)
+  if (!nextNode)
+    return false
+  const assignees = normalizeAssignees(nextNode.handler?.assignees)
+  if (assignees.length === 0) {
+    appendTrail(record, {
+      id: uid('trail'),
+      action: 'advance',
+      status: record.status,
+      operatorId: 'system',
+      operatorName: '流程引擎',
+      operatedAt,
+      comment: `节点「${nextNode.name}」未配置处理人，自动跳过`,
+    })
+    instance.currentNodeId = nextNode.id
+    return advanceWorkflow(state, record, operator, operatedAt, depth + 1)
+  }
+  const mode = nextNode.handler?.mode === 'and' ? 'and' : 'or'
+  const tasks = assignees.map(item => buildPendingTask(state, nextNode.id, item.id, item.name))
+  instance.tasks = [...tasks, ...(instance.tasks || [])]
+  instance.currentNodeId = nextNode.id
+  instance.currentNodeMode = mode
+  instance.currentNodeAssignees = assignees
+  record.currentNodeName = nextNode.name
+  record.status = 'pending'
+  appendTrail(record, {
+    id: uid('trail'),
+    action: 'advance',
+    status: 'pending',
+    operatorId: operator.id,
+    operatorName: operator.name,
+    operatedAt,
+    comment: `审批通过，流转至「${nextNode.name}」${route.notes.length ? `（${route.notes.join('；')}）` : ''}`,
+  })
+  pushApprovalNotice(state, {
+    approvalId: record.id,
+    title: '审批流转提醒',
+    content: `《${record.title}》已流转至「${nextNode.name}」节点，等待处理。`,
+    type: 'info',
+  })
+  pushMessage(state, {
+    title: '新待办审批',
+    content: `《${record.title}》已流转至「${nextNode.name}」节点。`,
+    type: 'approval',
+    relatedId: record.id,
+  })
+  state.approvalEvents.unshift({
+    id: uid('evt'),
+    eventType: 'approval.advanced',
+    approvalId: record.id,
+    happenedAt: operatedAt,
+    payload: { toNodeId: nextNode.id, toNodeName: nextNode.name },
+  })
+  return true
 }
 
 function resolveNodeStrategy(state: RuntimeState, record: ApprovalRecord): ApprovalNodeStrategy {
@@ -546,6 +728,10 @@ export function submitApproval(
   runApprovalAutomation(state)
   const now = new Date()
   const applyTime = nowText(now)
+  const startWorkflow = resolveWorkflowByType(state, data.type || 'other')
+  const startNodeId = startWorkflow
+    ? resolveStartApprovalNodeId(startWorkflow, data.formData)
+    : undefined
   const seedRecord: ApprovalRecord = {
     ...data,
     id: '',
@@ -554,6 +740,7 @@ export function submitApproval(
     title: data.title || '通用审批申请',
     type: data.type || 'other',
     applicant: data.applicant || actor?.name || '当前用户',
+    ...(startNodeId ? { workflowInstance: { currentNodeId: startNodeId } } : {}),
   }
   const strategy = resolveNodeStrategy(state, seedRecord)
   const tasks = strategy.assignees.map(item => buildPendingTask(state, strategy.nodeId, item.id, item.name, now))
@@ -640,21 +827,20 @@ export function processApproval(state: RuntimeState, payload: ProcessApprovalPay
     })
 
     if (payload.action === 'approve') {
-      if (currentMode === 'or') {
+      const nodeCompleted = currentMode === 'or'
+        || currentNodeTasks.every(task => normalizeTaskStatus(task.taskStatus || task.status) === 'approved')
+      if (nodeCompleted) {
         closeOtherPendingTasks(record, processingTask.id, operatedAt, operator)
-        record.status = 'approved'
-        record.currentNodeName = '审批完成'
-      }
-      else {
-        const allApproved = currentNodeTasks.every(task => normalizeTaskStatus(task.taskStatus || task.status) === 'approved')
-        if (allApproved) {
+        // 流程引擎推进：有下一审批节点则流转并保持 pending，无下一节点（或引擎异常）按原行为完结
+        const advanced = advanceWorkflow(state, record, operator, operatedAt)
+        if (!advanced) {
           record.status = 'approved'
           record.currentNodeName = '审批完成'
         }
-        else {
-          record.status = 'pending'
-          record.currentNodeName = `会签进行中（${record.workflowInstance?.progress?.completed || 0}/${record.workflowInstance?.progress?.total || 0}）`
-        }
+      }
+      else {
+        record.status = 'pending'
+        record.currentNodeName = `会签进行中（${record.workflowInstance?.progress?.completed || 0}/${record.workflowInstance?.progress?.total || 0}）`
       }
     }
     else {
@@ -952,4 +1138,34 @@ export function batchMarkCCAsRead(state: RuntimeState, ids: string[]): void {
 
 export function getCCUnreadCount(state: RuntimeState): number {
   return state.ccRecords.filter(item => !item.read).length
+}
+/** 批量审批：逐条独立执行，单条失败不影响其余，返回逐条结果。 */
+export function batchProcessApprovals(
+  state: RuntimeState,
+  payload: { ids: string[], action: ApprovalAction, commentText?: string, operatorId?: string, operatorName?: string },
+): {
+  results: Array<{ id: string, success: boolean, title?: string, status?: string, error?: string }>,
+  succeeded: number,
+  failed: number,
+} {
+  const results = payload.ids.map((id) => {
+    try {
+      const record = processApproval(state, {
+        id,
+        action: payload.action,
+        commentText: payload.commentText,
+        operatorId: payload.operatorId,
+        operatorName: payload.operatorName,
+      })
+      return { id, success: true, title: record.title, status: record.status }
+    }
+    catch (error) {
+      return { id, success: false, error: error instanceof Error ? error.message : String(error) }
+    }
+  })
+  return {
+    results,
+    succeeded: results.filter(item => item.success).length,
+    failed: results.filter(item => !item.success).length,
+  }
 }

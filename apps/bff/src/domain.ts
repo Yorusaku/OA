@@ -48,7 +48,7 @@ export interface ApprovalTask {
 
 export interface ApprovalTrailItem {
   id: string
-  action: ApprovalAction | 'create' | 'escalate' | 'delegate'
+  action: ApprovalAction | 'create' | 'escalate' | 'delegate' | 'advance' | 'route'
   status: ApprovalStatus
   operatorId?: string
   operatorName?: string
@@ -59,6 +59,20 @@ export interface ApprovalTrailItem {
   targetUserName?: string
 }
 
+export interface ApprovalDraft {
+  id: string
+  workflowId?: string
+  workflowType?: string
+  title: string
+  applicant: string
+  applicantAvatar?: string
+  formData?: Record<string, unknown>
+  description?: string
+  amount?: number
+  isUrgent?: boolean
+  createdAt: string
+  updatedAt: string
+}
 export interface ApprovalRecord {
   id: string
   title: string
@@ -206,7 +220,7 @@ export interface ApprovalNotification {
 
 export interface ApprovalEvent {
   id: string
-  eventType: 'approval.created' | 'approval.updated' | 'approval.escalated' | 'approval.delegated'
+  eventType: 'approval.created' | 'approval.updated' | 'approval.escalated' | 'approval.delegated' | 'approval.advanced'
   approvalId: string
   happenedAt: string
   durationMs?: number
@@ -224,6 +238,7 @@ export type AuditAction
   = | 'auth.login'
     | 'approval.submit'
     | 'approval.process'
+    | 'approval.draft'
     | 'approval.delegate.enable'
     | 'approval.delegate.disable'
     | 'workflow.publish'
@@ -270,6 +285,7 @@ export interface RuntimeState {
     name: string
   }>
   approvals: ApprovalRecord[]
+  drafts: ApprovalDraft[]
   approvalNotifications: ApprovalNotification[]
   messages: MessageRecord[]
   ccRecords: CCRecord[]

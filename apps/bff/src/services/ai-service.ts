@@ -1,8 +1,8 @@
 import type { AiApprovalSuggestionResponse, AiPolicyValidationResult, AiReasoningSegment, AiSuggestionDecision, AiSuggestionRiskLevel, AiUncertainty } from '@oa/contracts'
 import { createLLM } from '@oa/ai-utils'
 import { z } from 'zod'
-import { getActivePolicy, validateAiAction } from './ai-policy-service'
-import { getActiveTemplateForScope, renderPrompt, getPromptTemplateStore, ensureDefaultTemplate } from './prompt-template-service'
+import { getActivePolicy, validateAiAction } from './ai-policy-service.js'
+import { getActiveTemplateForScope, renderPrompt, getPromptTemplateStore, ensureDefaultTemplate } from './prompt-template-service.js'
 
 const FALLBACK_DISCLAIMER = 'AI 建议仅供参考，最终以人工审批为准'
 

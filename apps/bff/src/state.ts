@@ -1,5 +1,5 @@
-import type { RuntimeState, WorkflowDefinition } from './domain'
-import { nowText, uid } from './utils'
+import type { RuntimeState, WorkflowDefinition } from './domain.js'
+import { nowText, uid } from './utils.js'
 
 export function createInitialState(): RuntimeState {
   const now = new Date()
@@ -112,6 +112,7 @@ export function createInitialState(): RuntimeState {
         ],
       },
     ],
+    drafts: [],
     approvalNotifications: [],
     messages: [],
     ccRecords: [],

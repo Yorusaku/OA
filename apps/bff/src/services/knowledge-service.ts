@@ -11,10 +11,10 @@ import {
   createQdrantVectorStore,
   createTextSplitter,
 } from '@oa/ai-utils'
-import type { BffConfig } from '../config'
-import type { RuntimeStore } from '../store'
-import { uid } from '../utils'
-import { processDocument } from './document-pipeline'
+import type { BffConfig } from '../config.js'
+import type { RuntimeStore } from '../store.js'
+import { uid } from '../utils.js'
+import { processDocument } from './document-pipeline.js'
 
 interface InMemoryKnowledgeBase extends KnowledgeBaseItem {}
 
