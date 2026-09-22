@@ -1,4 +1,4 @@
-import type { RagSearchHit, RagVectorRecord } from './types'
+import type { RagSearchHit, RagVectorRecord } from './types.js'
 
 export interface QdrantStoreOptions {
   url: string

@@ -1,4 +1,4 @@
-import type { AiChatMessage, AiChatOptions, AiUsage } from './types'
+import type { AiChatMessage, AiChatOptions, AiUsage } from './types.js'
 
 export interface ArkChatMessage {
   role: 'system' | 'user' | 'assistant'

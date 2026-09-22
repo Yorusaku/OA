@@ -6,7 +6,7 @@
 
 全景智能 OA 是一套前端主导的引擎化协同审批平台原型，核心目标是把审批系统从“页面硬编码”演进为“协议驱动 + 引擎渲染 + 状态可追踪”的交付模式。
 
-- 当前阶段：审批主链路已完整，AI 审批建议与知识库 P0/P1 已落地，AI 治理 4 阶段（Policy-as-Code / 决策审计 4 维度 / Prompt 模板管理 / 可解释性溯源）已完成
+- 当前阶段：审批主链路已完整，AI 审批建议与审批 Copilot 审查卡、知识库 P0/P1 已落地，AI 治理 4 阶段（Policy-as-Code / 决策审计 4 维度 / Prompt 模板管理 / 可解释性溯源）已完成
 - 项目性质：简历 / Demo 项目，无真实生产流量
 - 目标叙事：从“前端审批系统”升级为“AI 增强的企业级智能审批平台”
 
@@ -21,10 +21,14 @@
 - 会签 `and` / 或签 `or`
 - SLA 自动升级
 - 全局代理审批
+- 流程执行引擎：依据 definition edges 推进多节点流程，支持条件路由与 CC 自动流转
+- 审批详情运行态流程图：完成 / 当前 / 待达 / 驳回节点高亮，定义缺失时降级轨迹时间线
+- BFF 批量审批端点与审批草稿 CRUD
 
 ### AI 增强
 
 - 审批详情页 AI 建议卡片
+- 审批 Copilot 审查卡：审查摘要 / 风险点 / 依据来源
 - `Human-in-the-Loop` 置信度分流
 - 流式理由输出
 - 知识库管理页
@@ -66,13 +70,16 @@ OA/
 ├── apps/
 │   ├── web/
 │   │   ├── src/api/                 # mock / real 双模式 API
-│   │   ├── src/composables/         # 组合式逻辑层（33 个）
-│   │   │   ├── useAiSuggestion.ts       # AI 建议状态机（含溯源/不确定性）
+│   │   ├── src/composables/         # 组合式逻辑层（34 个）
+│   │   │   ├── useAiSuggestion.ts       # AI 建议状态机（含 Copilot/溯源/不确定性）
 │   │   │   ├── useAiPolicy.ts           # AI 策略查询与警告（治理 P1）
 │   │   │   ├── useAiAudit.ts            # AI 审计统计与采纳/覆盖（治理 P2）
-│   │   │   └── usePromptTemplate.ts     # Prompt 模板 CRUD 与测试（治理 P3）
+│   │   │   ├── usePromptTemplate.ts     # Prompt 模板 CRUD 与测试（治理 P3）
+│   │   │   └── useKnowledgeChat.ts      # 知识库对话（会话/流式/中断/重试）
 │   │   ├── src/views/approval/      # 审批中心与详情
-│   │   │   └── components/ReasoningSegmentView.vue # 推理溯源视图（治理 P4）
+│   │   │   └── components/
+│   │   │       ├── AiSuggestion.vue         # 审批 Copilot 审查卡
+│   │   │       └── ReasoningSegmentView.vue # 推理溯源视图（治理 P4）
 │   │   ├── src/views/knowledge/     # 知识库管理
 │   │   │   ├── index.vue            # 知识库列表与文档管理
 │   │   │   └── chat.vue             # 知识库对话页（流式、多会话、来源引用）
@@ -82,17 +89,26 @@ OA/
 │   │   │   └── PromptTemplateDetail.vue # Prompt 模板详情/测试（治理 P3）
 │   │   └── src/services/            # PDF 等文档服务
 │   └── bff/
-│       ├── src/app.ts               # Fastify 路由入口
+│       ├── src/server.ts            # BFF 启动入口
+│       ├── src/app.ts               # Fastify 路由注册入口
+│       ├── src/domain.ts            # 领域类型（审批/流程/审计）
 │       ├── src/store.ts             # Postgres / 内存双存储
+│       ├── src/sse.ts               # SSE 实时推送 Hub
+│       ├── src/config.ts            # BFF 配置与默认值
+│       ├── src/env.ts               # 本地 .env 加载
 │       └── src/services/
 │           ├── approval-service.ts
-│           ├── approval-ai-service.ts
+│           ├── approval-ai-service.ts   # 上下文组装 + Copilot 审查卡增强
 │           ├── ai-service.ts            # LLM 调用 + 引用溯源解析
 │           ├── ai-policy-service.ts     # AI 策略即代码（治理 P1）
 │           ├── ai-audit-service.ts      # AI 决策审计 4 维度（治理 P2）
 │           ├── prompt-template-service.ts # Prompt 模板管理与版本化（治理 P3）
 │           ├── knowledge-service.ts
-│           └── document-pipeline.ts
+│           ├── knowledge-chat-service.ts  # 知识库对话（会话/检索/SSE 流式）
+│           ├── document-pipeline.ts
+│           ├── audit-service.ts           # 审计日志
+│           ├── metrics-service.ts         # 审批指标快照
+│           └── workflow-service.ts        # 流程版本治理
 ├── packages/
 │   ├── ai-utils/                    # Ark / Embedding / Qdrant / chunking
 │   ├── contracts/                   # 前后端共享契约（含审计 / Prompt 模板类型）
@@ -121,10 +137,11 @@ OA/
 - `useApprovalDetail`
 - `useNodePermissions`
 - `useApprovalSubmit`
-- `useAiSuggestion`（含溯源/不确定性）
+- `useAiSuggestion`（含 Copilot 审查卡/溯源/不确定性）
 - `useAiPolicy`（治理 P1）
 - `useAiAudit`（治理 P2）
 - `usePromptTemplate`（治理 P3）
+- `useKnowledgeChat`（知识库对话：会话 / 流式 / 中断 / 重试）
 
 ### 5.3 双模式 API
 
@@ -137,11 +154,12 @@ OA/
 - `packages/ai-utils`：纯 AI 基础能力
 - `packages/contracts`：AI / RAG / SSE / 审计 / Prompt 模板契约
 - `apps/bff/src/services/ai-service.ts`：模型调用、结构化解析、引用溯源
-- `apps/bff/src/services/approval-ai-service.ts`：审批上下文组装
+- `apps/bff/src/services/approval-ai-service.ts`：审批上下文组装 + Copilot 审查卡增强
 - `apps/bff/src/services/ai-policy-service.ts`：Policy-as-Code 能力边界声明（治理 P1）
 - `apps/bff/src/services/ai-audit-service.ts`：AI 决策审计 4 维度（治理 P2）
 - `apps/bff/src/services/prompt-template-service.ts`：Prompt 模板 CRUD / 版本 / 渲染 / 测试（治理 P3）
 - `apps/bff/src/services/knowledge-service.ts`：知识库上传、索引、检索
+- `apps/bff/src/services/knowledge-chat-service.ts`：知识库对话会话、RAG 检索、SSE 流式
 
 ## 6. 当前 AI 设计要点
 
@@ -156,9 +174,20 @@ OA/
   - `reasoning`
   - `reasoningSegments`（治理 P4：推理来源溯源）
   - `uncertainties`（治理 P4：不确定性标注）
+  - `reviewSummary` / `riskPoints` / `evidenceItems`（审批 Copilot 审查卡）
   - `disclaimer`
   - `generatedAt`
 - 解析失败、模型异常、信息不足时统一降级 `manual_review`
+
+### 审批 Copilot 审查卡
+
+- 定位：在 AI 建议之上聚合"可复核的结构化审查信息"，不做通用聊天、不做自动审批
+- `reviewSummary`：申请人 / 类型 / 金额 / 当前节点 / 关键时间线，由服务端基于审批上下文确定性生成
+- `riskPoints`：确定性规则命中即输出 —— 高金额（≥50000）、SLA 升级、多次催办（≥3）、描述缺失、附件缺失，外加 Policy 策略提示；每条带 `level` 与 `source`
+- `riskPoint.source` 取值：`policy` / `form` / `workflow` / `history` / `model`
+- `evidenceItems`：优先由 `reasoningSegments` 映射生成；无溯源片段时用表单摘要 / 流程摘要 / 审批轨迹 / 模型判断兜底，最多 4 条
+- 普通接口与 SSE 接口共用 `enrichWithCopilotReview`；策略阻断的 fallback 响应同样会被增强
+- mock 模式（`apps/web/src/api/ai.ts`）同步补齐 Copilot 字段与 `auditEventId`，无 Ark Key / 无 BFF 也能演示
 
 ### 知识库
 
@@ -194,7 +223,9 @@ docker compose up -d
 
 关键变量：
 
-- `BFF_STORAGE`
+- `BFF_STORAGE`（postgres / inmemory）
+- `BFF_HOST` / `BFF_PORT`
+- `DATABASE_URL`（可选，覆盖 PG_* 连接串）
 - `PG_HOST / PG_PORT / PG_USER / PG_PASSWORD / PG_DATABASE`
 - `QDRANT_URL`
 - `QDRANT_COLLECTION_NAME`
@@ -241,6 +272,15 @@ pnpm --filter panorama-oa-web typecheck
 pnpm docs:build
 ```
 
+容器化联调：
+
+```bash
+docker compose up -d --build
+Invoke-WebRequest http://127.0.0.1:8088/health
+```
+
+Docker 运行时为 Node 20 ESM；共享包与 BFF 的相对导入必须显式使用 `.js` 后缀。完整配置见 `docs/deployment.md`。
+
 ## 9. Agent 工作规则
 
 ### 9.1 改动前必看
@@ -276,6 +316,8 @@ pnpm docs:build
 - Prompt 模板改动走 CRUD + 激活机制，不要直接改硬编码 fallback
 - 引用溯源 segment 的 source 必须是 4 类之一：`knowledge_base` / `form_data` / `historical_data` / `model_judgment`
 - 不确定性标注只用于提示人工重点核对，不影响建议本身
+- Copilot 审查卡的 `riskPoints` 来源必须是服务端确定性规则，不要让模型凭空编造风险点
+- Copilot 增强必须同时覆盖普通接口和 SSE 接口，否则流式与同步返回结果不一致
 
 ### 9.6 测试要求
 
@@ -290,6 +332,6 @@ pnpm docs:build
 
 - [README](README.md)
 - [知识库对话实现记录](plan/knowledge-chat-plan.md)
-- [审批 Copilot 审查卡规划](plan/approval-copilot-review-card-plan.md)
+- [审批 Copilot 审查卡规划与验证](plan/approval-copilot-review-card-plan.md)
 - [架构文档](docs/architecture.md)
 - [开发指南](docs/development.md)

@@ -1,4 +1,4 @@
-import type { TextChunk, TextSplitterOptions } from '../types'
+import type { TextChunk, TextSplitterOptions } from '../types.js'
 
 const DEFAULT_CHUNK_SIZE = 500
 const DEFAULT_CHUNK_OVERLAP = 50

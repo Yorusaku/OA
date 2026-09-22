@@ -25,6 +25,42 @@ services:
       - '6334:6334'
     volumes:
       - qdrant_data:/qdrant/storage
+  bff:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: panorama-oa-bff
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      qdrant:
+        condition: service_started
+    environment:
+      BFF_HOST: 0.0.0.0
+      BFF_PORT: 8088
+      BFF_STORAGE: postgres
+      PG_HOST: postgres
+      PG_PORT: 5432
+      PG_USER: postgres
+      PG_PASSWORD: postgres
+      PG_DATABASE: panorama_oa
+      QDRANT_URL: http://qdrant:6333
+      QDRANT_COLLECTION_NAME: ${QDRANT_COLLECTION_NAME:-oa_knowledge_chunks}
+      ARK_API_KEY: ${ARK_API_KEY:-}
+      ARK_LLM_BASE_URL: ${ARK_LLM_BASE_URL:-https://ark.cn-beijing.volces.com/api/v3}
+      ARK_LLM_MODEL: ${ARK_LLM_MODEL:-deepseek-v4-pro}
+      ARK_REQUEST_TIMEOUT_MS: ${ARK_REQUEST_TIMEOUT_MS:-30000}
+      ARK_EMBEDDING_MODEL: ${ARK_EMBEDDING_MODEL:-doubao-embedding-text-240715}
+      ARK_EMBEDDING_DIMENSIONS: ${ARK_EMBEDDING_DIMENSIONS:-1024}
+    ports:
+      - '8088:8088'
+    healthcheck:
+      test: ['CMD', 'node', '-e', "fetch('http://127.0.0.1:8088/health').then(response => { if (!response.ok) process.exit(1) }).catch(() => process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
 
 volumes:
   panorama_oa_pg_data:

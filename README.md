@@ -13,7 +13,7 @@
 
 - **平台骨架**：动态表单引擎 + 流程编排引擎 + 节点权限控制 + 审批任务模型 + 流程版本治理 + 审计追踪
 - **治理能力**：SLA 自动升级 + 代理审批 + 会签/或签策略 + owner/handler 双层身份拆分
-- **智能增强层**：AI 审批建议（Human-in-the-Loop）+ 制度知识库（RAG）+ 流式交互
+- **智能增强层**：AI 审批建议（Human-in-the-Loop）+ 审批 Copilot 审查卡 + 制度知识库（RAG）+ 流式交互
 - **AI 治理层**：Policy-as-Code 能力边界 + 决策审计 4 维度 + Prompt 模板版本化 + 推理溯源可解释性
 - **AI 边界**：始终停留在辅助层，不越过真实审批边界
 
@@ -29,12 +29,17 @@
 - 流程版本治理：发布 -> 编辑 -> 回滚 -> 影响分析 -> 规则调试
 - 审计日志：before/after 快照 + TraceId + IP + UA
 - SSE 实时推送：审批状态变更 / 待办更新 / 消息通知
+- **流程执行引擎**：审批完成后沿流程定义的边推进，支持条件节点路由、抄送节点自动处理和多审批节点连续流转；会签 / 或签策略在每个节点独立生效
+- **运行态流程图**：审批详情页只读展示已完成、当前、待达与驳回节点；流程定义缺失时降级为轨迹时间线
+- **批量审批与草稿**：批量端点逐条隔离执行并返回结果；发起页可保存、回填和删除审批草稿
 
 ### AI 增强 ✅
 
 - 审批详情页 AI 建议卡片：流式理由输出 + 打字机效果
+- **审批 Copilot 审查卡**：审查摘要 + 确定性风险点 + 4 类来源依据，人工可复核
 - Human-in-the-Loop 置信度三档分流（高 / 中 / manual_review）
 - 知识库管理：创建知识库、上传文档、检索问答
+- 知识库对话：多会话、流式输出、中断/重试、重命名/删除、Markdown 渲染、来源引用
 - 首版支持 `TXT / Markdown / PDF`（PDF 文本提取在前端 Worker 完成）
 - Qdrant 向量检索 + LLM 合成回答 + 来源引用展示
 - 无 `ARK_API_KEY` 时全链路降级
@@ -56,9 +61,9 @@
 │  ┌──────────┐  ┌──────────────┐  ┌─────────────────────────┐│
 │  │  views/  │  │ composables/  │  │ components/             ││
 │  │ 审批中心  │  │ useFormAdapter│  │ 表单/流程/文档引擎       ││
-│  │ 流程设计  │  │ useApproval   │  │ ReasoningSegmentView    ││
-│  │ 知识库    │  │ useAiSuggest  │  │ Web Workers             ││
-│  │ AI审计看板│  │ useAiPolicy   │  │ (PDF/Excel 重计算前置)  ││
+│  │ 流程设计  │  │ useApproval   │  │ AiSuggestion(Copilot卡) ││
+│  │ 知识库    │  │ useAiSuggest  │  │ ReasoningSegmentView    ││
+│  │ AI审计看板│  │ useAiPolicy   │  │ Web Workers(PDF/Excel)  ││
 │  │ Prompt模板│  │ useAiAudit    │  │                        ││
 │  └──────────┘  └──────────────┘  └─────────────────────────┘│
 ├──────────────────────────────────────────────────────────────┤
@@ -89,6 +94,7 @@
 | **State Machine** | AI 建议 idle->loading->streaming->success/error | 状态流转可预测 |
 | **Dual Mode** | Mock (MSW) / Real (BFF) 双模式 API | 开发效率与联调能力兼顾 |
 | **HITL** | AI 置信度分流 + manual_review 降级 | AI 辅助不越界 |
+| **Hybrid Generation** | Copilot 审查卡：风险点服务端确定性生成，建议/溯源由模型生成 | 关键风险可复现、可审计，不依赖模型稳定性 |
 | **Fallback Chain** | 向量检索 -> 本地文本匹配，模型调用 -> manual_review，模板缺失 -> 硬编码 prompt | 可用性不依赖外部服务 |
 | **Storage Abstraction** | RuntimeStore 接口：Postgres / InMemory | Demo 可独立运行，生产可切换 |
 | **Version Governance** | 全快照式流程版本 + 发布/回滚/影响分析 | 审批流变更可追溯、可回退 |
@@ -121,11 +127,12 @@
 | `useFormSchemaAdapter` | Adapter 模式：设计器规则 -> 内部表单协议，类型映射 + 校验转换 + 优雅降级 |
 | `useApprovalDetail` | 审批详情派生：表单解析、节点权限、流程实例、进度计算、轨迹时间线、SLA 判断 |
 | `useNodePermissions` | 节点字段权限管理：editable / readonly / hidden / required，150ms 防抖同步 |
-| `useAiSuggestion` | AI 建议状态机：状态管理、SSE 流式消费、溯源/不确定性、错误处理、重试 |
+| `useAiSuggestion` | AI 建议状态机：状态管理、SSE 流式消费、Copilot 审查卡、溯源/不确定性、错误处理、重试 |
 | `useApprovalSubmit` | 审批动作提交：参数组装、乐观更新、失效刷新 |
 | `useAiPolicy` | AI 策略查询、警告横幅展示、策略免责声明（治理 P1） |
 | `useAiAudit` | AI 决策审计统计、采纳/覆盖反馈闭环、审计日志查询（治理 P2） |
 | `usePromptTemplate` | Prompt 模板列表/详情/CRUD/激活/在线测试（治理 P3） |
+| `useKnowledgeChat` | 知识库对话：会话 CRUD、流式消费、中断/重试、Markdown 渲染 |
 
 ## 目录结构
 
@@ -135,7 +142,7 @@ OA/
 │   ├── web/                    # Vue 3.5 前端
 │   │   └── src/
 │   │       ├── api/            # mock/real 双模式 API
-│   │       ├── composables/    # 组合式逻辑层（33 个）
+│   │       ├── composables/    # 组合式逻辑层（34 个）
 │   │       ├── views/          # 14 个业务模块
 │   │       ├── components/     # 引擎组件（表单/流程/文档/溯源）
 │   │       ├── workers/        # Web Workers (PDF/Excel)
@@ -143,12 +150,12 @@ OA/
 │   │       └── mocks/          # MSW mock 数据
 │   └── bff/                    # Fastify BFF
 │       └── src/
-│           ├── app.ts          # 路由注册入口（1200+ 行）
+│           ├── app.ts          # 路由注册入口（1400+ 行）
 │           ├── domain.ts       # 领域模型（290+ 行）
 │           ├── store.ts        # Postgres/内存双存储
-│           └── services/       # 11 个业务服务（含 3 个 AI 治理服务）
+│           └── services/       # 12 个业务服务（含 3 个 AI 治理服务）
 ├── packages/
-│   ├── contracts/              # 前后端共享契约（410 行类型）
+│   ├── contracts/              # 前后端共享契约（480+ 行类型）
 │   ├── ai-utils/               # AI 基础能力封装
 │   ├── config/                 # ESLint/Prettier 共享配置
 │   └── utils/                  # 通用工具
@@ -171,6 +178,15 @@ docker compose up -d
 ```
 
 默认端口：PostgreSQL `5434`、Qdrant `6333/6334`
+
+也可以使用同一份 Compose 配置启动 BFF、PostgreSQL 和 Qdrant：
+
+```powershell
+docker compose up -d --build
+Invoke-WebRequest http://127.0.0.1:8088/health
+```
+
+完整变量、端口与运维说明见 [部署说明](docs/deployment.md)。
 
 ### 3. 配置 BFF 环境变量
 
@@ -223,7 +239,9 @@ pnpm docs:build                           # 文档构建
 | useAiSuggestion composable | ✅ 单测覆盖 |
 | AiSuggestion.vue 组件 | ✅ 单测覆盖 |
 | 知识库页基础交互 | ✅ 单测覆盖 |
+| 知识库对话（会话/流式/中断/重试） | ✅ BFF 单测覆盖 |
 | AI 治理 4 阶段（Policy/审计/模板/溯源） | ✅ 单测 + 构建验证 |
+| 审批 Copilot 审查卡（摘要/风险点/依据来源） | ✅ 单测 + mock 浏览器验收 |
 
 ## 面试防御要点
 
@@ -234,6 +252,7 @@ pnpm docs:build                           # 文档构建
 - **"AI 决策怎么追溯？"** -> 决策审计 4 维度：输入上下文 / 模型行为 / 人工干预 / 结果影响，生成/采纳/覆盖三节点全留痕。采纳率、置信度分布、平均延迟都有看板。
 - **"Prompt 写死在代码里吗？"** -> Prompt 模板化管理：模板 CRUD + 版本化 + `{{var}}` 变量渲染 + 在线测试 + 默认 fallback。改 Prompt 不改代码。
 - **"AI 给的建议凭什么信？"** -> 可解释性增强：推理按 4 类来源溯源（知识库 / 表单数据 / 历史数据 / 模型判断），每段标注置信度，不确定的点单独标注并给出建议动作。
+- **"Copilot 和普通的 AI 建议有什么区别？"** -> 混合生成策略。风险点由服务端确定性规则算出来（高金额、SLA 升级、多次催办、描述缺失、附件缺失），不靠模型编造，所以同样的单据每次都能稳定复现同样的风险；模型只负责建议、理由和溯源。审查摘要和依据来源把分散在表单、流程、轨迹里的信息聚合成审批人一眼能看完的结构。
 - **"动态表单不就是用了 form-create 吗？"** -> 关键是 Adapter 层隔离。`useFormSchemaAdapter` 将第三方规则结构隔离在适配层内，内部协议保持稳定。即使未来换库，业务代码不受影响。
 - **"审批体系和普通审批流有什么区别？"** -> owner/handler 拆分 + SLA 升级 + 代理接管 + 会签/或签策略。不是简单的"提交->通过->结束"，而是全生命周期的自动治理。
 - **"知识库是你一个人做的吗？"** -> BFF 层有后端同事配合。前端负责：PDF 文本提取（Web Worker）、检索界面、流式消费、引用来源展示。分工清楚，不夸大。

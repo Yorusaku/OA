@@ -6,7 +6,7 @@
 
 全景智能 OA 是一套前端主导的引擎化协同审批平台原型，核心目标是把审批系统从"页面硬编码"演进为"协议驱动 + 引擎渲染 + 状态可追踪"的交付模式。
 
-- 当前阶段：审批主链路完整，AI 审批建议、知识库管理、知识库对话与 AI 治理 4 阶段均已落地
+- 当前阶段：审批主链路完整，AI 审批建议、审批 Copilot 审查卡、知识库管理、知识库对话与 AI 治理 4 阶段均已落地
 - 项目性质：简历 / Demo 项目，无真实生产流量
 - 目标叙事：从"前端审批系统"升级为"AI 增强的企业级智能审批平台"
 
@@ -35,17 +35,20 @@ OA/
 │   ├── web/                          # Vue 3.5 前端
 │   │   ├── src/api/                  # mock / real 双模式 API
 │   │   │   └── ai.ts                 # AI 建议与知识库 API
-│   │   ├── src/composables/          # 组合式逻辑层（核心，共 33 个）
+│   │   ├── src/composables/          # 组合式逻辑层（核心，共 34 个）
 │   │   │   ├── useFormSchemaAdapter.ts   # Adapter：设计器规则 -> 内部协议
 │   │   │   ├── useApprovalDetail.ts      # 审批详情派生
 │   │   │   ├── useNodePermissions.ts     # 节点权限管理
-│   │   │   ├── useAiSuggestion.ts        # AI 建议状态机（含溯源/不确定性）
+│   │   │   ├── useAiSuggestion.ts        # AI 建议状态机（含 Copilot/溯源/不确定性）
 │   │   │   ├── useAiPolicy.ts            # AI 策略查询与警告展示（治理 P1）
 │   │   │   ├── useAiAudit.ts             # AI 决策审计统计与采纳/覆盖（治理 P2）
 │   │   │   ├── usePromptTemplate.ts      # Prompt 模板 CRUD 与测试（治理 P3）
+│   │   │   ├── useKnowledgeChat.ts       # 知识库对话会话/流式/中断/重试
 │   │   │   └── useApprovalSubmit.ts      # 审批动作提交
 │   │   ├── src/views/approval/      # 审批中心与详情
-│   │   │   └── components/ReasoningSegmentView.vue  # 推理溯源视图（治理 P4）
+│   │   │   └── components/
+│   │   │       ├── AiSuggestion.vue           # 审批 Copilot 审查卡（摘要/风险点/依据来源）
+│   │   │       └── ReasoningSegmentView.vue   # 推理溯源视图（治理 P4）
 │   │   ├── src/views/workflow/      # 流程设计器
 │   │   ├── src/views/knowledge/     # 知识库管理
 │   │   │   ├── index.vue                 # 知识库列表与文档管理
@@ -63,13 +66,16 @@ OA/
 │   │   ├── src/types/               # 应用内类型契约
 │   │   └── src/mocks/               # MSW mock 数据
 │   └── bff/                          # Fastify BFF
+│       ├── src/server.ts             # 启动入口
 │       ├── src/app.ts                # 路由入口（所有接口注册）
 │       ├── src/domain.ts             # 领域类型（审批/流程/审计）
 │       ├── src/store.ts              # Postgres / 内存双存储实现
 │       ├── src/sse.ts                # SSE 实时推送 Hub
+│       ├── src/config.ts             # BFF 配置与默认值
+│       ├── src/env.ts                # 本地 .env 加载
 │       └── src/services/
 │           ├── approval-service.ts      # 审批 CRUD
-│           ├── approval-ai-service.ts   # 审批 AI 上下文组装
+│           ├── approval-ai-service.ts   # 审批 AI 上下文组装 + Copilot 审查卡增强
 │           ├── ai-service.ts            # LLM 调用 + 结构化解析 + 引用溯源
 │           ├── ai-policy-service.ts     # AI 策略即代码（治理 P1）
 │           ├── ai-audit-service.ts      # AI 决策审计 4 维度（治理 P2）
@@ -117,10 +123,11 @@ OA/
 | `useApprovalDetail` | 审批详情派生：表单/节点/权限/轨迹/时间线 |
 | `useNodePermissions` | 节点表单权限配置，150ms 防抖同步 |
 | `useApprovalSubmit` | 审批动作提交流程 |
-| `useAiSuggestion` | AI 建议状态机：idle -> loading -> streaming -> success/error（含溯源/不确定性） |
+| `useAiSuggestion` | AI 建议状态机：idle -> loading -> streaming -> success/error（含 Copilot 审查卡/溯源/不确定性） |
 | `useAiPolicy` | AI 策略查询、警告横幅展示（治理 P1） |
 | `useAiAudit` | AI 决策审计统计、采纳/覆盖反馈闭环（治理 P2） |
 | `usePromptTemplate` | Prompt 模板列表/详情/CRUD/在线测试（治理 P3） |
+| `useKnowledgeChat` | 知识库对话：会话 CRUD、流式消费、中断/重试、Markdown 渲染 |
 
 ### 3. 双模式 API
 
@@ -134,7 +141,7 @@ OA/
 packages/ai-utils                   -> 纯 AI 基础能力（LLM、Embedding、Qdrant、分块）
 packages/contracts                  -> AI / RAG / SSE / 审计 / Prompt 模板共享契约
 apps/bff/ai-service.ts              -> 模型调用 + Zod 结构化解析 + 引用溯源 + 降级
-apps/bff/approval-ai-service.ts     -> 审批上下文组装 + 提示词裁剪
+apps/bff/approval-ai-service.ts     -> 审批上下文组装 + 提示词裁剪 + Copilot 审查卡增强
 apps/bff/ai-policy-service.ts       -> Policy-as-Code：AI 能力边界声明（block/warn）
 apps/bff/ai-audit-service.ts        -> AI 决策审计 4 维度（输入/模型/人工/结果）
 apps/bff/prompt-template-service.ts -> Prompt 模板 CRUD + 版本 + 渲染 + 在线测试
@@ -151,13 +158,18 @@ AI 治理四阶段（已全部落地）：
 ### 5. Human-in-the-Loop 设计
 
 - 前端只传 `approvalId`，BFF 内部读取完整审批上下文
-- 输出统一结构化结果：suggestion / confidence / riskLevel / reasoning / disclaimer
+- 输出统一结构化结果：suggestion / confidence / riskLevel / reasoning / disclaimer / reviewSummary / riskPoints / evidenceItems
 - 三档置信度分流：
   - `≥ 0.8` 高置信度（可直接采纳）
   - `0.5 - 0.8` 中置信度（建议参考）
   - `< 0.5` manual_review（人工判断）
 - 解析失败、模型异常、信息不足 -> 统一降级 `manual_review`
 - AI 建议可被人工采纳或忽略，决策回写审计（治理 P2 反馈闭环）
+- **审批 Copilot 审查卡**：在建议基础上聚合三类结构化输出，提升人工复核效率（混合生成：服务端确定性 + 模型判断）
+  - `reviewSummary` 审查摘要：申请人 / 类型 / 金额 / 当前节点 / 关键时间线，服务端确定性生成
+  - `riskPoints` 风险点：高金额（≥5万）/ SLA 升级 / 多次催办（≥3）/ 描述缺失 / 附件缺失 + 策略提示，确定性规则生成并标注来源（policy/form/workflow/history/model）
+  - `evidenceItems` 依据来源：优先由 `reasoningSegments` 映射，无溯源时用表单 / 流程 / 轨迹 / 模型判断兜底（≤4 条）
+  - 普通接口与 SSE 接口共用 `enrichWithCopilotReview`，策略阻断 fallback 同样增强；mock 模式同步补齐字段，无 Ark Key / 无 BFF 也可演示
 
 ### 6. 降级与容错
 
@@ -184,6 +196,15 @@ AI 治理四阶段（已全部落地）：
 - 降级策略：无 `ARK_API_KEY` 时使用本地文本匹配和分片模拟流式，向量链路失败不阻塞元数据落库
 - 消息渲染：`ChatMarkdown.vue` 使用 `marked` + `highlight.js`，并过滤脚本、事件属性和危险链接
 - 对话只能提供制度检索与解释，不直接驱动审批动作
+
+## 流程引擎与部署补充
+
+- 审批通过由 BFF 基于 workflow definition 的 edges 推进，而不是前端直接写终态；条件节点按表单数据路由，CC 节点自动记录并继续流转。
+- 会签与或签策略按当前审批节点独立计算。审批详情通过只读运行态流程图展示节点状态；definition 不可用时降级为轨迹时间线。
+- 批量审批使用单次 BFF 批量端点，逐项返回成功或失败结果；审批草稿走独立 CRUD，不与应用管理域草稿混用。
+- Docker Compose 可一并启动 PostgreSQL、Qdrant 与 BFF；BFF 健康检查地址为 `http://127.0.0.1:8088/health`。Node 20 ESM 下，BFF 和 `@oa/ai-utils` 的相对导入必须显式使用 `.js` 后缀。
+
+完整环境变量与运维命令见 `docs/deployment.md`。
 
 ## 常用命令
 
@@ -297,7 +318,7 @@ pnpm --filter panorama-oa-web dev
 
 ### AI 增强 ✅
 
-- 审批详情页 AI 建议卡片
+- 审批详情页 AI 建议卡片 + Copilot 审查卡（审查摘要 / 风险点 / 依据来源）
 - Human-in-the-Loop 置信度三档分流
 - 流式理由输出（SSE + 打字机效果）
 - 知识库管理（CRUD + 文档上传）
@@ -328,11 +349,13 @@ pnpm --filter panorama-oa-web dev
 6. `apps/web/src/composables/` - 组合式逻辑层（核心）
 7. `apps/web/src/views/approval/` - 审批业务视图
 8. `apps/bff/src/services/` - BFF 服务层
-9. `plan/knowledge-chat-plan.md` - 知识库对话实现记录与验证结果
+9. `plan/approval-copilot-review-card-plan.md` - 审批 Copilot 审查卡设计与验证结果
+10. `plan/knowledge-chat-plan.md` - 知识库对话实现记录与验证结果
 
 ## 面试防御要点
 
 - AI 始终是辅助层，不越过审批边界 -> Human-in-the-Loop
+- 审批 Copilot 审查卡不是"给个结论"，而是"摘要 + 确定性风险规则 + 4 类来源依据"，混合生成（服务端确定性 + 模型判断）让人可复核、可追溯
 - 动态表单不是"用了 form-create"，而是"通过 Adapter 层隔离第三方依赖"
 - 流程编排不是"画了个图"，而是"可编辑模型 -> 可执行模型的双向映射"
 - 审批治理不是"做了审批流"，而是"owner/handler 拆分 + SLA 升级 + 代理接管 + 会签或签"

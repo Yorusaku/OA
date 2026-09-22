@@ -20,6 +20,7 @@ export default defineConfig({
     nav: [
       { text: '首页', link: '/' },
       { text: '开发指南', link: '/development' },
+      { text: '部署说明', link: '/deployment' },
       { text: '架构文档', link: '/architecture' },
       { text: '说明', link: '/README' },
     ],
@@ -30,6 +31,7 @@ export default defineConfig({
           { text: '文档首页', link: '/' },
           { text: '架构文档', link: '/architecture' },
           { text: '开发指南', link: '/development' },
+          { text: '部署说明', link: '/deployment' },
           { text: '文档说明', link: '/README' },
         ],
       },
