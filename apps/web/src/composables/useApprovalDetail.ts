@@ -1,4 +1,4 @@
-﻿import { useQuery } from '@tanstack/vue-query'
+import { useQuery } from '@tanstack/vue-query'
 import { getApprovalDetail } from '@/api/approval'
 import { mockExpenseSchema, mockLeaveSchema, mockPurchaseSchema, mockWorkflowDefinitions } from '@/api/mock'
 import type {
@@ -241,10 +241,18 @@ function resolveNodePermissions(record: BaseApprovalRecord, schema: FormSchema):
 }
 
 function resolveWorkflowDefinition(record: BaseApprovalRecord): WorkflowDefinition | undefined {
+  // 优先按 workflowId 精确关联；缺失时按审批类型映射（leave→wf-001 / expense→wf-002 / purchase→wf-003）
+  if (record.workflowId) {
+    const byId = mockWorkflowDefinitions.find(item => item.id === record.workflowId)
+    if (byId)
+      return byId
+  }
   if (record.type === 'leave')
     return mockWorkflowDefinitions.find(item => item.id === 'wf-001')
   if (record.type === 'expense')
     return mockWorkflowDefinitions.find(item => item.id === 'wf-002')
+  if (record.type === 'purchase')
+    return mockWorkflowDefinitions.find(item => item.id === 'wf-003')
   return undefined
 }
 
@@ -298,6 +306,8 @@ function buildTimelineSummary(item: ApprovalTrailItem): string {
     cancel: '审批取消',
     escalate: '系统自动升级',
     delegate: '代理同步',
+    advance: '流程推进',
+    route: '条件路由',
   }
 
   const base = actionLabels[item.action] || item.action

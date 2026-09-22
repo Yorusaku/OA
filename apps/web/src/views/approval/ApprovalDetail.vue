@@ -2,6 +2,7 @@
 import { ElButton, ElCard, ElTag } from 'element-plus'
 import DynamicForm from '@/components/dynamic-form/DynamicForm.vue'
 import AiSuggestion from './components/AiSuggestion.vue'
+import WorkflowRuntimeChart from './components/WorkflowRuntimeChart.vue'
 import { useApprovalDetailPage } from './composables/useApprovalDetailPage'
 
 const {
@@ -80,6 +81,11 @@ const {
         <p><strong>升级摘要：</strong>{{ approvalData.currentEscalationSummary || '-' }}</p>
         <p><strong>代理处理：</strong>{{ approvalData.currentDelegationSummary || '-' }}</p>
         <p><strong>描述：</strong>{{ approvalData.description || '-' }}</p>
+      </div>
+
+      <div class="mb-6 workflow-runtime-block">
+        <h3 class="text-base font-semibold text-gray-800 mb-2">流程进度</h3>
+        <WorkflowRuntimeChart :definition="approvalData.workflowDefinition" :approval="approvalData" :height="300" />
       </div>
 
       <div v-if="isActionable">
@@ -247,6 +253,12 @@ const {
               当前节点待 {{ pendingHandlerText }} 处理
             </div>
           </div>
+        </div>
+
+        <!-- 流程进度卡片 -->
+        <div class="bg-white mt-3 p-4">
+          <h3 class="text-base font-semibold text-gray-800 mb-4">流程进度</h3>
+          <WorkflowRuntimeChart :definition="approvalData.workflowDefinition" :approval="approvalData" :height="280" />
         </div>
 
         <!-- 表单内容卡片 -->

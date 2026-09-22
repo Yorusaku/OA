@@ -30,10 +30,17 @@ const {
   isSchemaLoading,
   isSubmitLoading,
   dynamicFormRef,
+  drafts,
+  isDraftLoading,
+  showDraftPanel,
   selectWorkflow,
   handleSubmit,
   handleSuccess,
   resetForm,
+  loadDrafts,
+  saveDraft,
+  loadDraft,
+  removeDraftItem,
 } = useApprovalLaunch()
 
 const router = useRouter()
@@ -58,6 +65,38 @@ const editablePermissions = computed((): PermissionsMap => {
  */
 const goBack = (): void => {
   router.back()
+}
+
+/**
+ * 打开草稿箱抽屉并加载草稿列表
+ */
+const openDraftPanel = (): void => {
+  showDraftPanel.value = true
+  loadDrafts()
+}
+
+/**
+ * 保存当前表单为草稿
+ */
+const handleSaveDraft = async (): Promise<void> => {
+  try {
+    await saveDraft()
+  }
+  catch {
+    ElMessage.error('草稿保存失败，请重试')
+  }
+}
+
+/**
+ * 删除指定草稿
+ */
+const handleRemoveDraft = async (draft: { id: string }): Promise<void> => {
+  try {
+    await removeDraftItem(draft.id)
+  }
+  catch {
+    ElMessage.error('草稿删除失败，请重试')
+  }
 }
 </script>
 
@@ -156,6 +195,12 @@ const goBack = (): void => {
           <ElButton @click="resetForm">
             重置
           </ElButton>
+          <ElButton @click="handleSaveDraft">
+            保存草稿
+          </ElButton>
+          <ElButton @click="openDraftPanel">
+            草稿箱
+          </ElButton>
           <ElButton 
             type="primary"
             class="submit-btn"
@@ -167,6 +212,36 @@ const goBack = (): void => {
         </div>
       </div>
     </div>
+
+    <!-- 草稿箱抽屉 -->
+    <ElDrawer
+      v-model="showDraftPanel"
+      title="审批草稿箱"
+      size="420px"
+    >
+      <div v-if="isDraftLoading" class="py-10 text-center text-gray-400">
+        加载中...
+      </div>
+      <div v-else-if="!drafts.length" class="py-10 text-center text-gray-400">
+        暂无草稿，可先在表单页保存草稿
+      </div>
+      <div v-else class="draft-list">
+        <div v-for="draft in drafts" :key="draft.id" class="draft-item">
+          <div class="draft-info">
+            <div class="draft-title">{{ draft.title }}</div>
+            <div class="draft-meta">{{ draft.workflowType || '审批单' }} · {{ draft.updatedAt }}</div>
+          </div>
+          <div class="draft-actions">
+            <ElButton size="small" type="primary" link @click="loadDraft(draft)">
+              载入
+            </ElButton>
+            <ElButton size="small" type="danger" link @click="handleRemoveDraft(draft)">
+              删除
+            </ElButton>
+          </div>
+        </div>
+      </div>
+    </ElDrawer>
 
     <!-- 状态 4: 错误状态 -->
     <div v-if="!isWorkflowLoading && !workflowList?.length" class="empty-state">
@@ -202,5 +277,33 @@ const goBack = (): void => {
 /* 提交按钮 */
 .submit-btn {
   min-width: 120px;
+}
+
+/* 草稿箱 */
+.draft-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.draft-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px;
+  border: 1px solid #ebeef5;
+  border-radius: 8px;
+}
+
+.draft-title {
+  font-weight: 600;
+  color: #303133;
+  margin-bottom: 4px;
+}
+
+.draft-meta {
+  font-size: 12px;
+  color: #909399;
 }
 </style>

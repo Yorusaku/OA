@@ -1,4 +1,4 @@
-﻿/**
+/**
  * @file types.ts
  * @description API 相关类型定义
  */
@@ -83,7 +83,7 @@ export type ApprovalAction
  * 审批轨迹动作（包含创建动作）
  */
 export type ApprovalTrailAction = ApprovalAction | 'create'
-export type ApprovalSystemTrailAction = 'escalate' | 'delegate'
+export type ApprovalSystemTrailAction = 'escalate' | 'delegate' | 'advance' | 'route'
 
 /**
  * 审批操作轨迹
@@ -135,6 +135,20 @@ export interface ApprovalTask {
 /**
  * 审批记录
  */
+export interface ApprovalDraft {
+  id: string
+  workflowId?: string
+  workflowType?: string
+  title: string
+  applicant: string
+  applicantAvatar?: string
+  formData?: Record<string, any>
+  description?: string
+  amount?: number
+  isUrgent?: boolean
+  createdAt: string
+  updatedAt: string
+}
 export interface ApprovalRecord {
   id: string
   title: string
@@ -142,6 +156,9 @@ export interface ApprovalRecord {
   status: ApprovalStatus
   applicant: string
   applyTime: string
+
+  /** 关联流程定义 id（多节点推进/运行态图用） */
+  workflowId?: string
   amount?: number
   applicantAvatar?: string
   currentNodeName?: string
@@ -165,6 +182,7 @@ export interface ApprovalRecord {
   operatorTrail?: ApprovalTrailItem[]
 
   workflowInstance?: {
+    workflowId?: string
     currentNodeId?: string
     currentNodeMode?: 'and' | 'or'
     currentNodeAssignees?: ApprovalTaskHandledBy[]

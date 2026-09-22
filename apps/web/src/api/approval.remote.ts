@@ -88,6 +88,33 @@ export function remoteProcessApproval(payload: RemoteProcessApprovalPayload): Pr
   })
 }
 
+export interface RemoteBatchProcessPayload {
+  ids: string[]
+  action: 'approve' | 'reject'
+  commentText?: string
+  operatorId?: string
+  operatorName?: string
+}
+
+export interface RemoteBatchProcessResultItem {
+  id: string
+  success: boolean
+  title?: string
+  status?: string
+  error?: string
+}
+
+export interface RemoteBatchProcessResult {
+  results: RemoteBatchProcessResultItem[]
+  succeeded: number
+  failed: number
+}
+
+export function remoteBatchProcessApprovals(payload: RemoteBatchProcessPayload): Promise<RemoteBatchProcessResult> {
+  return post('/v1/approval/batch-action', payload, {
+    headers: idempotencyHeaders(),
+  })
+}
 export function remoteGetWorkbenchStats(): Promise<WorkbenchStats> {
   return get('/v1/approval/stats')
 }

@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Todo approvals list composable.
  */
 
@@ -9,7 +9,7 @@ import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { useQuery, useQueryClient } from '@tanstack/vue-query'
 import { debounce } from 'lodash-es'
-import { getApprovalList, processApproval } from '@/api/approval'
+import { batchProcessApprovals, getApprovalList, processApproval } from '@/api/approval'
 import { queryKeys } from '@/api/queryKeys'
 import { useUserStore } from '@/stores/user'
 
@@ -99,16 +99,14 @@ export const useApprovalTodo = (): UseApprovalTodoReturn => {
     }
 
     const ids = Array.from(selectedIds.value)
-    const results = await Promise.allSettled(
-      ids.map(id => processApproval({
-        id,
-        action: status === 'approved' ? 'approve' : 'reject',
-        operatorId: operatorId.value,
-        operatorName: operatorName.value,
-      })),
-    )
+    const result = await batchProcessApprovals({
+      ids,
+      action: status === 'approved' ? 'approve' : 'reject',
+      operatorId: operatorId.value,
+      operatorName: operatorName.value,
+    })
 
-    const failedCount = results.filter(item => item.status === 'rejected').length
+    const failedCount = result.failed
 
     await Promise.allSettled([
       queryClient.invalidateQueries({ queryKey: queryKeys.approval.list() }),

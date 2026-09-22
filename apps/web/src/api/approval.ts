@@ -1,4 +1,4 @@
-﻿/**
+/**
  * @file approval.ts
  * @description 审批相关 API（mock 内存实现）
  */
@@ -18,11 +18,12 @@ import type {
   PageResult,
   WorkbenchStats,
 } from './types'
-import type { WorkflowAssignee, WorkflowDefinition, WorkflowNode } from '@/types/workflow'
+import type { ConditionExpression, WorkflowAssignee, WorkflowDefinition, WorkflowNode } from '@/types/workflow'
 import { mockApprovalRecords, mockCCRecords, mockMessageRecords, mockWorkflowDefinitions } from './mock'
 import {
   remoteBatchDeleteMessages,
   remoteBatchMarkAsRead,
+  remoteBatchProcessApprovals,
   remoteBatchMarkCCAsRead,
   remoteDeleteMessage,
   remoteDisableApprovalDelegation,
@@ -247,8 +248,199 @@ function resolveWorkflowByType(type: string): WorkflowDefinition | undefined {
     return mockWorkflowDefinitions.find(item => item.id === 'wf-001')
   if (type === 'expense')
     return mockWorkflowDefinitions.find(item => item.id === 'wf-002')
+  if (type === 'purchase')
+    return mockWorkflowDefinitions.find(item => item.id === 'wf-003')
 
   return mockWorkflowDefinitions.find(item => item.status === 'active')
+}
+
+/** 审批类型 → 流程定义 id 映射（mock / real 双模式保持一致） */
+function resolveWorkflowIdByType(type?: string): string | undefined {
+  if (type === 'leave')
+    return 'wf-001'
+  if (type === 'expense')
+    return 'wf-002'
+  if (type === 'purchase')
+    return 'wf-003'
+  return undefined
+}
+
+function resolveWorkflowById(workflowId?: string): WorkflowDefinition | undefined {
+  if (!workflowId)
+    return undefined
+  return mockWorkflowDefinitions.find(item => item.id === workflowId)
+}
+
+function looseEqual(a: unknown, b: unknown): boolean {
+  if (a === b)
+    return true
+  if (a == null || b == null)
+    return false
+  return String(a) === String(b)
+}
+
+/**
+ * 条件表达式求值（与 BFF workflow-service.evaluateCondition 语义一致）
+ * 支持 eq/ne/gt/gte/lt/lte/in/contains/includes 与符号简写
+ */
+function evaluateMockCondition(
+  operator?: ConditionExpression['operator'],
+  fieldValue?: unknown,
+  expectValue?: unknown,
+): boolean {
+  switch (operator) {
+    case 'eq':
+      return looseEqual(fieldValue, expectValue)
+    case 'ne':
+      return !looseEqual(fieldValue, expectValue)
+    case 'gt':
+    case '>':
+      return Number(fieldValue) > Number(expectValue)
+    case 'gte':
+    case '>=':
+      return Number(fieldValue) >= Number(expectValue)
+    case 'lt':
+    case '<':
+      return Number(fieldValue) < Number(expectValue)
+    case 'lte':
+    case '<=':
+      return Number(fieldValue) <= Number(expectValue)
+    case 'in':
+      return Array.isArray(expectValue)
+        ? expectValue.includes(fieldValue)
+        : String(fieldValue ?? '').includes(String(expectValue))
+    case 'contains':
+    case 'includes':
+      return String(fieldValue ?? '').includes(String(expectValue))
+    default:
+      return false
+  }
+}
+
+/** condition 节点 conditions 全命中（AND 语义）；无 conditions 视为命中 */
+function evaluateNodeConditions(node: WorkflowNode, formData?: Record<string, any>): boolean {
+  const conditions = node.conditions ?? []
+  if (conditions.length === 0)
+    return true
+  return conditions.every((condition) => {
+    const field = condition.fieldKey || condition.field
+    const actual = field ? formData?.[field] : undefined
+    return evaluateMockCondition(condition.operator, actual, condition.value)
+  })
+}
+
+/**
+ * 沿流程定义 edges 推进到下一个审批节点：
+ * - condition 命中走第一条出边、未命中走第二条出边（与 BFF resolveNodeRoute 一致）
+ * - cc 节点不产生任务，自动跳过
+ * - start/end 不产生任务；无下一节点返回 undefined
+ */
+function resolveNextApprovalNodeId(
+  workflow: WorkflowDefinition,
+  fromNodeId?: string,
+  formData?: Record<string, any>,
+): string | undefined {
+  if (!workflow || !fromNodeId)
+    return undefined
+
+  // 从 fromNodeId 的出边继续（fromNodeId 本身不作为候选结果），
+  // 语义与 BFF resolveNodeRoute 一致：返回下一个 approval 节点，无则 undefined。
+  const follow = (nodeId: string): string | undefined => {
+    const node = workflow.nodes.find(item => item.id === nodeId)
+    if (!node || node.type === 'end')
+      return undefined
+
+    const edges = workflow.edges.filter(edge => edge.source === nodeId)
+    if (edges.length === 0)
+      return undefined
+
+    let targetId = edges[0].target
+    if (node.type === 'condition') {
+      const hit = evaluateNodeConditions(node, formData)
+      targetId = hit ? edges[0].target : (edges[1] ?? edges[0]).target
+    }
+
+    const targetNode = workflow.nodes.find(item => item.id === targetId)
+    if (!targetNode)
+      return undefined
+    if (targetNode.type === 'approval')
+      return targetNode.id
+    if (targetNode.type === 'end')
+      return undefined
+    // start / cc / condition 中间节点继续
+    return follow(targetNode.id)
+  }
+
+  return follow(fromNodeId)
+}
+
+/** 发起时条件起始路由：从 start 节点沿流程定义定位第一个审批节点 */
+function resolveStartApprovalNodeId(
+  workflow?: WorkflowDefinition,
+  formData?: Record<string, any>,
+): string | undefined {
+  if (!workflow)
+    return undefined
+  const startNode = workflow.nodes.find(item => item.type === 'start')
+  if (!startNode)
+    return undefined
+  return resolveNextApprovalNodeId(workflow, startNode.id, formData)
+}
+
+/**
+ * 多节点推进：当前节点完成（and 全员 / or 任一通过）后，沿流程定义推进到下一审批节点。
+ * 仅对带 workflowId 的审批生效；无 workflowId 或下一节点不存在时返回 false（调用方保持完结语义）。
+ */
+function advanceWorkflow(
+  record: ApprovalRecord,
+  operator: { id: string, name: string },
+  operatedAt: string,
+): boolean {
+  const workflow = resolveWorkflowById(record.workflowId)
+  if (!workflow)
+    return false
+
+  const currentNodeId = record.workflowInstance?.currentNodeId
+  const formData = record.formData ?? {}
+  const nextNodeId = resolveNextApprovalNodeId(workflow, currentNodeId, formData)
+  if (!nextNodeId)
+    return false
+
+  const nextNode = workflow.nodes.find(item => item.id === nextNodeId)
+  const assignees = normalizeAssignees(nextNode?.handler?.assignees)
+  const nextTasks = createTasksForAssignees(nextNodeId, assignees)
+  const nextMode = resolveNodeMode(nextNode?.handler?.mode)
+
+  record.workflowInstance = {
+    ...record.workflowInstance,
+    currentNodeId: nextNodeId,
+    currentNodeMode: nextMode,
+    currentNodeAssignees: assignees,
+    tasks: nextTasks,
+    progress: {
+      completed: 0,
+      total: nextTasks.length,
+    },
+  }
+  record.currentNodeName = nextNode?.name || '审批节点'
+  recalcProgress(record)
+
+  appendTrail(record, {
+    id: toTimestampId('trail'),
+    action: 'advance',
+    status: 'pending',
+    operatorId: operator.id,
+    operatorName: operator.name,
+    operatedAt,
+    comment: `当前节点完成，流程推进至「${record.currentNodeName}」`,
+  })
+  pushNotification({
+    approvalId: record.id,
+    title: '流程推进',
+    content: `《${record.title}》已进入「${record.currentNodeName}」节点。`,
+    type: 'info',
+  })
+  return true
 }
 
 function resolveApprovalNode(workflow?: WorkflowDefinition, nodeId?: string): WorkflowNode | undefined {
@@ -741,8 +933,31 @@ export async function submitApproval(
     title: data.title || '通用审批申请',
     type: data.type || 'other',
   } as ApprovalRecord)
-  const initialTasks = createTasksForAssignees(initialStrategy.nodeId, initialStrategy.assignees)
-  const modeText = initialStrategy.mode === 'and' ? '会签' : '或签'
+
+  // 条件起始路由：带流程定义时按表单数据定位第一个审批节点
+  const workflowId = data.workflowId || resolveWorkflowIdByType(data.type)
+  const startWorkflow = resolveWorkflowById(workflowId)
+  const startApprovalNodeId = startWorkflow
+    ? resolveStartApprovalNodeId(startWorkflow, data.formData)
+    : undefined
+
+  let nodeId = initialStrategy.nodeId
+  let nodeName = initialStrategy.nodeName
+  let nodeMode = initialStrategy.mode
+  let nodeAssignees = initialStrategy.assignees
+
+  if (startWorkflow && startApprovalNodeId) {
+    const startNode = startWorkflow.nodes.find(item => item.id === startApprovalNodeId)
+    const startAssignees = normalizeAssignees(startNode?.handler?.assignees)
+    nodeId = startApprovalNodeId
+    nodeName = startNode?.name || initialStrategy.nodeName
+    nodeMode = resolveNodeMode(startNode?.handler?.mode)
+    if (startAssignees.length > 0)
+      nodeAssignees = startAssignees
+  }
+
+  const initialTasks = createTasksForAssignees(nodeId, nodeAssignees)
+  const modeText = nodeMode === 'and' ? '会签' : '或签'
 
   const newRecord: ApprovalRecord = ensureRecordDefaults({
     ...data,
@@ -752,14 +967,15 @@ export async function submitApproval(
     title: data.title || '通用审批申请',
     type: data.type || 'other',
     applicant: data.applicant || '当前用户',
-    currentNodeName: initialStrategy.nodeName,
+    workflowId,
+    currentNodeName: nodeName,
     deadlineAt: data.deadlineAt || formatDateTime(plusHours(now, DEFAULT_SLA_HOURS)),
     latestComment: data.latestComment,
     latestAttachments: normalizeAttachments(data.latestAttachments),
     workflowInstance: {
-      currentNodeId: initialStrategy.nodeId,
-      currentNodeMode: initialStrategy.mode,
-      currentNodeAssignees: initialStrategy.assignees,
+      currentNodeId: nodeId,
+      currentNodeMode: nodeMode,
+      currentNodeAssignees: nodeAssignees,
       progress: {
         completed: 0,
         total: initialTasks.length,
@@ -847,15 +1063,22 @@ export async function processApproval(
     if (payload.action === 'approve') {
       if (currentMode === 'or') {
         closeOtherPendingTasks(record, processingTask.id, operatedAt, operator)
-        record.status = 'approved'
-        record.currentNodeName = '审批完成'
+        const advanced = advanceWorkflow(record, operator, operatedAt)
+        if (!advanced) {
+          record.status = 'approved'
+          record.currentNodeName = '审批完成'
+        }
         recalcProgress(record)
-        decisionSummary = `或签通过，${operator.name} 处理后自动关闭其余任务（进度 ${getCurrentProgressText(record)}）`
+        decisionSummary = advanced
+          ? `或签通过，${operator.name} 处理后流程推进至「${record.currentNodeName}」（进度 ${getCurrentProgressText(record)}）`
+          : `或签通过，${operator.name} 处理后自动关闭其余任务（进度 ${getCurrentProgressText(record)}）`
         pushNotification({
           approvalId: record.id,
-          title: '审批已通过',
-          content: `《${record.title}》已通过或签策略完成审批（${getCurrentProgressText(record)}）。`,
-          type: 'success',
+          title: advanced ? '流程推进' : '审批已通过',
+          content: advanced
+            ? `《${record.title}》当前节点已完成，已推进至「${record.currentNodeName}」。`
+            : `《${record.title}》已通过或签策略完成审批（${getCurrentProgressText(record)}）。`,
+          type: advanced ? 'info' : 'success',
         })
       }
       else {
@@ -863,14 +1086,21 @@ export async function processApproval(
           task => normalizeTaskStatus(task.taskStatus || task.status) === 'approved',
         )
         if (allApproved) {
-          record.status = 'approved'
-          record.currentNodeName = '审批完成'
-          decisionSummary = `会签全部通过，节点完成（进度 ${getCurrentProgressText(record)}）`
+          const advanced = advanceWorkflow(record, operator, operatedAt)
+          if (!advanced) {
+            record.status = 'approved'
+            record.currentNodeName = '审批完成'
+          }
+          decisionSummary = advanced
+            ? `会签全部通过，流程推进至「${record.currentNodeName}」（进度 ${getCurrentProgressText(record)}）`
+            : `会签全部通过，节点完成（进度 ${getCurrentProgressText(record)}）`
           pushNotification({
             approvalId: record.id,
-            title: '审批已通过',
-            content: `《${record.title}》会签已全部通过。`,
-            type: 'success',
+            title: advanced ? '流程推进' : '审批已通过',
+            content: advanced
+              ? `《${record.title}》会签已全部通过，已推进至「${record.currentNodeName}」。`
+              : `《${record.title}》会签已全部通过。`,
+            type: advanced ? 'info' : 'success',
           })
         }
         else {
@@ -1042,6 +1272,58 @@ export async function processApproval(
 /**
  * 获取工作台统计（含审批超时与催办联动）
  */
+export interface BatchProcessApprovalPayload {
+  ids: string[]
+  action: 'approve' | 'reject'
+  commentText?: string
+  operatorId?: string
+  operatorName?: string
+}
+
+export interface BatchProcessApprovalResultItem {
+  id: string
+  success: boolean
+  title?: string
+  status?: string
+  error?: string
+}
+
+export interface BatchProcessApprovalResult {
+  results: BatchProcessApprovalResultItem[]
+  succeeded: number
+  failed: number
+}
+
+/**
+ * 批量审批：real 走 BFF 批量端点，mock 本地逐条处理（复用单条逻辑）。
+ */
+export async function batchProcessApprovals(payload: BatchProcessApprovalPayload): Promise<BatchProcessApprovalResult> {
+  if (useRemoteApprovalApi())
+    return remoteBatchProcessApprovals(payload)
+
+  await sleep(PROCESS_DELAY_MS)
+  const results: BatchProcessApprovalResultItem[] = []
+  for (const id of payload.ids) {
+    try {
+      const record = await processApproval({
+        id,
+        action: payload.action,
+        commentText: payload.commentText,
+        operatorId: payload.operatorId,
+        operatorName: payload.operatorName,
+      })
+      results.push({ id, success: true, title: record.title, status: record.status })
+    }
+    catch (error) {
+      results.push({ id, success: false, error: error instanceof Error ? error.message : String(error) })
+    }
+  }
+  return {
+    results,
+    succeeded: results.filter(item => item.success).length,
+    failed: results.filter(item => !item.success).length,
+  }
+}
 export async function getWorkbenchStats(): Promise<WorkbenchStats> {
   if (useRemoteApprovalApi())
     return remoteGetWorkbenchStats()
